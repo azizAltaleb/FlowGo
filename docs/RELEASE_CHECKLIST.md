@@ -9,6 +9,7 @@ Use this checklist before publishing a Workflowsa public release.
 - Enable required status checks for CI, security, CodeQL, and release dry-runs.
 - Enable Dependabot alerts, secret scanning, and code scanning.
 - Add repository topics: `bpmn`, `workflow-engine`, `workflow-automation`, `golang`, `typescript`, `react`, `docker`, `oidc`, `zitadel`, `sdk`.
+- Open the GitHub Actions tab and confirm workflows can start jobs. If runs fail immediately with `startup_failure` and zero jobs, resolve any account, billing, or Actions enablement banner before release validation.
 
 ## 2. Secret and dependency checks
 
@@ -24,6 +25,7 @@ Do not publish if any real `.env`, PAT, ZITADEL token, private key, client secre
 ## 3. Local validation
 
 ```bash
+actionlint -color=false
 make smoke-profiles
 make smoke-release-profiles
 make validate-helm
@@ -60,11 +62,14 @@ Add GitHub Actions secrets:
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_TOKEN`
 
+Use GitHub repository settings: Settings > Secrets and variables > Actions > Repository secrets.
+
 ## 5. npm setup
 
 - Confirm the `@workflowsa` npm scope is available and owned by the release maintainers.
 - Confirm `@workflowsa/nodejs-sdk` can be published publicly.
 - Add GitHub Actions secret `NPM_TOKEN`.
+- Use GitHub repository settings: Settings > Secrets and variables > Actions > Repository secrets.
 
 ## 6. Release candidate
 
