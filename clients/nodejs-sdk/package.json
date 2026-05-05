@@ -21,14 +21,14 @@
   "author": "Workflowsa contributors",
   "license": "MIT",
   "type": "commonjs",
-  "homepage": "https://github.com/workflowsa/workflowsa#readme",
+  "homepage": "https://github.com/azizAltaleb/workflowsa#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/workflowsa/workflowsa.git",
+    "url": "git+https://github.com/azizAltaleb/workflowsa.git",
     "directory": "clients/nodejs-sdk"
   },
   "bugs": {
-    "url": "https://github.com/workflowsa/workflowsa/issues"
+    "url": "https://github.com/azizAltaleb/workflowsa/issues"
   },
   "engines": {
     "node": ">=20"
@@ -49,5 +49,10 @@
     "grpc_tools_node_protoc_ts": "^5.3.3",
     "grpc-tools": "^1.13.1",
     "ts-node": "^10.9.2"
+  },
+  "overrides": {
+    "grpc_tools_node_protoc_ts": {
+      "handlebars": "4.7.9"
+    }
   }
 }
