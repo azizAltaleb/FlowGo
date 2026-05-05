@@ -148,9 +148,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run full CQRS E2E smoke
+        env:
+          CLEANUP: "true"
+          WAIT_TIMEOUT_SEC: "420"
+          QUERY_AUTH_MODE: required
+          AUTH_ISSUER_INTERNAL_URL: ""
+          AUTH_ISSUER_PUBLIC_URL: ""
+          AUTH_CLIENT_ID: ""
+          OIDC_TOKEN_URL: ""
+          OIDC_CLIENT_ID: ""
         run: |
           chmod +x scripts/init_connector.sh scripts/cqrs_e2e_smoke.sh
-          CLEANUP=true WAIT_TIMEOUT_SEC=420 QUERY_AUTH_MODE=required \
-          AUTH_ISSUER_INTERNAL_URL= AUTH_ISSUER_PUBLIC_URL= AUTH_CLIENT_ID= \
-          OIDC_TOKEN_URL= OIDC_CLIENT_ID= \
           ./scripts/cqrs_e2e_smoke.sh
