@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  go-tests:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+
+      - name: Run service tests
+        run: go test ./backend/... -count=1
+
+      - name: Run BPMN element matrix tests
+        run: make test-bpmn-matrix
+
+      - name: Run outbox/idempotency regression tests
+        run: |
+          go test ./backend/services/workflow-command/internal/application -run 'Outbox|Idempotency' -count=1
+          go test ./backend/services/workflow-command/internal/infrastructure/persistence -run 'Outbox|Idempotency|TerminalFailed' -count=1
+          go test ./backend/services/workflow-command/internal/interfaces/http -run 'Idempotency|Protocol|Capabilities|Metrics' -count=1
+          go test ./backend/services/sync-worker/... -count=1
+          go test ./backend/libs/worker -count=1
+
+  frontend:
+    name: Frontend Build and Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  nodejs-sdk:
+    name: Node.js SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients/nodejs-sdk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: clients/nodejs-sdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Package dry run
+        run: npm pack --dry-run
+
+  docker-build:
+    name: Docker Build Dry Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build command image
+        run: docker build -f backend/Dockerfile -t workflowsa/workflow-command:ci .
+
+      - name: Build runtime image
+        run: docker build -f backend/Dockerfile.runtime -t workflowsa/workflow-runtime:ci .
+
+      - name: Build query image
+        run: docker build -f backend/Dockerfile.workflow-query -t workflowsa/workflow-query:ci .
+
+      - name: Build sync-worker image
+        run: docker build -f backend/Dockerfile.sync-worker -t workflowsa/sync-worker:ci .
+
+      - name: Build frontend image
+        run: docker build -f frontend/Dockerfile -t workflowsa/frontend:ci frontend
+
+  compose-smoke:
+    name: Compose Profile Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate core/full compose profiles
+        run: make smoke-profiles
+
+      - name: Validate operational scripts
+        run: |
+          bash -n scripts/init_connector.sh
+          bash -n scripts/cqrs_parity_check.sh
+          bash -n scripts/cqrs_e2e_smoke.sh
+          bash -n scripts/worker_conformance_smoke.sh
+
+      - name: Validate Helm values YAML
+        run: |
+          ruby -e 'require "yaml"; ARGV.each { |f| YAML.load_file(f) }' \
+            charts/workflowsa/Chart.yaml \
+            charts/workflowsa/values.yaml \
+            charts/workflowsa/values-external-iam.yaml \
+            charts/workflowsa/values-internal-iam.yaml
+
+  cqrs-e2e-smoke:
+    name: CQRS E2E Smoke
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run full CQRS E2E smoke
+        run: |
+          chmod +x scripts/init_connector.sh scripts/cqrs_e2e_smoke.sh
+          CLEANUP=true WAIT_TIMEOUT_SEC=420 QUERY_AUTH_MODE=required \
+          AUTH_ISSUER_INTERNAL_URL= AUTH_ISSUER_PUBLIC_URL= AUTH_CLIENT_ID= \
+          OIDC_TOKEN_URL= OIDC_CLIENT_ID= \
+          ./scripts/cqrs_e2e_smoke.sh

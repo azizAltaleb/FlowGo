@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package workflowsa.api.v1;
+
+option go_package = "workflow-engine/backend/api/v1/go;workflowapi";
+
+import "google/protobuf/timestamp.proto";
+
+// Domain Events
+
+message ProcessInstanceCreated {
+  int64 key = 1;
+  string id = 2;
+  int64 process_definition_key = 3;
+  int32 version = 4;
+  string bpmn_process_id = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ProcessInstanceCompleted {
+  int64 key = 1;
+  int64 process_definition_key = 2;
+  google.protobuf.Timestamp end_time = 3;
+}
+
+message ProcessInstanceTerminated {
+  int64 key = 1;
+  int64 process_definition_key = 2;
+  google.protobuf.Timestamp end_time = 3;
+}
+
+message ElementInstanceActivated {
+  int64 key = 1;
+  string id = 2;
+  int64 process_instance_key = 3;
+  int64 process_definition_key = 4;
+  string element_id = 5;
+  string bpmn_element_type = 6;
+  int64 flow_scope_key = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message ElementInstanceCompleted {
+  int64 key = 1;
+  int64 process_instance_key = 2;
+  string element_id = 3;
+  google.protobuf.Timestamp end_time = 4;
+}
+
+message ElementInstanceTerminated {
+  int64 key = 1;
+  int64 process_instance_key = 2;
+  string element_id = 3;
+  google.protobuf.Timestamp end_time = 4;
+}
+
+message JobCreated {
+  int64 key = 1;
+  string id = 2;
+  string type = 3;
+  int64 process_instance_key = 4;
+  int64 element_instance_key = 5;
+  int64 process_definition_key = 6;
+  string element_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message JobActivated {
+  int64 key = 1;
+  string worker = 2;
+  google.protobuf.Timestamp lock_expiration_time = 3;
+}
+
+message JobCompleted {
+  int64 key = 1;
+  string worker = 2;
+  string variables = 3; // JSON string
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+message JobFailed {
+  int64 key = 1;
+  string worker = 2;
+  int32 retries = 3;
+  string error_message = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message VariableUpdated {
+  int64 scope_key = 1;
+  int64 process_instance_key = 2;
+  string name = 3;
+  string value = 4; // JSON string
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message IncidentCreated {
+    int64 key = 1;
+    string id = 2;
+    int64 process_instance_key = 3;
+    int64 element_instance_key = 4;
+    int64 job_key = 5;
+    string error_type = 6;
+    string error_message = 7;
+    google.protobuf.Timestamp created_at = 8;
+}
+
+message IncidentResolved {
+    int64 key = 1;
+    int64 process_instance_key = 2;
+    google.protobuf.Timestamp resolved_at = 3;
+}

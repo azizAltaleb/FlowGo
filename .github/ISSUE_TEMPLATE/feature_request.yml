@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an improvement for Workflowsa
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow, operator, SDK, or deployment problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the desired behavior or API.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - BPMN/runtime
+        - Worker API
+        - Node.js SDK
+        - Frontend/modeler
+        - IAM/security
+        - Docker/Helm/deployment
+        - Documentation
+    validations:
+      required: true

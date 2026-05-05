@@ -1,0 +1,87 @@
+{{- $internalIssuer := .Values.iam.auth.issuerInternalUrl -}}
+{{- if and (eq .Values.iam.mode "zitadel") (not $internalIssuer) -}}
+{{- $internalIssuer = include "workflowsa.zitadelApiUrl" . -}}
+{{- end -}}
+{{- $publicIssuer := .Values.iam.auth.issuerPublicUrl -}}
+{{- if and (eq .Values.iam.mode "zitadel") (not $publicIssuer) -}}
+{{- $publicIssuer = .Values.zitadel.publicUrl -}}
+{{- end -}}
+{{- $frontendAuthority := .Values.iam.frontend.oidcAuthority -}}
+{{- if and (eq .Values.iam.mode "zitadel") (not $frontendAuthority) -}}
+{{- $frontendAuthority = .Values.zitadel.publicUrl -}}
+{{- end -}}
+{{- $frontendClientIDFile := .Values.iam.frontend.oidcClientIdFile -}}
+{{- if and (eq .Values.iam.mode "zitadel") (not $frontendClientIDFile) -}}
+{{- $frontendClientIDFile = "/workflowsa/bootstrap/workflowsa-frontend-client-id" -}}
+{{- end -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "workflowsa.envConfigName" . }}
+  labels:
+    {{- include "workflowsa.labels" . | nindent 4 }}
+data:
+  LOG_LEVEL: "INFO"
+  IAM_DEPLOYMENT_MODE: {{ .Values.iam.mode | quote }}
+  IAM_PROVIDER_NAME: {{ .Values.iam.providerName | quote }}
+  AUTH_ISSUER_INTERNAL_URL: {{ $internalIssuer | quote }}
+  AUTH_ISSUER_PUBLIC_URL: {{ $publicIssuer | quote }}
+  AUTH_CLIENT_ID: {{ .Values.iam.auth.clientId | quote }}
+  AUTH_TOKEN_MODE: {{ .Values.iam.auth.tokenMode | quote }}
+  AUTH_INTROSPECTION_URL: {{ .Values.iam.auth.introspectionUrl | quote }}
+  AUTH_INTROSPECTION_CLIENT_ID: {{ .Values.iam.auth.introspectionClientId | quote }}
+  AUTH_INTROSPECTION_AUTH_METHOD: {{ .Values.iam.auth.introspectionAuthMethod | quote }}
+  AUTH_CLAIM_SUBJECT_PATH: {{ .Values.iam.auth.claimSubjectPath | quote }}
+  AUTH_CLAIM_ROLES_PATH: {{ .Values.iam.auth.claimRolesPath | quote }}
+  AUTH_CLAIM_SCOPES_PATH: {{ .Values.iam.auth.claimScopesPath | quote }}
+  AUTH_CLAIM_TENANT_PATH: {{ .Values.iam.auth.claimTenantPath | quote }}
+  AUTH_CLAIM_EMAIL_PATH: {{ .Values.iam.auth.claimEmailPath | quote }}
+  AUTH_CLAIM_NAME_PATH: {{ .Values.iam.auth.claimNamePath | quote }}
+  AUTH_ENFORCE_AUDIENCE: {{ .Values.iam.auth.enforceAudience | quote }}
+  AUTH_ALLOW_INSECURE_ISSUER: {{ .Values.iam.auth.allowInsecureIssuer | quote }}
+  FRONTEND_AUTH_OIDC_AUTHORITY: {{ $frontendAuthority | quote }}
+  FRONTEND_AUTH_OIDC_CLIENT_ID: {{ .Values.iam.frontend.oidcClientId | quote }}
+  FRONTEND_AUTH_OIDC_CLIENT_ID_FILE: {{ $frontendClientIDFile | quote }}
+  VITE_API_URL: {{ .Values.frontend.env.apiUrl | quote }}
+  VITE_OIDC_AUTHORITY: {{ $frontendAuthority | quote }}
+  VITE_OIDC_CLIENT_ID: {{ .Values.iam.frontend.oidcClientId | quote }}
+  SERVER_ADDR: {{ .Values.command.env.serverAddr | quote }}
+  QUERY_SERVER_ADDR: {{ .Values.query.env.serverAddr | quote }}
+  RUNTIME_ENABLED: {{ .Values.command.env.runtimeEnabled | quote }}
+  OUTBOX_RELAY_ENABLED: {{ .Values.command.env.outboxRelayEnabled | quote }}
+  OUTBOX_RELAY_INTERVAL: {{ .Values.command.env.outboxRelayInterval | quote }}
+  OUTBOX_RELAY_TIMEOUT: {{ .Values.command.env.outboxRelayTimeout | quote }}
+  OUTBOX_RELAY_BATCH_SIZE: {{ .Values.command.env.outboxRelayBatchSize | quote }}
+  OUTBOX_RELAY_MAX_ATTEMPTS: {{ .Values.command.env.outboxRelayMaxAttempts | quote }}
+  IDEMPOTENCY_CLEANUP_ENABLED: {{ .Values.command.env.idempotencyCleanupEnabled | quote }}
+  IDEMPOTENCY_RETENTION: {{ .Values.command.env.idempotencyRetention | quote }}
+  IDEMPOTENCY_CLEANUP_INTERVAL: {{ .Values.command.env.idempotencyCleanupInterval | quote }}
+  IDEMPOTENCY_CLEANUP_TIMEOUT: {{ .Values.command.env.idempotencyCleanupTimeout | quote }}
+  IDEMPOTENCY_CLEANUP_BATCH_SIZE: {{ .Values.command.env.idempotencyCleanupBatchSize | quote }}
+  RUNTIME_TICK_INTERVAL: {{ .Values.runtime.env.tickInterval | quote }}
+  RUNTIME_TASK_TIMEOUT: {{ .Values.runtime.env.taskTimeout | quote }}
+  ES_ADDR: {{ .Values.search.address | quote }}
+  SEARCH_BACKEND: {{ .Values.search.backend | quote }}
+  ES_INDEX_PREFIX: {{ .Values.search.indexPrefix | quote }}
+  EVENT_BUS_TYPE: {{ .Values.eventBus.type | quote }}
+  KAFKA_BROKERS: {{ .Values.eventBus.kafka.brokers | quote }}
+  KAFKA_TOPIC_EVENTS: {{ .Values.eventBus.kafka.eventTopic | quote }}
+  NATS_URL: {{ .Values.eventBus.nats.url | quote }}
+  KAFKA_GROUP_ID: {{ .Values.syncWorker.env.groupId | quote }}
+  KAFKA_TOPICS: {{ .Values.syncWorker.env.topics | quote }}
+  SYNC_PROJECTION_CONTRACT: {{ .Values.syncWorker.env.projectionContract | quote }}
+  KAFKA_DLQ_TOPIC: {{ .Values.syncWorker.env.dlqTopic | quote }}
+  CONNECT_BOOTSTRAP_ENABLED: {{ .Values.syncWorker.env.connectBootstrapEnabled | quote }}
+  CONNECT_URL: {{ .Values.syncWorker.env.connectUrl | quote }}
+  CONNECTOR_NAME: {{ .Values.syncWorker.env.connectorName | quote }}
+  CONNECTOR_FILE: {{ .Values.syncWorker.env.connectorFile | quote }}
+  CONNECTOR_JSON: {{ .Values.syncWorker.env.connectorJson | quote }}
+  CONNECT_WAIT_TIMEOUT_SEC: {{ .Values.syncWorker.env.connectWaitTimeoutSec | quote }}
+  SYNC_MAX_PROCESS_RETRIES: {{ .Values.syncWorker.env.maxProcessRetries | quote }}
+  SYNC_RETRY_BACKOFF: {{ .Values.syncWorker.env.retryBackoff | quote }}
+  ALLOWED_ORIGINS: {{ .Values.cors.allowedOrigins | quote }}
+  CORS_ALLOW_CREDENTIALS: {{ .Values.cors.allowCredentials | quote }}
+  ZITADEL_MANAGEMENT_URL: {{ ternary (include "workflowsa.zitadelApiUrl" .) "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}
+  ZITADEL_PUBLIC_HOST: {{ ternary .Values.zitadel.externalDomain "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}
+  ZITADEL_OWNER_PAT_FILE: {{ ternary "/zitadel/bootstrap/owner.pat" "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}
+  WORKFLOWSA_ZITADEL_BOOTSTRAP_STATE_FILE: {{ ternary "/workflowsa/bootstrap/workflowsa-zitadel.json" "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}

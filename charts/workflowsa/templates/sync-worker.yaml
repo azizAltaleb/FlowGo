@@ -1,0 +1,51 @@
+{{- if .Values.syncWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "workflowsa.fullname" . }}-sync-worker
+  labels:
+    {{- include "workflowsa.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sync-worker
+spec:
+  replicas: {{ .Values.replicaCount.syncWorker }}
+  selector:
+    matchLabels:
+      {{- include "workflowsa.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: sync-worker
+  template:
+    metadata:
+      labels:
+        {{- include "workflowsa.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: sync-worker
+      {{- with .Values.global.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "workflowsa.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: sync-worker
+          image: "{{ .Values.images.syncWorker.repository }}:{{ .Values.images.syncWorker.tag }}"
+          imagePullPolicy: {{ .Values.images.syncWorker.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "workflowsa.envConfigName" . }}
+          resources:
+            {{- toYaml .Values.syncWorker.resources | nindent 12 }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

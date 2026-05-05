@@ -1,0 +1,16 @@
+name: Security question
+description: Ask a non-sensitive security hardening question
+title: "[Security]: "
+labels:
+  - security
+body:
+  - type: markdown
+    attributes:
+      value: Do not disclose vulnerabilities here. Use SECURITY.md for private vulnerability reporting.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Ask about hardening, IAM setup, image verification, or production configuration.
+    validations:
+      required: true

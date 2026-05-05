@@ -1,0 +1,53 @@
+{
+  "name": "@workflowsa/nodejs-sdk",
+  "version": "0.1.0",
+  "description": "Node.js SDK for Workflowsa workflow, worker, identity, and management APIs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "generate": "./generate_proto.sh",
+    "start:sample": "ts-node sample/index.ts",
+    "test": "npm run build && node test/client.test.js"
+  },
+  "keywords": [
+    "workflowsa",
+    "workflow",
+    "bpmn",
+    "worker",
+    "sdk",
+    "oidc"
+  ],
+  "author": "Workflowsa contributors",
+  "license": "MIT",
+  "type": "commonjs",
+  "homepage": "https://github.com/workflowsa/workflowsa#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/workflowsa/workflowsa.git",
+    "directory": "clients/nodejs-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/workflowsa/workflowsa/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "grpc_tools_node_protoc_ts": "^5.3.3",
+    "grpc-tools": "^1.13.1",
+    "ts-node": "^10.9.2"
+  }
+}

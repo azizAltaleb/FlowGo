@@ -1,0 +1,291 @@
+global:
+  imagePullSecrets: []
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount:
+  command: 2
+  query: 2
+  runtime: 1
+  syncWorker: 1
+  frontend: 2
+  gateway: 2
+
+images:
+  command:
+    repository: workflowsa/workflow-command
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  query:
+    repository: workflowsa/workflow-query
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  runtime:
+    repository: workflowsa/workflow-runtime
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  syncWorker:
+    repository: workflowsa/sync-worker
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: workflowsa/frontend
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  gateway:
+    repository: nginx
+    tag: "1.27-alpine"
+    pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+postgresql:
+  dsn: ""
+  host: "postgres.example.internal"
+  port: 5432
+  database: workflow_db
+  user: workflowsa
+  password: "change-me"
+  sslMode: require
+  existingSecret: ""
+  existingSecretKey: PG_DSN
+
+search:
+  backend: elasticsearch
+  address: "https://elasticsearch.example.internal:9200"
+  indexPrefix: workflowsa
+
+eventBus:
+  type: kafka
+  kafka:
+    brokers: "kafka.example.internal:9092"
+    eventTopic: workflow.events.v1
+  nats:
+    url: "nats://nats.example.internal:4222"
+
+cors:
+  allowedOrigins: "https://workflowsa.example.com"
+  allowCredentials: false
+
+iam:
+  mode: external
+  providerName: "External OIDC Provider"
+  auth:
+    issuerInternalUrl: "https://login.example.com"
+    issuerPublicUrl: "https://login.example.com"
+    clientId: workflow-backend
+    tokenMode: jwt
+    introspectionUrl: ""
+    introspectionClientId: ""
+    introspectionClientSecret: ""
+    introspectionAuthMethod: basic
+    claimSubjectPath: sub
+    claimRolesPath: roles,realm_access.roles,groups
+    claimScopesPath: scope,scp
+    claimTenantPath: tenant_id
+    claimEmailPath: email
+    claimNamePath: name
+    enforceAudience: true
+    allowInsecureIssuer: false
+  frontend:
+    oidcAuthority: "https://login.example.com"
+    oidcClientId: workflow-frontend
+    oidcClientIdFile: ""
+
+command:
+  service:
+    type: ClusterIP
+    port: 8080
+  env:
+    serverAddr: 0.0.0.0:8080
+    runtimeEnabled: "false"
+    outboxRelayEnabled: "true"
+    outboxRelayInterval: 1s
+    outboxRelayTimeout: 5s
+    outboxRelayBatchSize: "200"
+    outboxRelayMaxAttempts: "10"
+    idempotencyCleanupEnabled: "true"
+    idempotencyRetention: 168h
+    idempotencyCleanupInterval: 1h
+    idempotencyCleanupTimeout: 10s
+    idempotencyCleanupBatchSize: "500"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+query:
+  service:
+    type: ClusterIP
+    port: 8081
+  env:
+    serverAddr: 0.0.0.0:8081
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+runtime:
+  enabled: true
+  env:
+    runtimeEnabled: "true"
+    tickInterval: 1s
+    taskTimeout: 5s
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+syncWorker:
+  enabled: true
+  env:
+    groupId: workflowsa-sync-worker
+    topics: workflow.events.v1,workflowsa.public.process,workflowsa.public.process_instance,workflowsa.public.element_instance,workflowsa.public.variable,workflowsa.public.job,workflowsa.public.incident,workflowsa.public.timer,workflowsa.public.message_subscription
+    projectionContract: hybrid
+    dlqTopic: workflow.sync.dlq
+    connectBootstrapEnabled: "true"
+    connectUrl: "http://debezium-connect.example.internal:8083"
+    connectorName: workflowsa-postgres-connector
+    connectorFile: ""
+    connectorJson: ""
+    connectWaitTimeoutSec: "180"
+    maxProcessRetries: "3"
+    retryBackoff: 500ms
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+frontend:
+  service:
+    type: ClusterIP
+    port: 80
+  env:
+    apiUrl: /api
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+gateway:
+  enabled: true
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  host: workflowsa.example.com
+  tls:
+    enabled: true
+    secretName: workflowsa-tls
+
+zitadel:
+  enabled: false
+  publicUrl: "https://iam.workflowsa.example.com"
+  externalDomain: iam.workflowsa.example.com
+  externalPort: 443
+  externalSecure: true
+  masterkey: MasterkeyNeedsToHave32Characters
+  existingSecret: ""
+  bootstrap:
+    waitSeconds: "240"
+    projectName: Workflowsa
+    frontendAppName: Workflowsa Frontend
+    frontendUrl: "https://workflowsa.example.com"
+    adminUsername: admin
+    adminPassword: "change-me"
+    adminGivenName: admin
+    adminFamilyName: admin
+    adminDisplayName: admin
+    adminEmail: admin@example.com
+    adminLoginName: admin
+  api:
+    image:
+      repository: ghcr.io/zitadel/zitadel
+      tag: v4.13.0
+      pullPolicy: IfNotPresent
+    replicas: 1
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+  login:
+    image:
+      repository: ghcr.io/zitadel/zitadel-login
+      tag: v4.13.0
+      pullPolicy: IfNotPresent
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  postgresql:
+    enabled: true
+    image:
+      repository: postgres
+      tag: 17.2-alpine
+      pullPolicy: IfNotPresent
+    database: zitadel
+    user: postgres
+    password: "change-me"
+    storageClassName: ""
+    size: 20Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  bootstrapStorage:
+    storageClassName: ""
+    accessModes:
+      - ReadWriteMany
+    size: 1Gi
+  ingress:
+    enabled: true
+    className: nginx
+    annotations: {}
+    host: iam.workflowsa.example.com
+    tls:
+      enabled: true
+      secretName: workflowsa-iam-tls

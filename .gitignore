@@ -1,0 +1,74 @@
+# Binaries and build outputs
+bin/
+build/
+dist/
+/main
+/workflow-command
+/workflow-query
+/workflow-runtime
+/sync-worker
+*.test
+*.out
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+clients/nodejs-sdk/node_modules/
+tests/e2e/playwright/node_modules/
+vendor/
+
+# Frontend and SDK generated artifacts
+frontend/dist/
+clients/nodejs-sdk/dist/
+*.tsbuildinfo
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+!.env.core.example
+!.env.full.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.pat
+*.token
+*owner.pat
+*login-client.pat
+
+# Docker and local runtime overrides
+docker-compose.override.yml
+*.local.yml
+volumes/
+.data/
+
+# Test and coverage artifacts
+coverage.out
+coverage/
+reports/*.out
+reports/*.txt
+reports/*.json
+reports/*.md
+!reports/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.iml

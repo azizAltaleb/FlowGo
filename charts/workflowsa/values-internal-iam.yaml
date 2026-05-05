@@ -1,0 +1,50 @@
+iam:
+  mode: zitadel
+  providerName: ZITADEL
+  auth:
+    issuerInternalUrl: ""
+    issuerPublicUrl: "https://iam.workflowsa.example.com"
+    clientId: workflow-backend
+    tokenMode: jwt
+    introspectionUrl: ""
+    introspectionClientId: ""
+    introspectionClientSecret: ""
+    introspectionAuthMethod: basic
+    claimSubjectPath: sub
+    claimRolesPath: roles,urn:zitadel:iam:org:project:roles,groups
+    claimScopesPath: scope,scp
+    claimTenantPath: urn:zitadel:iam:user:resourceowner:id
+    claimEmailPath: email
+    claimNamePath: name
+    enforceAudience: false
+    allowInsecureIssuer: true
+  frontend:
+    oidcAuthority: "https://iam.workflowsa.example.com"
+    oidcClientId: ""
+    oidcClientIdFile: /workflowsa/bootstrap/workflowsa-frontend-client-id
+
+zitadel:
+  enabled: true
+  publicUrl: "https://iam.workflowsa.example.com"
+  externalDomain: iam.workflowsa.example.com
+  externalPort: 443
+  externalSecure: true
+  masterkey: MasterkeyNeedsToHave32Characters
+  bootstrap:
+    frontendUrl: "https://workflowsa.example.com"
+    adminUsername: admin
+    adminPassword: "change-me"
+    adminEmail: admin@example.com
+  ingress:
+    enabled: true
+    host: iam.workflowsa.example.com
+    tls:
+      enabled: true
+      secretName: workflowsa-iam-tls
+
+ingress:
+  enabled: true
+  host: workflowsa.example.com
+  tls:
+    enabled: true
+    secretName: workflowsa-tls

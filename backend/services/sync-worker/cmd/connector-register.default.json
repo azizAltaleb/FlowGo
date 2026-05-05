@@ -1,0 +1,30 @@
+{
+  "name": "workflowsa-postgres-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "user",
+    "database.password": "password",
+    "database.dbname": "workflow_db",
+
+    "topic.prefix": "workflowsa",
+    "schema.include.list": "public",
+    "table.include.list": "public.process,public.process_instance,public.element_instance,public.variable,public.job,public.incident,public.timer,public.message_subscription",
+
+    "slot.name": "workflowsa_slot",
+    "publication.autocreate.mode": "filtered",
+
+    "include.schema.changes": "false",
+    "tombstones.on.delete": "false",
+    "poll.interval.ms": "100",
+    "max.batch.size": "512",
+
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter.schemas.enable": "false"
+  }
+}

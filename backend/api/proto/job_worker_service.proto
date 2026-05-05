@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package workflowsa.api.v1;
+
+option go_package = "workflow-engine/backend/api/v1/go;workflowapi";
+
+import "google/protobuf/timestamp.proto";
+
+service JobWorkerService {
+  // ActivateJobs polls for jobs available for a specific worker/type.
+  // It returns a stream of jobs to allow for immediate pushing if long-polling.
+  // For MVP, request/response is fine, but stream is future-proof.
+  rpc ActivateJobs(ActivateJobsRequest) returns (ActivateJobsResponse);
+
+  // CompleteJob marks a job as completed with variables.
+  rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
+
+  // FailJob marks a job as failed with retries.
+  rpc FailJob(FailJobRequest) returns (FailJobResponse);
+}
+
+message ActivateJobsRequest {
+  string worker_name = 1;
+  string job_type = 2;
+  int32 max_jobs = 3;
+  int64 timeout_ms = 4; // Long polling timeout
+}
+
+message ActivateJobsResponse {
+  repeated Job jobs = 1;
+}
+
+message Job {
+  int64 key = 1; // Snowflake Key
+  string id = 2; // UUIDv7 ID
+  string type = 3;
+  int64 process_instance_key = 4;
+  string bpmn_process_id = 5;
+  int32 process_definition_version = 6;
+  int64 process_definition_key = 7;
+  int64 element_instance_key = 8;
+  string element_id = 9;
+  map<string, string> custom_headers = 10;
+  string worker = 11;
+  int32 retries = 12;
+  int64 deadline = 13;
+  // Variables as JSON string for now, or Struct?
+  // Using string for flexibility with existing JSON unmarshaller.
+  string variables = 14; 
+}
+
+message CompleteJobRequest {
+  int64 job_key = 1;
+  string worker_name = 2; // Security check
+  string variables = 3; // JSON string
+}
+
+message CompleteJobResponse {}
+
+message FailJobRequest {
+  int64 job_key = 1;
+  string worker_name = 2;
+  int32 retries = 3;
+  string error_message = 4;
+  int64 retry_backoff_ms = 5;
+}
+
+message FailJobResponse {}
