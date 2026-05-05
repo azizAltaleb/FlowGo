@@ -1,4 +1,4 @@
-.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-core smoke-full smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles cqrs-parity-check cqrs-e2e-smoke worker-conformance test-bpmn-matrix test-unit test-integration test-e2e test-frontend test-perf test-security test-report test-all
+.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-core smoke-full smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles validate-helm cqrs-parity-check cqrs-e2e-smoke worker-conformance test-bpmn-matrix test-unit test-integration test-e2e test-frontend test-perf test-security test-report test-all
 
 
 # Docker Compose Commands
@@ -41,6 +41,9 @@ smoke-release-full:
 	docker compose -f docker-compose.zitadel.yml -f docker-compose.release.yml config > /dev/null
 
 smoke-release-profiles: smoke-release-core smoke-release-full
+
+validate-helm:
+	bash scripts/validate_helm.sh
 
 cqrs-parity-check:
 	./scripts/cqrs_parity_check.sh

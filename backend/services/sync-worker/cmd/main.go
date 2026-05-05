@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -62,6 +64,9 @@ func main() {
 		connectWaitTimeoutSec = 180
 	}
 	connectWaitTimeout := time.Duration(connectWaitTimeoutSec) * time.Second
+	metricsAddr := strings.TrimSpace(envOrDefault("SYNC_METRICS_ADDR", ":8092"))
+	freshnessSLOSec := int64(envInt("SYNC_FRESHNESS_SLO_SEC", 120))
+	failOnStale := envBool("SYNC_HEALTH_FAIL_ON_STALE", false)
 
 	log.Info(ctx, "initializing sync-worker", map[string]any{
 		"kafka_brokers":     kafkaBrokers,
@@ -77,6 +82,9 @@ func main() {
 		"event_bus_type":    eventBusType,
 		"connect_bootstrap": connectBootstrapEnabled,
 		"connector_name":    connectorName,
+		"metrics_addr":      metricsAddr,
+		"freshness_slo_sec": freshnessSLOSec,
+		"fail_on_stale":     failOnStale,
 		"log_level":         logLevel,
 	})
 
@@ -116,6 +124,12 @@ func main() {
 			RetryBackoff:      retryBackoff,
 		}, service)
 	}
+
+	var statsProvider messaging.ConsumerStatsProvider
+	if provider, ok := consumer.(messaging.ConsumerStatsProvider); ok {
+		statsProvider = provider
+	}
+	startSyncHealthServer(ctx, log, metricsAddr, statsProvider, freshnessSLOSec, failOnStale)
 
 	if eventBusType != "nats" {
 		if err := ensureConnectorBootstrap(ctx, log, connectorBootstrapOptions{
@@ -273,6 +287,52 @@ func containsDebeziumTopics(topics []string) bool {
 		}
 	}
 	return false
+}
+
+func startSyncHealthServer(ctx context.Context, log *logger.Logger, addr string, provider messaging.ConsumerStatsProvider, sloSec int64, failOnStale bool) {
+	if strings.TrimSpace(addr) == "" {
+		return
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+		snapshot := messaging.ConsumerStatsSnapshot{}
+		if provider != nil {
+			snapshot = provider.Snapshot()
+		}
+		status, lagSec, stale, httpStatus := evaluateSyncHealth(snapshot, sloSec, failOnStale)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(httpStatus)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":             status,
+			"lagSeconds":         lagSec,
+			"stale":              stale,
+			"freshnessSloSec":    sloSec,
+			"processed":          snapshot.Processed,
+			"succeeded":          snapshot.Succeeded,
+			"failed":             snapshot.Failed,
+			"retried":            snapshot.Retried,
+			"dlqPublished":       snapshot.DLQPublished,
+			"lastProcessedAt":    snapshot.LastProcessedAt,
+			"topics":             snapshot.Topics,
+			"failOnStaleEnabled": failOnStale,
+		})
+	})
+
+	server := &http.Server{Addr: addr, Handler: mux}
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
+	}()
+	go func() {
+		log.Info(ctx, "sync-worker health server starting", map[string]any{"addr": addr})
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error(ctx, "sync-worker health server stopped with error", map[string]any{"error": err.Error()})
+		}
+	}()
 }
 
 func evaluateSyncHealth(snapshot messaging.ConsumerStatsSnapshot, sloSec int64, failOnStale bool) (string, int64, bool, int) {

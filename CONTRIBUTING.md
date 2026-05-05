@@ -1,4 +1,4 @@
-# Contributing to Workflow Engine
+# Contributing to Workflowsa
 
 Thank you for your interest in contributing! We want to make this project a robust open-source solution for workflow orchestration.
 
@@ -38,6 +38,7 @@ make up-zitadel
 Validate profile configs quickly:
 ```bash
 make smoke-profiles
+make smoke-release-profiles
 ```
 
 ### Frontend (React)

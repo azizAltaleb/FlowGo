@@ -123,20 +123,19 @@ jobs:
       - name: Validate core/full compose profiles
         run: make smoke-profiles
 
+      - name: Validate release compose profiles
+        run: make smoke-release-profiles
+
       - name: Validate operational scripts
         run: |
           bash -n scripts/init_connector.sh
           bash -n scripts/cqrs_parity_check.sh
           bash -n scripts/cqrs_e2e_smoke.sh
           bash -n scripts/worker_conformance_smoke.sh
+          bash -n scripts/validate_helm.sh
 
-      - name: Validate Helm values YAML
-        run: |
-          ruby -e 'require "yaml"; ARGV.each { |f| YAML.load_file(f) }' \
-            charts/workflowsa/Chart.yaml \
-            charts/workflowsa/values.yaml \
-            charts/workflowsa/values-external-iam.yaml \
-            charts/workflowsa/values-internal-iam.yaml
+      - name: Validate Helm chart
+        run: bash scripts/validate_helm.sh
 
   cqrs-e2e-smoke:
     name: CQRS E2E Smoke

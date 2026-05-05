@@ -26,6 +26,7 @@ Do not publish if any real `.env`, PAT, ZITADEL token, private key, client secre
 ```bash
 make smoke-profiles
 make smoke-release-profiles
+make validate-helm
 npm --prefix frontend ci
 npm --prefix frontend run lint
 npm --prefix frontend test
@@ -36,7 +37,7 @@ npm --prefix clients/nodejs-sdk pack --dry-run
 go test ./backend/... -count=1
 ```
 
-If Helm is installed:
+`make validate-helm` always parses chart values YAML and runs `helm lint`/`helm template` when Helm is installed. To run Helm directly:
 
 ```bash
 helm lint ./charts/workflowsa
