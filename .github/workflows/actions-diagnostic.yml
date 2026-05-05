@@ -1,0 +1,17 @@
+name: Actions Diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    name: Diagnostic
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print environment
+        run: |
+          echo "runner=${RUNNER_OS}"
+          echo "sha=${GITHUB_SHA}"
