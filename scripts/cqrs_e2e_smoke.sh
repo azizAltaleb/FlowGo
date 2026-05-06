@@ -26,6 +26,7 @@ KAFKA_BOOTSTRAP="${KAFKA_BOOTSTRAP:-localhost:9092}"
 SYNC_GROUP_ID="${SYNC_GROUP_ID:-workflowsa-sync-worker-v8}"
 SYNC_READY_TOPIC="${SYNC_READY_TOPIC:-workflowsa.public.process}"
 SYNC_READY_TOPICS="${SYNC_READY_TOPICS:-workflow.events.v1,workflowsa.public.process,workflowsa.public.process_instance,workflowsa.public.element_instance,workflowsa.public.variable,workflowsa.public.job,workflowsa.public.incident,workflowsa.public.timer,workflowsa.public.message_subscription}"
+SYNC_CAPTURED_TABLES="${SYNC_CAPTURED_TABLES:-process,process_instance,element_instance,variable,job,incident,timer,message_subscription}"
 QUERY_AUTH_MODE="${QUERY_AUTH_MODE:-auto}"
 QUERY_BEARER_TOKEN="${QUERY_BEARER_TOKEN:-}"
 OIDC_TOKEN_URL="${OIDC_TOKEN_URL:-}"
@@ -361,6 +362,59 @@ ensure_sync_ready_topics() {
   done
 }
 
+wait_for_postgres_captured_tables() {
+  local table
+  local tables
+  local expected=0
+  local table_list=""
+  local started
+  IFS=',' read -r -a tables <<< "${SYNC_CAPTURED_TABLES}"
+
+  for table in "${tables[@]}"; do
+    table="$(trim_space "${table}")"
+    if [[ -z "${table}" ]]; then
+      continue
+    fi
+
+    table="${table//\'/\'\'}"
+    if [[ -n "${table_list}" ]]; then
+      table_list="${table_list},"
+    fi
+    table_list="${table_list}'${table}'"
+    ((expected++))
+  done
+
+  if (( expected == 0 )); then
+    return 0
+  fi
+
+  started="$(date +%s)"
+  while true; do
+    local count
+    count="$(compose exec -T "${POSTGRES_SERVICE}" psql \
+      -U "${POSTGRES_USER}" \
+      -d "${POSTGRES_DB}" \
+      -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN (${table_list});" 2>/dev/null | tr -d '[:space:]' || true)"
+
+    if [[ "${count}" == "${expected}" ]]; then
+      return 0
+    fi
+
+    local now
+    now="$(date +%s)"
+    if (( now - started > WAIT_TIMEOUT_SEC )); then
+      echo "Timed out waiting for Postgres captured tables (${count:-0}/${expected})" >&2
+      compose exec -T "${POSTGRES_SERVICE}" psql \
+        -U "${POSTGRES_USER}" \
+        -d "${POSTGRES_DB}" \
+        -c "SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;" >&2 || true
+      return 1
+    fi
+
+    sleep 2
+  done
+}
+
 sync_consumer_group_ready() {
   local output
   output="$(compose exec -T "${KAFKA_SERVICE}" kafka-consumer-groups \
@@ -487,7 +541,7 @@ dump_failure_diagnostics() {
   curl -sS "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/status" || true
   echo
 
-  for service in sync-worker workflow-query connect kafka postgres; do
+  for service in app sync-worker workflow-query connect kafka postgres; do
     echo "--- logs: ${service} (tail=120) ---"
     compose logs --tail=120 "${service}" || true
   done
@@ -511,7 +565,7 @@ cleanup_stack() {
 trap 'cleanup_stack $?' EXIT
 
 echo "Starting CQRS dependency stack..."
-compose up -d --build postgres elasticsearch kafka connect workflow-query
+compose up -d --build postgres elasticsearch kafka connect app workflow-query
 
 echo "Waiting for Kafka CLI readiness..."
 wait_for_kafka_cli
@@ -521,6 +575,9 @@ ensure_sync_ready_topics
 
 echo "Waiting for query health endpoint..."
 wait_for_http_200 "${QUERY_URL}/health"
+
+echo "Waiting for Postgres captured tables..."
+wait_for_postgres_captured_tables
 
 echo "Ensuring Debezium connector exists..."
 CONNECT_URL="${CONNECT_URL}" bash ./scripts/init_connector.sh
