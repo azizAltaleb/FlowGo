@@ -206,7 +206,7 @@ func (e *Engine) FailJob(ctx context.Context, jobKey int64, worker, errorMessage
 		if err := txEngine.eventPublisher.Publish(ctx, &pb.JobFailed{
 			Key:          job.Key,
 			Worker:       worker,
-			Retries:      int32(job.Retries),
+			Retries:      safeInt32(job.Retries),
 			ErrorMessage: errorMessage,
 			UpdatedAt:    timestamppb.New(now),
 		}, "JobFailed"); err != nil {

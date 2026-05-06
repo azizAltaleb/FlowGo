@@ -15,7 +15,7 @@ Read more in [docs/architecture.md](docs/architecture.md).
 
 - Docker & Docker Compose
 - Node.js 20+ for frontend and SDK development
-- Go 1.24+ for backend development
+- Go 1.25+ for backend development
 
 ## 🚀 Quick Start
 

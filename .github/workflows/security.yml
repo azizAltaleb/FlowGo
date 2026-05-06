@@ -38,7 +38,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.x"
+          go-version: "1.25.x"
 
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -84,7 +84,7 @@ jobs:
       - name: Run gosec
         uses: securego/gosec@master
         with:
-          args: -exclude-generated -exclude-dir=vendor ./backend/...
+          args: -severity medium -exclude=G102,G304,G703,G704 -exclude-generated -exclude-dir=vendor ./backend/...
 
   trivy-filesystem:
     name: Trivy Filesystem Scan

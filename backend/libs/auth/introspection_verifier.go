@@ -17,13 +17,36 @@ type introspectionVerifier struct {
 }
 
 func newIntrospectionVerifier(cfg Config) (TokenVerifier, error) {
-	if strings.TrimSpace(cfg.IntrospectionURL) == "" {
+	introspectionURL := strings.TrimSpace(cfg.IntrospectionURL)
+	if introspectionURL == "" {
 		return nil, fmt.Errorf("AUTH_INTROSPECTION_URL is required when AUTH_TOKEN_MODE=introspection")
 	}
+	normalizedURL, err := validateIntrospectionURL(introspectionURL)
+	if err != nil {
+		return nil, err
+	}
+	cfg.IntrospectionURL = normalizedURL
 	return &introspectionVerifier{
 		client: &http.Client{Timeout: 10 * time.Second},
 		config: cfg,
 	}, nil
+}
+
+func validateIntrospectionURL(raw string) (string, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("parse AUTH_INTROSPECTION_URL: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("AUTH_INTROSPECTION_URL must use http or https")
+	}
+	if strings.TrimSpace(parsed.Host) == "" {
+		return "", fmt.Errorf("AUTH_INTROSPECTION_URL must include a host")
+	}
+	if parsed.User != nil {
+		return "", fmt.Errorf("AUTH_INTROSPECTION_URL must not include userinfo")
+	}
+	return parsed.String(), nil
 }
 
 func (v *introspectionVerifier) Verify(ctx context.Context, rawToken string) (*Principal, error) {

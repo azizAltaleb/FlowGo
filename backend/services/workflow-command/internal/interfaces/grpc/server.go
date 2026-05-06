@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	pb "workflow-engine/backend/api/v1/go"
@@ -52,7 +53,7 @@ func (s *Server) ActivateJobs(ctx context.Context, req *pb.ActivateJobsRequest) 
 			ElementId:            job.ElementID,
 			// CustomHeaders:          headers,
 			Worker:   job.Worker,
-			Retries:  int32(job.Retries),
+			Retries:  safeInt32(job.Retries),
 			Deadline: deadline,
 			// Variables:              string(varsBytes), // Not available in model.Job yet
 		})
@@ -85,4 +86,14 @@ func (s *Server) FailJob(ctx context.Context, req *pb.FailJobRequest) (*pb.FailJ
 	}
 
 	return &pb.FailJobResponse{}, nil
+}
+
+func safeInt32(value int) int32 {
+	if value > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if value < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(value)
 }

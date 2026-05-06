@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"math"
 	"strconv"
 	"time"
 	pb "workflow-engine/backend/api/v1/go"
@@ -58,6 +59,16 @@ const (
 	defaultOutboxMaxAttempts       = 10
 	defaultIdempotencyCleanupBatch = 500
 )
+
+func safeInt32(value int) int32 {
+	if value > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if value < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(value)
+}
 
 // transactionalEventPublisher buffers events produced inside a DB transaction.
 // Events are flushed by withTx only after transaction commit succeeds.
@@ -216,7 +227,7 @@ func (e *Engine) createAndStartInstance(ctx context.Context, workflowID string, 
 		Key:                  processInstanceKey,
 		Id:                   runtimeID,
 		ProcessDefinitionKey: process.Key,
-		Version:              int32(process.Version),
+		Version:              safeInt32(process.Version),
 		BpmnProcessId:        process.BpmnProcessID,
 		CreatedAt:            timestamppb.New(pi.CreatedAt),
 	}, "ProcessInstanceCreated"); err != nil {

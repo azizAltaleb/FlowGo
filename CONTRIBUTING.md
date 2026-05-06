@@ -23,7 +23,7 @@ Thank you for your interest in contributing! We want to make this project a robu
 
 ### Backend (Go)
 The backend services are located in `backend/`.
-- **Requirements**: Go 1.24+
+- **Requirements**: Go 1.25+
 - **Command Service**: `backend/services/workflow-command`
 - **Query Service**: `backend/services/workflow-query`
 - **Sync Worker**: `backend/services/sync-worker`
