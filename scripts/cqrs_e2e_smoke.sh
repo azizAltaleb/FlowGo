@@ -21,6 +21,7 @@ CONNECT_URL="${CONNECT_URL:-http://localhost:8083}"
 CONNECTOR_NAME="${CONNECTOR_NAME:-workflowsa-postgres-connector}"
 QUERY_URL="${QUERY_URL:-http://localhost:8081}"
 SYNC_HEALTH_URL="${SYNC_HEALTH_URL:-http://localhost:8092/health}"
+SYNC_READY_TOPIC="${SYNC_READY_TOPIC:-workflowsa.public.process}"
 QUERY_AUTH_MODE="${QUERY_AUTH_MODE:-auto}"
 QUERY_BEARER_TOKEN="${QUERY_BEARER_TOKEN:-}"
 OIDC_TOKEN_URL="${OIDC_TOKEN_URL:-}"
@@ -308,6 +309,26 @@ wait_for_connector_running() {
   done
 }
 
+wait_for_sync_consumer_started() {
+  local started
+  started="$(date +%s)"
+
+  while true; do
+    if compose logs --no-color sync-worker 2>/dev/null | grep -F '"message":"consumer loop started"' | grep -F "\"topic\":\"${SYNC_READY_TOPIC}\"" >/dev/null; then
+      return 0
+    fi
+
+    local now
+    now="$(date +%s)"
+    if (( now - started > WAIT_TIMEOUT_SEC )); then
+      echo "Timed out waiting for sync-worker consumer loop for topic ${SYNC_READY_TOPIC}" >&2
+      return 1
+    fi
+
+    sleep 2
+  done
+}
+
 query_workflows_page() {
   local page="$1"
   local page_size="$2"
@@ -425,6 +446,9 @@ CONNECT_URL="${CONNECT_URL}" bash ./scripts/init_connector.sh
 
 echo "Waiting for connector ${CONNECTOR_NAME} to report RUNNING..."
 wait_for_connector_running
+
+echo "Waiting for sync-worker consumer loop..."
+wait_for_sync_consumer_started
 
 echo "Configuring query auth mode..."
 configure_query_auth
