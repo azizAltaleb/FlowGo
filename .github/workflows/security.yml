@@ -104,6 +104,7 @@ jobs:
 
   codeql:
     name: CodeQL
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
