@@ -510,8 +510,8 @@ cleanup_stack() {
 }
 trap 'cleanup_stack $?' EXIT
 
-echo "Starting full CQRS stack..."
-compose up -d --build
+echo "Starting CQRS dependency stack..."
+compose up -d --build postgres elasticsearch kafka connect workflow-query
 
 echo "Waiting for Kafka CLI readiness..."
 wait_for_kafka_cli
@@ -519,15 +519,20 @@ wait_for_kafka_cli
 echo "Ensuring sync-worker Kafka topics exist..."
 ensure_sync_ready_topics
 
-echo "Waiting for query and sync-worker health endpoints..."
+echo "Waiting for query health endpoint..."
 wait_for_http_200 "${QUERY_URL}/health"
-wait_for_http_200 "${SYNC_HEALTH_URL}"
 
 echo "Ensuring Debezium connector exists..."
 CONNECT_URL="${CONNECT_URL}" bash ./scripts/init_connector.sh
 
 echo "Waiting for connector ${CONNECTOR_NAME} to report RUNNING..."
 wait_for_connector_running
+
+echo "Starting sync-worker..."
+compose up -d --build sync-worker
+
+echo "Waiting for sync-worker health endpoint..."
+wait_for_http_200 "${SYNC_HEALTH_URL}"
 
 echo "Waiting for sync-worker consumer group readiness..."
 wait_for_sync_consumer_ready
