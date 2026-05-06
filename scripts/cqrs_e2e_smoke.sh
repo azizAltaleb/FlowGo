@@ -381,7 +381,7 @@ wait_for_postgres_captured_tables() {
       table_list="${table_list},"
     fi
     table_list="${table_list}'${table}'"
-    ((expected++))
+    ((expected += 1))
   done
 
   if (( expected == 0 )); then
@@ -510,7 +510,7 @@ workflow_visible_across_pages() {
     if (( total_pages > QUERY_MAX_PAGES )); then
       total_pages="${QUERY_MAX_PAGES}"
     fi
-    ((page++))
+    ((page += 1))
   done
 
   return 1
