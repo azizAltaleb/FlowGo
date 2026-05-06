@@ -25,6 +25,7 @@ KAFKA_SERVICE="${KAFKA_SERVICE:-kafka}"
 KAFKA_BOOTSTRAP="${KAFKA_BOOTSTRAP:-localhost:9092}"
 SYNC_GROUP_ID="${SYNC_GROUP_ID:-workflowsa-sync-worker-v8}"
 SYNC_READY_TOPIC="${SYNC_READY_TOPIC:-workflowsa.public.process}"
+SYNC_READY_TOPICS="${SYNC_READY_TOPICS:-workflow.events.v1,workflowsa.public.process,workflowsa.public.process_instance,workflowsa.public.element_instance,workflowsa.public.variable,workflowsa.public.job,workflowsa.public.incident,workflowsa.public.timer,workflowsa.public.message_subscription}"
 QUERY_AUTH_MODE="${QUERY_AUTH_MODE:-auto}"
 QUERY_BEARER_TOKEN="${QUERY_BEARER_TOKEN:-}"
 OIDC_TOKEN_URL="${OIDC_TOKEN_URL:-}"
@@ -312,26 +313,67 @@ wait_for_connector_running() {
   done
 }
 
-ensure_sync_ready_topic() {
-  compose exec -T "${KAFKA_SERVICE}" kafka-topics \
-    --bootstrap-server "${KAFKA_BOOTSTRAP}" \
-    --create \
-    --if-not-exists \
-    --topic "${SYNC_READY_TOPIC}" \
-    --partitions 1 \
-    --replication-factor 1 >/dev/null
+wait_for_kafka_cli() {
+  local started
+  started="$(date +%s)"
+
+  while true; do
+    if compose exec -T "${KAFKA_SERVICE}" kafka-topics --bootstrap-server "${KAFKA_BOOTSTRAP}" --list >/dev/null 2>&1; then
+      return 0
+    fi
+
+    local now
+    now="$(date +%s)"
+    if (( now - started > WAIT_TIMEOUT_SEC )); then
+      echo "Timed out waiting for Kafka CLI readiness via service ${KAFKA_SERVICE}" >&2
+      return 1
+    fi
+
+    sleep 2
+  done
 }
 
-sync_consumer_group_assigned() {
+trim_space() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf "%s" "${value}"
+}
+
+ensure_sync_ready_topics() {
+  local topic
+  local topics
+  IFS=',' read -r -a topics <<< "${SYNC_READY_TOPICS}"
+
+  for topic in "${topics[@]}"; do
+    topic="$(trim_space "${topic}")"
+    if [[ -z "${topic}" ]]; then
+      continue
+    fi
+
+    compose exec -T "${KAFKA_SERVICE}" kafka-topics \
+      --bootstrap-server "${KAFKA_BOOTSTRAP}" \
+      --create \
+      --if-not-exists \
+      --topic "${topic}" \
+      --partitions 1 \
+      --replication-factor 1 >/dev/null
+  done
+}
+
+sync_consumer_group_ready() {
   local output
   output="$(compose exec -T "${KAFKA_SERVICE}" kafka-consumer-groups \
     --bootstrap-server "${KAFKA_BOOTSTRAP}" \
     --describe \
     --group "${SYNC_GROUP_ID}" \
-    --members \
-    --verbose 2>/dev/null || true)"
+    --state 2>/dev/null || true)"
 
-  if printf "%s\n" "${output}" | grep -F "${SYNC_READY_TOPIC}" >/dev/null; then
+  if printf "%s\n" "${output}" | grep -F "${SYNC_GROUP_ID}" | grep -Ei 'stable|STABLE' >/dev/null; then
+    return 0
+  fi
+
+  if compose logs --no-color "${KAFKA_SERVICE}" 2>/dev/null | grep -F "Assignment received from leader" | grep -F "group ${SYNC_GROUP_ID}" >/dev/null; then
     return 0
   fi
 
@@ -343,20 +385,19 @@ wait_for_sync_consumer_ready() {
   started="$(date +%s)"
 
   while true; do
-    if sync_consumer_group_assigned; then
+    if sync_consumer_group_ready; then
       return 0
     fi
 
     local now
     now="$(date +%s)"
     if (( now - started > WAIT_TIMEOUT_SEC )); then
-      echo "Timed out waiting for sync-worker consumer group ${SYNC_GROUP_ID} assignment for topic ${SYNC_READY_TOPIC}" >&2
+      echo "Timed out waiting for sync-worker consumer group ${SYNC_GROUP_ID} readiness" >&2
       compose exec -T "${KAFKA_SERVICE}" kafka-consumer-groups \
         --bootstrap-server "${KAFKA_BOOTSTRAP}" \
         --describe \
         --group "${SYNC_GROUP_ID}" \
-        --members \
-        --verbose >&2 || true
+        --state >&2 || true
       return 1
     fi
 
@@ -472,6 +513,12 @@ trap 'cleanup_stack $?' EXIT
 echo "Starting full CQRS stack..."
 compose up -d --build
 
+echo "Waiting for Kafka CLI readiness..."
+wait_for_kafka_cli
+
+echo "Ensuring sync-worker Kafka topics exist..."
+ensure_sync_ready_topics
+
 echo "Waiting for query and sync-worker health endpoints..."
 wait_for_http_200 "${QUERY_URL}/health"
 wait_for_http_200 "${SYNC_HEALTH_URL}"
@@ -482,10 +529,7 @@ CONNECT_URL="${CONNECT_URL}" bash ./scripts/init_connector.sh
 echo "Waiting for connector ${CONNECTOR_NAME} to report RUNNING..."
 wait_for_connector_running
 
-echo "Ensuring sync-worker Kafka ready topic exists..."
-ensure_sync_ready_topic
-
-echo "Waiting for sync-worker consumer group assignment..."
+echo "Waiting for sync-worker consumer group readiness..."
 wait_for_sync_consumer_ready
 
 echo "Configuring query auth mode..."
