@@ -151,7 +151,7 @@ jobs:
         env:
           CLEANUP: "true"
           WAIT_TIMEOUT_SEC: "420"
-          QUERY_AUTH_MODE: required
+          QUERY_AUTH_MODE: off
           AUTH_ISSUER_INTERNAL_URL: ""
           AUTH_ISSUER_PUBLIC_URL: ""
           AUTH_CLIENT_ID: ""
