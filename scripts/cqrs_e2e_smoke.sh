@@ -21,6 +21,9 @@ CONNECT_URL="${CONNECT_URL:-http://localhost:8083}"
 CONNECTOR_NAME="${CONNECTOR_NAME:-workflowsa-postgres-connector}"
 QUERY_URL="${QUERY_URL:-http://localhost:8081}"
 SYNC_HEALTH_URL="${SYNC_HEALTH_URL:-http://localhost:8092/health}"
+KAFKA_SERVICE="${KAFKA_SERVICE:-kafka}"
+KAFKA_BOOTSTRAP="${KAFKA_BOOTSTRAP:-localhost:9092}"
+SYNC_GROUP_ID="${SYNC_GROUP_ID:-workflowsa-sync-worker-v8}"
 SYNC_READY_TOPIC="${SYNC_READY_TOPIC:-workflowsa.public.process}"
 QUERY_AUTH_MODE="${QUERY_AUTH_MODE:-auto}"
 QUERY_BEARER_TOKEN="${QUERY_BEARER_TOKEN:-}"
@@ -309,19 +312,51 @@ wait_for_connector_running() {
   done
 }
 
-wait_for_sync_consumer_started() {
+ensure_sync_ready_topic() {
+  compose exec -T "${KAFKA_SERVICE}" kafka-topics \
+    --bootstrap-server "${KAFKA_BOOTSTRAP}" \
+    --create \
+    --if-not-exists \
+    --topic "${SYNC_READY_TOPIC}" \
+    --partitions 1 \
+    --replication-factor 1 >/dev/null
+}
+
+sync_consumer_group_assigned() {
+  local output
+  output="$(compose exec -T "${KAFKA_SERVICE}" kafka-consumer-groups \
+    --bootstrap-server "${KAFKA_BOOTSTRAP}" \
+    --describe \
+    --group "${SYNC_GROUP_ID}" \
+    --members \
+    --verbose 2>/dev/null || true)"
+
+  if printf "%s\n" "${output}" | grep -F "${SYNC_READY_TOPIC}" >/dev/null; then
+    return 0
+  fi
+
+  return 1
+}
+
+wait_for_sync_consumer_ready() {
   local started
   started="$(date +%s)"
 
   while true; do
-    if compose logs --no-color sync-worker 2>/dev/null | grep -F '"message":"consumer loop started"' | grep -F "\"topic\":\"${SYNC_READY_TOPIC}\"" >/dev/null; then
+    if sync_consumer_group_assigned; then
       return 0
     fi
 
     local now
     now="$(date +%s)"
     if (( now - started > WAIT_TIMEOUT_SEC )); then
-      echo "Timed out waiting for sync-worker consumer loop for topic ${SYNC_READY_TOPIC}" >&2
+      echo "Timed out waiting for sync-worker consumer group ${SYNC_GROUP_ID} assignment for topic ${SYNC_READY_TOPIC}" >&2
+      compose exec -T "${KAFKA_SERVICE}" kafka-consumer-groups \
+        --bootstrap-server "${KAFKA_BOOTSTRAP}" \
+        --describe \
+        --group "${SYNC_GROUP_ID}" \
+        --members \
+        --verbose >&2 || true
       return 1
     fi
 
@@ -447,8 +482,11 @@ CONNECT_URL="${CONNECT_URL}" bash ./scripts/init_connector.sh
 echo "Waiting for connector ${CONNECTOR_NAME} to report RUNNING..."
 wait_for_connector_running
 
-echo "Waiting for sync-worker consumer loop..."
-wait_for_sync_consumer_started
+echo "Ensuring sync-worker Kafka ready topic exists..."
+ensure_sync_ready_topic
+
+echo "Waiting for sync-worker consumer group assignment..."
+wait_for_sync_consumer_ready
 
 echo "Configuring query auth mode..."
 configure_query_auth
