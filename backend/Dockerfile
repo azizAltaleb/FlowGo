@@ -10,7 +10,7 @@ ARG VERSION=dev
 ARG REVISION=unknown
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.revision=${REVISION}" -o workflow-command backend/services/workflow-command/cmd/server/main.go
 
-FROM alpine:3.22
+FROM alpine:3.23
 
 WORKDIR /app
 
