@@ -35,7 +35,10 @@ npm --prefix frontend test
 npm --prefix frontend run build
 npm --prefix clients/nodejs-sdk ci
 npm --prefix clients/nodejs-sdk test
-npm --prefix clients/nodejs-sdk pack --dry-run
+npm --prefix clients/nodejs-sdk run validate:package
+(cd clients/nodejs-sdk && npm pack --dry-run)
+(cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev >/tmp/workflowsa-nodejs-sdk-sbom.cdx.json)
+make release-dry-run
 go test ./backend/... -count=1
 ```
 

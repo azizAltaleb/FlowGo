@@ -89,30 +89,48 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Validate package metadata
+        run: npm run validate:package
+
       - name: Package dry run
         run: npm pack --dry-run
 
   docker-build:
     name: Docker Build Dry Run
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: workflow-command
+            dockerfile: backend/Dockerfile
+            context: .
+          - name: workflow-runtime
+            dockerfile: backend/Dockerfile.runtime
+            context: .
+          - name: workflow-query
+            dockerfile: backend/Dockerfile.workflow-query
+            context: .
+          - name: sync-worker
+            dockerfile: backend/Dockerfile.sync-worker
+            context: .
+          - name: frontend
+            dockerfile: frontend/Dockerfile
+            context: frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build command image
-        run: docker build -f backend/Dockerfile -t workflowsa/workflow-command:ci .
+      - name: Build image
+        run: docker build -f ${{ matrix.image.dockerfile }} --build-arg VERSION=ci --build-arg REVISION=${{ github.sha }} -t workflowsa/${{ matrix.image.name }}:ci ${{ matrix.image.context }}
 
-      - name: Build runtime image
-        run: docker build -f backend/Dockerfile.runtime -t workflowsa/workflow-runtime:ci .
-
-      - name: Build query image
-        run: docker build -f backend/Dockerfile.workflow-query -t workflowsa/workflow-query:ci .
-
-      - name: Build sync-worker image
-        run: docker build -f backend/Dockerfile.sync-worker -t workflowsa/sync-worker:ci .
-
-      - name: Build frontend image
-        run: docker build -f frontend/Dockerfile -t workflowsa/frontend:ci frontend
+      - name: Scan image
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: workflowsa/${{ matrix.image.name }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
 
   compose-smoke:
     name: Compose Profile Smoke

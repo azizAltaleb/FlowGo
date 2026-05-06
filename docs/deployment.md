@@ -34,6 +34,8 @@ make smoke-release-profiles
 
 The image registry defaults to `workflowsa`; override it with `WORKFLOWSA_IMAGE_REGISTRY` when testing a fork or staging registry.
 
+Published image names, tag policy, and verification guidance are documented in [DOCKER_IMAGES.md](DOCKER_IMAGES.md).
+
 ## Helm
 
 The Helm chart is in `charts/workflowsa`.

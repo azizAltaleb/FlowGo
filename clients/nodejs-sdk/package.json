@@ -8,7 +8,9 @@
     "build": "tsc",
     "generate": "./generate_proto.sh",
     "start:sample": "ts-node sample/index.ts",
-    "test": "npm run build && node test/client.test.js"
+    "test": "npm run build && node test/client.test.js",
+    "validate:package": "node ../../scripts/validate_nodejs_sdk_package.mjs",
+    "prepack": "npm run build"
   },
   "keywords": [
     "workflowsa",
@@ -32,6 +34,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "dist",

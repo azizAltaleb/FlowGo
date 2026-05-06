@@ -40,9 +40,10 @@ External IAM:
 cd clients/nodejs-sdk
 npm ci
 npm test
+npm run validate:package
 WORKFLOWSA_TOKEN=<token> WORKFLOWSA_BASE_URL=http://localhost:9100/api node examples/sdk-smoke-test.js
 ```
 
 ## Publishing
 
-The package should be published from a signed release tag through GitHub Actions with npm provenance enabled.
+The package should be published from a signed release tag through GitHub Actions with npm provenance enabled. Manual workflow dispatches default to validation and package dry-run only unless publishing is explicitly enabled by maintainers.

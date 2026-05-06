@@ -11,7 +11,7 @@ This roadmap communicates the intended direction for the open-source project. It
 
 ## Near Term
 
-- **Compatibility**: publish API, worker protocol, SDK, and deployment compatibility matrix.
+- **Compatibility**: expand the API, worker protocol, SDK, and deployment compatibility matrix.
 - **Helm hardening**: production examples for external Postgres, Kafka/NATS, Elasticsearch/OpenSearch, ingress, TLS, and secrets.
 - **Observability**: finalize tracing, logs, metrics, and IAM-integrated observability guidance.
 - **Testing**: expand browser E2E, SDK conformance, Helm template, and image vulnerability gates.

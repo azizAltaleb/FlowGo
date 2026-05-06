@@ -12,6 +12,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X main.version=
 
 FROM alpine:3.22
 
+ARG VERSION=dev
+ARG REVISION=unknown
+
 WORKDIR /app
 
 RUN addgroup -S workflowsa && adduser -S -G workflowsa workflowsa
@@ -24,6 +27,8 @@ EXPOSE 8080
 LABEL org.opencontainers.image.title="Workflowsa Command Service" \
       org.opencontainers.image.description="Command API service for Workflowsa" \
       org.opencontainers.image.source="https://github.com/workflowsa/workflowsa" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}"
 
 CMD ["./workflow-command"]
