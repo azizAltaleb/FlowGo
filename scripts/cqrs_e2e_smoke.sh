@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COMPOSE_CMD="${COMPOSE_CMD:-docker-compose}"
+if [[ -n "${COMPOSE_CMD:-}" ]]; then
+  read -r -a COMPOSE_CMD_ARGS <<< "${COMPOSE_CMD}"
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD_ARGS=(docker-compose)
+elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD_ARGS=(docker compose)
+else
+  echo "docker compose is required; install docker compose or set COMPOSE_CMD" >&2
+  exit 127
+fi
 WAIT_TIMEOUT_SEC="${WAIT_TIMEOUT_SEC:-300}"
 QUERY_PAGE_SIZE="${QUERY_PAGE_SIZE:-200}"
 QUERY_MAX_PAGES="${QUERY_MAX_PAGES:-50}"
@@ -28,7 +37,7 @@ AUTH_ENFORCE_AUDIENCE="${AUTH_ENFORCE_AUDIENCE:-false}"
 export AUTH_ENFORCE_AUDIENCE
 
 compose() {
-  "${COMPOSE_CMD}" --profile full-cqrs "$@"
+  "${COMPOSE_CMD_ARGS[@]}" --profile full-cqrs "$@"
 }
 
 wait_for_http_200() {
