@@ -32,7 +32,7 @@ Validate the published-image compose override:
 make smoke-release-profiles
 ```
 
-The image registry defaults to `goflow`; override it with `GOFLOW_IMAGE_REGISTRY` when testing a fork or staging registry.
+The image registry defaults to `gofl0w`; override it with `GOFLOW_IMAGE_REGISTRY` when testing a fork or staging registry.
 
 Published image names, tag policy, and verification guidance are documented in [DOCKER_IMAGES.md](DOCKER_IMAGES.md).
 

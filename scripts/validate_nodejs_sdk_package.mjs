@@ -17,7 +17,7 @@ const packageDir = candidates.find((candidate) => {
     return false;
   }
   const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-  return pkg.name === '@goflow/nodejs-sdk';
+  return pkg.name === '@gofl0w/nodejs-sdk';
 });
 
 if (!packageDir) {
@@ -53,7 +53,7 @@ function requireArrayIncludes(field, values, expectedValues) {
   }
 }
 
-requireEqual('name', pkg.name, '@goflow/nodejs-sdk');
+requireEqual('name', pkg.name, '@gofl0w/nodejs-sdk');
 requireEqual('license', pkg.license, 'MIT');
 requireEqual('main', pkg.main, 'dist/index.js');
 requireEqual('types', pkg.types, 'dist/index.d.ts');

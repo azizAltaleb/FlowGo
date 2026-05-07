@@ -66,7 +66,7 @@ export GOFLOW_TOKEN="$(
 Use your provider-specific token endpoint, client ID, client secret, scope, and audience/resource parameter if required.
 
 ```ts
-import { GoFlowClient } from '@goflow/nodejs-sdk';
+import { GoFlowClient } from '@gofl0w/nodejs-sdk';
 
 const client = new GoFlowClient({
   baseUrl: 'http://localhost:9100/api',

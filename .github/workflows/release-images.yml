@@ -78,7 +78,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: goflow/${{ matrix.image.name }}
+          images: gofl0w/${{ matrix.image.name }}
           tags: |
             type=raw,value=${{ steps.version.outputs.tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.tag }}
@@ -104,7 +104,7 @@ jobs:
         if: ${{ steps.version.outputs.publish == 'true' }}
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: goflow/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
+          image-ref: gofl0w/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
@@ -117,4 +117,4 @@ jobs:
         if: ${{ steps.version.outputs.publish == 'true' }}
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign --yes goflow/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes gofl0w/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
