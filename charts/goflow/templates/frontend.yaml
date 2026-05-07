@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "workflowsa.frontendServiceName" . }}
+  name: {{ include "goflow.frontendServiceName" . }}
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
 spec:
   type: {{ .Values.frontend.service.type }}
@@ -12,33 +12,33 @@ spec:
       port: {{ .Values.frontend.service.port }}
       targetPort: http
   selector:
-    {{- include "workflowsa.selectorLabels" . | nindent 4 }}
+    {{- include "goflow.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "workflowsa.fullname" . }}-frontend
+  name: {{ include "goflow.fullname" . }}-frontend
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
 spec:
   replicas: {{ .Values.replicaCount.frontend }}
   selector:
     matchLabels:
-      {{- include "workflowsa.selectorLabels" . | nindent 6 }}
+      {{- include "goflow.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: frontend
   template:
     metadata:
       labels:
-        {{- include "workflowsa.selectorLabels" . | nindent 8 }}
+        {{- include "goflow.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: frontend
       {{- with .Values.global.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "workflowsa.serviceAccountName" . }}
+      serviceAccountName: {{ include "goflow.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -52,7 +52,7 @@ spec:
               containerPort: 80
           envFrom:
             - configMapRef:
-                name: {{ include "workflowsa.envConfigName" . }}
+                name: {{ include "goflow.envConfigName" . }}
           livenessProbe:
             httpGet:
               path: /
@@ -69,15 +69,15 @@ spec:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
           {{- if .Values.zitadel.enabled }}
           volumeMounts:
-            - name: workflowsa-bootstrap
-              mountPath: /workflowsa/bootstrap
+            - name: goflow-bootstrap
+              mountPath: /goflow/bootstrap
               readOnly: true
           {{- end }}
       {{- if .Values.zitadel.enabled }}
       volumes:
-        - name: workflowsa-bootstrap
+        - name: goflow-bootstrap
           persistentVolumeClaim:
-            claimName: {{ include "workflowsa.workflowsaBootstrapPvc" . }}
+            claimName: {{ include "goflow.goflowBootstrapPvc" . }}
       {{- end }}
       {{- with .Values.global.nodeSelector }}
       nodeSelector:

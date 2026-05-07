@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "workflowsa.commandServiceName" . }}
+  name: {{ include "goflow.commandServiceName" . }}
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: command
 spec:
   type: {{ .Values.command.service.type }}
@@ -12,33 +12,33 @@ spec:
       port: {{ .Values.command.service.port }}
       targetPort: http
   selector:
-    {{- include "workflowsa.selectorLabels" . | nindent 4 }}
+    {{- include "goflow.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: command
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "workflowsa.fullname" . }}-command
+  name: {{ include "goflow.fullname" . }}-command
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: command
 spec:
   replicas: {{ .Values.replicaCount.command }}
   selector:
     matchLabels:
-      {{- include "workflowsa.selectorLabels" . | nindent 6 }}
+      {{- include "goflow.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: command
   template:
     metadata:
       labels:
-        {{- include "workflowsa.selectorLabels" . | nindent 8 }}
+        {{- include "goflow.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: command
       {{- with .Values.global.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "workflowsa.serviceAccountName" . }}
+      serviceAccountName: {{ include "goflow.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -52,17 +52,17 @@ spec:
               containerPort: 8080
           envFrom:
             - configMapRef:
-                name: {{ include "workflowsa.envConfigName" . }}
+                name: {{ include "goflow.envConfigName" . }}
           env:
             - name: PG_DSN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "workflowsa.envSecretName" . }}
+                  name: {{ include "goflow.envSecretName" . }}
                   key: {{ .Values.postgresql.existingSecretKey | default "PG_DSN" }}
             - name: AUTH_INTROSPECTION_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "workflowsa.envSecretName" . }}
+                  name: {{ include "goflow.envSecretName" . }}
                   key: AUTH_INTROSPECTION_CLIENT_SECRET
                   optional: true
           livenessProbe:
@@ -83,18 +83,18 @@ spec:
           volumeMounts:
             - name: zitadel-bootstrap
               mountPath: /zitadel/bootstrap
-            - name: workflowsa-bootstrap
-              mountPath: /workflowsa/bootstrap
+            - name: goflow-bootstrap
+              mountPath: /goflow/bootstrap
               readOnly: true
           {{- end }}
       {{- if .Values.zitadel.enabled }}
       volumes:
         - name: zitadel-bootstrap
           persistentVolumeClaim:
-            claimName: {{ include "workflowsa.zitadelBootstrapPvc" . }}
-        - name: workflowsa-bootstrap
+            claimName: {{ include "goflow.zitadelBootstrapPvc" . }}
+        - name: goflow-bootstrap
           persistentVolumeClaim:
-            claimName: {{ include "workflowsa.workflowsaBootstrapPvc" . }}
+            claimName: {{ include "goflow.goflowBootstrapPvc" . }}
       {{- end }}
       {{- with .Values.global.nodeSelector }}
       nodeSelector:

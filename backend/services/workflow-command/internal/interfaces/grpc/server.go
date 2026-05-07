@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
-	pb "workflow-engine/backend/api/v1/go"
-	"workflow-engine/backend/services/workflow-command/internal/application"
+	pb "github.com/azizAltaleb/goflow/backend/api/v1/go"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/application"
 )
 
 type Server struct {

@@ -492,7 +492,7 @@ export const api = {
       body: JSON.stringify(request),
     });
     if (!response.ok) {
-      throw new Error(`Failed to create Workflowsa client token: ${response.statusText}`);
+      throw new Error(`Failed to create GoFlow client token: ${response.statusText}`);
     }
     return response.json();
   },
@@ -503,7 +503,7 @@ export const api = {
       headers: getHeaders(correlationId),
     });
     if (!response.ok) {
-      throw new Error(`Failed to fetch Workflowsa clients: ${response.statusText}`);
+      throw new Error(`Failed to fetch GoFlow clients: ${response.statusText}`);
     }
     const data = await response.json();
     return data.clients || [];
@@ -519,7 +519,7 @@ export const api = {
       body: JSON.stringify(request),
     });
     if (!response.ok) {
-      throw new Error(`Failed to rotate Workflowsa client token: ${response.statusText}`);
+      throw new Error(`Failed to rotate GoFlow client token: ${response.statusText}`);
     }
     return response.json();
   },
@@ -531,7 +531,7 @@ export const api = {
       headers: getHeaders(correlationId),
     });
     if (!response.ok) {
-      throw new Error(`Failed to revoke Workflowsa client token: ${response.statusText}`);
+      throw new Error(`Failed to revoke GoFlow client token: ${response.statusText}`);
     }
   },
 
@@ -542,7 +542,7 @@ export const api = {
       headers: getHeaders(correlationId),
     });
     if (!response.ok) {
-      throw new Error(`Failed to delete Workflowsa client: ${response.statusText}`);
+      throw new Error(`Failed to delete GoFlow client: ${response.statusText}`);
     }
   },
 

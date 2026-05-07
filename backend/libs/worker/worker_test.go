@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
-	"workflow-engine/backend/libs/model"
 )
 
 func TestWorkerRunOnceCompletesJob(t *testing.T) {

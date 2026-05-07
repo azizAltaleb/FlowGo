@@ -1,9 +1,9 @@
 package bpmn
 
 import (
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"strings"
 	"testing"
-	"workflow-engine/backend/libs/model"
 )
 
 func TestNormalizeConditionExpression(t *testing.T) {
@@ -82,22 +82,22 @@ func TestParse_NormalizesSequenceFlowConditionExpression(t *testing.T) {
 
 func TestParse_MapsExtendedElementsAndProperties(t *testing.T) {
 	xml := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:message id="Message_OrderPlaced" name="OrderPlaced"/>
   <bpmn:error id="Error_Business" errorCode="BUSINESS_ERROR"/>
   <bpmn:process id="Process_Extended" name="Extended Process" isExecutable="true">
     <bpmn:startEvent id="start" name="Start"/>
     <bpmn:eventBasedGateway id="eventGateway" name="Event Gateway"/>
-    <bpmn:receiveTask id="receive" name="Receive" messageRef="Message_OrderPlaced" workflowsa:correlationKey="orderId"/>
+    <bpmn:receiveTask id="receive" name="Receive" messageRef="Message_OrderPlaced" goflow:correlationKey="orderId"/>
     <bpmn:intermediateCatchEvent id="timerCatch" name="Wait Timer">
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT1S</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:intermediateCatchEvent>
     <bpmn:manualTask id="manual" name="Manual Review"/>
-    <bpmn:businessRuleTask id="rule" name="Decision" workflowsa:decisionRef="decision_table" workflowsa:resultVariable="decisionResult"/>
+    <bpmn:businessRuleTask id="rule" name="Decision" goflow:decisionRef="decision_table" goflow:resultVariable="decisionResult"/>
     <bpmn:callActivity id="call" name="Call Child" calledElement="ChildProcess"/>
-    <bpmn:userTask id="user" name="User Task" workflowsa:assignee="alice" workflowsa:candidateUsers="bob,charlie" workflowsa:candidateGroups="ops" workflowsa:dueDate="2026-01-01T00:00:00Z"/>
+    <bpmn:userTask id="user" name="User Task" goflow:assignee="alice" goflow:candidateUsers="bob,charlie" goflow:candidateGroups="ops" goflow:dueDate="2026-01-01T00:00:00Z"/>
     <bpmn:boundaryEvent id="boundaryTimer" attachedToRef="user" cancelActivity="false">
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT5M</bpmn:timeDuration>
@@ -321,7 +321,7 @@ func TestParse_FailsForUnsupportedSendTaskReferences(t *testing.T) {
 func TestParse_ElementTypeMatrix(t *testing.T) {
 	wrap := func(extraDefs, processBody string) string {
 		return `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_Matrix" targetNamespace="http://bpmn.io/schema/bpmn">` + extraDefs + `
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_Matrix" targetNamespace="http://bpmn.io/schema/bpmn">` + extraDefs + `
   <bpmn:process id="Process_Matrix" name="Matrix" isExecutable="true">` + processBody + `
   </bpmn:process>
 </bpmn:definitions>`
@@ -337,7 +337,7 @@ func TestParse_ElementTypeMatrix(t *testing.T) {
 		{
 			name: "service task",
 			body: `<bpmn:startEvent id="start"/>
-    <bpmn:serviceTask id="target" workflowsa:taskType="svc"/>
+    <bpmn:serviceTask id="target" goflow:taskType="svc"/>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="target"/>
     <bpmn:sequenceFlow id="f2" sourceRef="target" targetRef="end"/>`,
@@ -347,7 +347,7 @@ func TestParse_ElementTypeMatrix(t *testing.T) {
 		{
 			name: "user task",
 			body: `<bpmn:startEvent id="start"/>
-    <bpmn:userTask id="target" workflowsa:assignee="alice"/>
+    <bpmn:userTask id="target" goflow:assignee="alice"/>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="target"/>
     <bpmn:sequenceFlow id="f2" sourceRef="target" targetRef="end"/>`,
@@ -388,7 +388,7 @@ func TestParse_ElementTypeMatrix(t *testing.T) {
 		{
 			name: "business rule task",
 			body: `<bpmn:startEvent id="start"/>
-    <bpmn:businessRuleTask id="target" workflowsa:decisionRef="decision_1"/>
+    <bpmn:businessRuleTask id="target" goflow:decisionRef="decision_1"/>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="target"/>
     <bpmn:sequenceFlow id="f2" sourceRef="target" targetRef="end"/>`,
@@ -618,31 +618,31 @@ func TestParse_MapsPlainAttributeAliasesForCompatibility(t *testing.T) {
 
 func TestParse_MergesExtensionPropertiesWithoutOverridingMappedKeys(t *testing.T) {
 	xml := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_Extensions" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_Extensions" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_Extensions" name="Extensions Process" isExecutable="true">
     <bpmn:startEvent id="start">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="start_flag" value="true"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="start_flag" value="true"/>
+        </goflow:properties>
       </bpmn:extensionElements>
     </bpmn:startEvent>
 
     <bpmn:serviceTask id="service">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="taskType" value="ext_service_handler"/>
-          <workflowsa:property name="service_custom_key" value="service_custom_value"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="taskType" value="ext_service_handler"/>
+          <goflow:property name="service_custom_key" value="service_custom_value"/>
+        </goflow:properties>
       </bpmn:extensionElements>
     </bpmn:serviceTask>
 
-    <bpmn:userTask id="user" workflowsa:assignee="alice">
+    <bpmn:userTask id="user" goflow:assignee="alice">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="custom_note" value="vip_review"/>
-          <workflowsa:property name="assignee" value="bob"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="custom_note" value="vip_review"/>
+          <goflow:property name="assignee" value="bob"/>
+        </goflow:properties>
       </bpmn:extensionElements>
     </bpmn:userTask>
 
@@ -702,24 +702,24 @@ func TestParse_MergesExtensionPropertiesWithoutOverridingMappedKeys(t *testing.T
 
 func TestParse_CanonicalizesExtensionPropertyAliases(t *testing.T) {
 	xml := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_ExtAlias" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_ExtAlias" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_ExtAlias" name="Extension Alias Process" isExecutable="true">
     <bpmn:startEvent id="start"/>
 
     <bpmn:userTask id="user">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="candidateUsers" value="u1,u2"/>
-          <workflowsa:property name="dueDate" value="PT1H"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="candidateUsers" value="u1,u2"/>
+          <goflow:property name="dueDate" value="PT1H"/>
+        </goflow:properties>
       </bpmn:extensionElements>
     </bpmn:userTask>
 
     <bpmn:boundaryEvent id="boundary" attachedToRef="user">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="cancelActivity" value="false"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="cancelActivity" value="false"/>
+        </goflow:properties>
       </bpmn:extensionElements>
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT1S</bpmn:timeDuration>
@@ -762,16 +762,16 @@ func TestParse_CanonicalizesExtensionPropertyAliases(t *testing.T) {
 
 func TestParse_BoundaryCancelActivityAttributeTakesPrecedenceOverExtensionAlias(t *testing.T) {
 	xml := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_BoundaryPrecedence" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_BoundaryPrecedence" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_BoundaryPrecedence" name="Boundary Precedence" isExecutable="true">
     <bpmn:startEvent id="start"/>
     <bpmn:userTask id="user"/>
 
     <bpmn:boundaryEvent id="boundary" attachedToRef="user" cancelActivity="true">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="cancelActivity" value="false"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="cancelActivity" value="false"/>
+        </goflow:properties>
       </bpmn:extensionElements>
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT1S</bpmn:timeDuration>

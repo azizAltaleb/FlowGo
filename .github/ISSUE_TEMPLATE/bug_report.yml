@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in Workflowsa
+description: Report a reproducible problem in GoFlow
 title: "[Bug]: "
 labels:
   - bug

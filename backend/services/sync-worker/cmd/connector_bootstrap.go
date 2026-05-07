@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"workflow-engine/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
 )
 
 //go:embed connector-register.default.json

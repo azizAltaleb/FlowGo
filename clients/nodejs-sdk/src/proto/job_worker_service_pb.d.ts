@@ -1,4 +1,4 @@
-// package: workflowsa.api.v1
+// package: goflow.api.v1
 // file: job_worker_service.proto
 
 /* tslint:disable */

@@ -1,6 +1,6 @@
 # Architecture
 
-Workflowsa is an open-source BPMN workflow engine with a browser modeler, command API, runtime worker, query API, CQRS sync worker, and Node.js SDK.
+GoFlow is an open-source BPMN workflow engine with a browser modeler, command API, runtime worker, query API, CQRS sync worker, and Node.js SDK.
 
 ## Components
 

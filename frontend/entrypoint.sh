@@ -22,7 +22,7 @@ if [ -n "$oidc_client_id_file" ]; then
 fi
 
 cat > /usr/share/nginx/html/runtime-config.js <<EOF
-window.__WORKFLOWSA_RUNTIME_CONFIG__ = {
+window.__GOFLOW_RUNTIME_CONFIG__ = {
   apiUrl: "$(escape_js_string "$api_url")",
   oidcAuthority: "$(escape_js_string "$oidc_authority")",
   oidcClientId: "$(escape_js_string "$oidc_client_id")"

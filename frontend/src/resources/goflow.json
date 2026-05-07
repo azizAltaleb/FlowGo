@@ -1,7 +1,7 @@
 {
-  "name": "WorkflowSA",
-  "uri": "http://workflowsa.com/schema/1.0/bpmn",
-  "prefix": "workflowsa",
+  "name": "GoFlow",
+  "uri": "http://goflow.com/schema/1.0/bpmn",
+  "prefix": "goflow",
   "xml": {
     "tagAlias": "lowerCase"
   },

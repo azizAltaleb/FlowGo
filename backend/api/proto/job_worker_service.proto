@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package workflowsa.api.v1;
+package goflow.api.v1;
 
-option go_package = "workflow-engine/backend/api/v1/go;workflowapi";
+option go_package = "github.com/azizAltaleb/goflow/backend/api/v1/go;workflowapi";
 
 import "google/protobuf/timestamp.proto";
 

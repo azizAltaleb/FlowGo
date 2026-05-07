@@ -2,8 +2,8 @@ package application
 
 import (
 	"context"
-	"workflow-engine/backend/libs/model"
-	"workflow-engine/backend/services/workflow-query/internal/domain/repository"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/domain/repository"
 )
 
 type QueryService struct {

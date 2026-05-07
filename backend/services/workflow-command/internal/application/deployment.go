@@ -7,9 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/domain/bpmn"
 	"time"
-	"workflow-engine/backend/libs/model"
-	"workflow-engine/backend/services/workflow-command/internal/domain/bpmn"
 )
 
 func (e *Engine) DeployWorkflow(ctx context.Context, name string, steps []model.StepDefinition) (*model.WorkflowDefinition, error) {

@@ -2,9 +2,9 @@ package persistence
 
 import (
 	"context"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"testing"
 	"time"
-	"workflow-engine/backend/libs/model"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"workflow-engine/backend/libs/auth"
-	"workflow-engine/backend/libs/iam"
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/libs/model"
-	workerproto "workflow-engine/backend/libs/worker"
-	"workflow-engine/backend/services/workflow-command/internal/application"
-	"workflow-engine/backend/services/workflow-command/internal/interfaces/http/dto"
+	"github.com/azizAltaleb/goflow/backend/libs/auth"
+	"github.com/azizAltaleb/goflow/backend/libs/iam"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
+	workerproto "github.com/azizAltaleb/goflow/backend/libs/worker"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/application"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/interfaces/http/dto"
 
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
@@ -43,13 +43,13 @@ func NewHandler(e *application.Engine, identityConfig iam.DeploymentConfig) *Han
 
 func (h *Handler) RegisterRoutes(r *mux.Router) {
 	readOnly := func(fn http.HandlerFunc) http.Handler {
-		return auth.RequireAnyRole(auth.RoleWorkflowsaAdmin, auth.RoleWorkflowsaClient, auth.RoleWorkflowsaViewer)(http.HandlerFunc(fn))
+		return auth.RequireAnyRole(auth.RoleGoFlowAdmin, auth.RoleGoFlowClient, auth.RoleGoFlowViewer)(http.HandlerFunc(fn))
 	}
 	adminOnly := func(fn http.HandlerFunc) http.Handler {
-		return auth.RequireAnyRole(auth.RoleWorkflowsaAdmin)(http.HandlerFunc(fn))
+		return auth.RequireAnyRole(auth.RoleGoFlowAdmin)(http.HandlerFunc(fn))
 	}
 	adminOrClient := func(fn http.HandlerFunc) http.Handler {
-		return auth.RequireAnyRole(auth.RoleWorkflowsaAdmin, auth.RoleWorkflowsaClient)(http.HandlerFunc(fn))
+		return auth.RequireAnyRole(auth.RoleGoFlowAdmin, auth.RoleGoFlowClient)(http.HandlerFunc(fn))
 	}
 
 	r.HandleFunc("/identity/config", h.getIdentityConfig).Methods("GET")

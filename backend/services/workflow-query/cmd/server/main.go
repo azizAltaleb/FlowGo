@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"workflow-engine/backend/libs/auth"
-	esadapter "workflow-engine/backend/libs/elasticsearch"
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/services/workflow-query/internal/application"
-	"workflow-engine/backend/services/workflow-query/internal/infrastructure/persistence"
-	api "workflow-engine/backend/services/workflow-query/internal/interfaces/http"
+	"github.com/azizAltaleb/goflow/backend/libs/auth"
+	esadapter "github.com/azizAltaleb/goflow/backend/libs/elasticsearch"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/application"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/infrastructure/persistence"
+	api "github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/interfaces/http"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"

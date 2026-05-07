@@ -1,4 +1,4 @@
-# Workflowsa Roadmap
+# GoFlow Roadmap
 
 This roadmap communicates the intended direction for the open-source project. It is not a contractual commitment.
 
@@ -6,7 +6,7 @@ This roadmap communicates the intended direction for the open-source project. It
 
 - **GitHub readiness**: governance files, issue templates, security policy, dependency automation, and release notes.
 - **Docker Hub readiness**: signed multi-architecture images with SBOMs for command, runtime, query, sync-worker, and frontend.
-- **npm readiness**: public `@workflowsa/nodejs-sdk` package with package provenance.
+- **npm readiness**: public `@goflow/nodejs-sdk` package with package provenance.
 - **Documentation**: quickstart, IAM guide, SDK guide, worker API guide, Helm deployment guide, and operations runbooks.
 
 ## Near Term

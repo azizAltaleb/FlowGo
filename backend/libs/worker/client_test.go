@@ -3,10 +3,10 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"workflow-engine/backend/libs/model"
 )
 
 func TestClientActivateJobs(t *testing.T) {

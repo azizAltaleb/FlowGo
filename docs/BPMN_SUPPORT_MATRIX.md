@@ -1,6 +1,6 @@
 # BPMN Support Matrix
 
-This matrix documents the current supported BPMN feature surface for Workflowsa.
+This matrix documents the current supported BPMN feature surface for GoFlow.
 
 | BPMN feature | Status | Notes |
 | :--- | :--- | :--- |

@@ -1,4 +1,4 @@
-window.__WORKFLOWSA_RUNTIME_CONFIG__ = {
+window.__GOFLOW_RUNTIME_CONFIG__ = {
   apiUrl: "",
   oidcAuthority: "",
   oidcClientId: "",

@@ -2,9 +2,9 @@ package tests
 
 import (
 	"context"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"strconv"
 	"testing"
-	"workflow-engine/backend/libs/model"
 )
 
 func TestExclusiveGatewayExecution(t *testing.T) {

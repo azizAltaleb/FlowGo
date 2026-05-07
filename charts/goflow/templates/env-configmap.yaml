@@ -1,6 +1,6 @@
 {{- $internalIssuer := .Values.iam.auth.issuerInternalUrl -}}
 {{- if and (eq .Values.iam.mode "zitadel") (not $internalIssuer) -}}
-{{- $internalIssuer = include "workflowsa.zitadelApiUrl" . -}}
+{{- $internalIssuer = include "goflow.zitadelApiUrl" . -}}
 {{- end -}}
 {{- $publicIssuer := .Values.iam.auth.issuerPublicUrl -}}
 {{- if and (eq .Values.iam.mode "zitadel") (not $publicIssuer) -}}
@@ -12,14 +12,14 @@
 {{- end -}}
 {{- $frontendClientIDFile := .Values.iam.frontend.oidcClientIdFile -}}
 {{- if and (eq .Values.iam.mode "zitadel") (not $frontendClientIDFile) -}}
-{{- $frontendClientIDFile = "/workflowsa/bootstrap/workflowsa-frontend-client-id" -}}
+{{- $frontendClientIDFile = "/goflow/bootstrap/goflow-frontend-client-id" -}}
 {{- end -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "workflowsa.envConfigName" . }}
+  name: {{ include "goflow.envConfigName" . }}
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
 data:
   LOG_LEVEL: "INFO"
   IAM_DEPLOYMENT_MODE: {{ .Values.iam.mode | quote }}
@@ -81,7 +81,7 @@ data:
   SYNC_RETRY_BACKOFF: {{ .Values.syncWorker.env.retryBackoff | quote }}
   ALLOWED_ORIGINS: {{ .Values.cors.allowedOrigins | quote }}
   CORS_ALLOW_CREDENTIALS: {{ .Values.cors.allowCredentials | quote }}
-  ZITADEL_MANAGEMENT_URL: {{ ternary (include "workflowsa.zitadelApiUrl" .) "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}
+  ZITADEL_MANAGEMENT_URL: {{ ternary (include "goflow.zitadelApiUrl" .) "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}
   ZITADEL_PUBLIC_HOST: {{ ternary .Values.zitadel.externalDomain "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}
   ZITADEL_OWNER_PAT_FILE: {{ ternary "/zitadel/bootstrap/owner.pat" "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}
-  WORKFLOWSA_ZITADEL_BOOTSTRAP_STATE_FILE: {{ ternary "/workflowsa/bootstrap/workflowsa-zitadel.json" "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}
+  GOFLOW_ZITADEL_BOOTSTRAP_STATE_FILE: {{ ternary "/goflow/bootstrap/goflow-zitadel.json" "" (and .Values.zitadel.enabled (eq .Values.iam.mode "zitadel")) | quote }}

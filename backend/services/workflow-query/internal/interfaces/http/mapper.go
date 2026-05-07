@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"workflow-engine/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 )
 
 type InstanceResponse struct {

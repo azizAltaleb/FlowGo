@@ -3,10 +3,10 @@ package application
 import (
 	"context"
 	"fmt"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"strings"
 	"time"
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/libs/model"
 )
 
 // checkGatewayJoin checks if a gateway step is ready to proceed (Join logic)

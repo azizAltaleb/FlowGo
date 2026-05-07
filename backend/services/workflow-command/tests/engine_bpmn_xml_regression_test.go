@@ -2,11 +2,11 @@ package tests
 
 import (
 	"context"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-	"workflow-engine/backend/libs/model"
 )
 
 func TestDeployWorkflowFromBPMN_ThrowSignalTriggersCatch(t *testing.T) {
@@ -86,11 +86,11 @@ func TestDeployWorkflowFromBPMN_ThrowMessageUsesCorrelationKey(t *testing.T) {
 	e := setupTestEngine(t)
 
 	receiverXML := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_ReceiverMsg" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_ReceiverMsg" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:message id="Message_Order" name="OrderCreated"/>
   <bpmn:process id="ReceiverProcessMsg" name="ReceiverMsg" isExecutable="true">
     <bpmn:startEvent id="start"/>
-    <bpmn:receiveTask id="receiveOrder" messageRef="Message_Order" workflowsa:correlationKey="orderId"/>
+    <bpmn:receiveTask id="receiveOrder" messageRef="Message_Order" goflow:correlationKey="orderId"/>
     <bpmn:endEvent id="end"/>
 
     <bpmn:sequenceFlow id="r1" sourceRef="start" targetRef="receiveOrder"/>
@@ -113,11 +113,11 @@ func TestDeployWorkflowFromBPMN_ThrowMessageUsesCorrelationKey(t *testing.T) {
 	}
 
 	senderXML := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_SenderMsg" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_SenderMsg" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:message id="Message_Order" name="OrderCreated"/>
   <bpmn:process id="SenderProcessMsg" name="SenderMsg" isExecutable="true">
     <bpmn:startEvent id="start"/>
-    <bpmn:intermediateThrowEvent id="throwOrder" workflowsa:correlationKey="orderId">
+    <bpmn:intermediateThrowEvent id="throwOrder" goflow:correlationKey="orderId">
       <bpmn:messageEventDefinition messageRef="Message_Order"/>
     </bpmn:intermediateThrowEvent>
     <bpmn:endEvent id="end"/>
@@ -236,15 +236,15 @@ func TestDeployWorkflowFromBPMN_BoundaryCancelActivityExtensionAliasKeepsTaskAct
 	e := setupTestEngine(t)
 
 	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_BoundaryExtensionAlias" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_BoundaryExtensionAlias" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_BoundaryExtensionAlias" name="Boundary Extension Alias" isExecutable="true">
     <bpmn:startEvent id="start"/>
     <bpmn:userTask id="userTask"/>
     <bpmn:boundaryEvent id="timerBoundary" attachedToRef="userTask">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="cancelActivity" value="false"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="cancelActivity" value="false"/>
+        </goflow:properties>
       </bpmn:extensionElements>
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT0S</bpmn:timeDuration>
@@ -308,15 +308,15 @@ func TestDeployWorkflowFromBPMN_BoundaryCancelActivityAttributeTakesPrecedenceOv
 	e := setupTestEngine(t)
 
 	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_BoundaryPrecedence" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_BoundaryPrecedence" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_BoundaryPrecedence" name="Boundary Attribute Precedence" isExecutable="true">
     <bpmn:startEvent id="start"/>
     <bpmn:userTask id="userTask"/>
     <bpmn:boundaryEvent id="timerBoundary" attachedToRef="userTask" cancelActivity="true">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="cancelActivity" value="false"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="cancelActivity" value="false"/>
+        </goflow:properties>
       </bpmn:extensionElements>
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT0S</bpmn:timeDuration>
@@ -513,14 +513,14 @@ func TestDeployWorkflowFromBPMN_ServiceTaskExtensionPropertyMapsImplementation(t
 	})
 
 	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_ServiceExtensionAlias" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_ServiceExtensionAlias" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_ServiceExtensionAlias" name="Service Extension Alias" isExecutable="true">
     <bpmn:startEvent id="start"/>
     <bpmn:serviceTask id="serviceTask">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="taskType" value="ext_service_handler"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="taskType" value="ext_service_handler"/>
+        </goflow:properties>
       </bpmn:extensionElements>
     </bpmn:serviceTask>
     <bpmn:endEvent id="end"/>
@@ -557,17 +557,17 @@ func TestDeployWorkflowFromBPMN_UserTaskAssignmentFromExtensionProperties(t *tes
 	e := setupTestEngine(t)
 
 	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_UserTaskExtensions" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_UserTaskExtensions" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_UserTaskExtensions" name="User Task Extensions" isExecutable="true">
     <bpmn:startEvent id="start"/>
     <bpmn:userTask id="reviewTask">
       <bpmn:extensionElements>
-        <workflowsa:properties>
-          <workflowsa:property name="assignee" value="alice"/>
-          <workflowsa:property name="candidateUsers" value="bob,charlie"/>
-          <workflowsa:property name="candidateGroups" value="ops"/>
-          <workflowsa:property name="dueDate" value="PT1H"/>
-        </workflowsa:properties>
+        <goflow:properties>
+          <goflow:property name="assignee" value="alice"/>
+          <goflow:property name="candidateUsers" value="bob,charlie"/>
+          <goflow:property name="candidateGroups" value="ops"/>
+          <goflow:property name="dueDate" value="PT1H"/>
+        </goflow:properties>
       </bpmn:extensionElements>
     </bpmn:userTask>
     <bpmn:endEvent id="end"/>
@@ -587,7 +587,7 @@ func TestDeployWorkflowFromBPMN_UserTaskAssignmentFromExtensionProperties(t *tes
 		t.Fatalf("failed to start instance: %v", err)
 	}
 
-	jobs, err := e.ActivateJobs(context.Background(), "workflowsa:userTask", "worker-1", 1, 0, 30*time.Second)
+	jobs, err := e.ActivateJobs(context.Background(), "goflow:userTask", "worker-1", 1, 0, 30*time.Second)
 	if err != nil {
 		t.Fatalf("ActivateJobs failed: %v", err)
 	}

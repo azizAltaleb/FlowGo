@@ -34,7 +34,7 @@ import {
     WorkflowDefinition,
     WorkflowInstance,
     WorkflowSearchResponse,
-    WorkflowsaClientOptions,
+    GoFlowClientOptions,
     CompleteJobRequest,
 } from './types';
 
@@ -45,7 +45,7 @@ export const IdempotencyKeyHeader = 'Idempotency-Key';
 
 type RequestBody = unknown;
 
-export class WorkflowsaApiError extends Error {
+export class GoFlowApiError extends Error {
     public readonly status: number;
     public readonly statusText: string;
     public readonly body: string;
@@ -54,7 +54,7 @@ export class WorkflowsaApiError extends Error {
 
     constructor(method: string, path: string, response: FetchResponseLike, body: string) {
         super(`${method} ${path} returned ${response.status} ${response.statusText}${body ? `: ${body}` : ''}`);
-        this.name = 'WorkflowsaApiError';
+        this.name = 'GoFlowApiError';
         this.status = response.status;
         this.statusText = response.statusText;
         this.body = body;
@@ -63,15 +63,15 @@ export class WorkflowsaApiError extends Error {
     }
 }
 
-export class WorkflowsaClient {
+export class GoFlowClient {
     private baseUrl: string;
     private queryBaseUrl: string;
-    private token?: WorkflowsaClientOptions['token'];
-    private headers?: WorkflowsaClientOptions['headers'];
+    private token?: GoFlowClientOptions['token'];
+    private headers?: GoFlowClientOptions['headers'];
     private timeoutMs: number;
     private fetchImpl: FetchLike;
 
-    constructor(options: WorkflowsaClientOptions | string = {}) {
+    constructor(options: GoFlowClientOptions | string = {}) {
         const resolvedOptions = typeof options === 'string' ? { baseUrl: options } : options;
         this.baseUrl = normalizeBaseUrl(resolvedOptions.baseUrl || 'http://localhost:9100/api');
         this.queryBaseUrl = normalizeBaseUrl(resolvedOptions.queryBaseUrl || `${this.baseUrl}/query`);
@@ -261,7 +261,7 @@ export class WorkflowsaClient {
         return this.createIdentityClientToken(request, options);
     }
 
-    public async createWorkflowsaClientToken(request: CreateIdentityManagementClientTokenRequest, options?: RequestOptions): Promise<IdentityManagementClientToken> {
+    public async createGoFlowClientToken(request: CreateIdentityManagementClientTokenRequest, options?: RequestOptions): Promise<IdentityManagementClientToken> {
         return this.createIdentityClientToken(request, options);
     }
 
@@ -274,7 +274,7 @@ export class WorkflowsaClient {
         return this.listIdentityClients(options);
     }
 
-    public async listWorkflowsaClients(options?: RequestOptions): Promise<IdentityManagementClient[]> {
+    public async listGoFlowClients(options?: RequestOptions): Promise<IdentityManagementClient[]> {
         return this.listIdentityClients(options);
     }
 
@@ -344,7 +344,7 @@ export class WorkflowsaClient {
     }
 
     public async createIdentityRole(request: CreateIdentityManagementRoleRequest, options?: RequestOptions): Promise<IdentityManagementRole> {
-        return this.request<IdentityManagementRole>('POST', '/identity/management/roles', { ...request, group: request.group || 'Workflowsa' }, options);
+        return this.request<IdentityManagementRole>('POST', '/identity/management/roles', { ...request, group: request.group || 'GoFlow' }, options);
     }
 
     public async createIdentityManagementRole(request: CreateIdentityManagementRoleRequest, options?: RequestOptions): Promise<IdentityManagementRole> {
@@ -398,7 +398,7 @@ export class WorkflowsaClient {
             });
             const responseText = await response.text();
             if (!response.ok) {
-                throw new WorkflowsaApiError(method, path, response, responseText);
+                throw new GoFlowApiError(method, path, response, responseText);
             }
             if (response.status === 204 || responseText.trim() === '') {
                 return undefined as T;
@@ -434,7 +434,7 @@ export class WorkflowsaClient {
     }
 }
 
-export class ZeebeClient extends WorkflowsaClient {}
+export class ZeebeClient extends GoFlowClient {}
 
 function normalizeBaseUrl(value: string): string {
     return value.replace(/\/+$/, '');

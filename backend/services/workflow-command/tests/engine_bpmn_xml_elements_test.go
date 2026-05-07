@@ -2,9 +2,9 @@ package tests
 
 import (
 	"context"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"strconv"
 	"testing"
-	"workflow-engine/backend/libs/model"
 )
 
 func TestDeployWorkflowFromBPMN_CallActivityBusinessRuleAndManualTask(t *testing.T) {
@@ -24,10 +24,10 @@ func TestDeployWorkflowFromBPMN_CallActivityBusinessRuleAndManualTask(t *testing
 	}
 
 	parentXML := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:workflowsa="http://workflowsa.com/schema/1.0/bpmn" id="Definitions_Parent" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:goflow="http://goflow.com/schema/1.0/bpmn" id="Definitions_Parent" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="ParentProcess" name="Parent Process" isExecutable="true">
     <bpmn:startEvent id="start"/>
-    <bpmn:businessRuleTask id="rule" name="Rule" workflowsa:decisionRef="decision_1"/>
+    <bpmn:businessRuleTask id="rule" name="Rule" goflow:decisionRef="decision_1"/>
     <bpmn:callActivity id="callChild" name="Call Child" calledElement="ChildProcess"/>
     <bpmn:manualTask id="manualReview" name="Manual Review"/>
     <bpmn:endEvent id="end"/>

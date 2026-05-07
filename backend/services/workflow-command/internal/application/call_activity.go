@@ -3,9 +3,9 @@ package application
 import (
 	"context"
 	"fmt"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"strconv"
 	"time"
-	"workflow-engine/backend/libs/model"
 )
 
 func (e *Engine) notifyParentProcess(ctx context.Context, childInstance *model.WorkflowInstance) error {

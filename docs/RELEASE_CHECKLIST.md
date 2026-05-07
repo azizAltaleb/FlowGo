@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist before publishing a Workflowsa public release.
+Use this checklist before publishing a GoFlow public release.
 
 ## 1. Repository readiness
 
@@ -37,7 +37,7 @@ npm --prefix clients/nodejs-sdk ci
 npm --prefix clients/nodejs-sdk test
 npm --prefix clients/nodejs-sdk run validate:package
 (cd clients/nodejs-sdk && npm pack --dry-run)
-(cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev >/tmp/workflowsa-nodejs-sdk-sbom.cdx.json)
+(cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev >/tmp/goflow-nodejs-sdk-sbom.cdx.json)
 make release-dry-run
 go test ./backend/... -count=1
 ```
@@ -45,20 +45,20 @@ go test ./backend/... -count=1
 `make validate-helm` always parses chart values YAML and runs `helm lint`/`helm template` when Helm is installed. To run Helm directly:
 
 ```bash
-helm lint ./charts/workflowsa
-helm template workflowsa ./charts/workflowsa -f ./charts/workflowsa/values-external-iam.yaml >/tmp/workflowsa-external.yaml
-helm template workflowsa ./charts/workflowsa -f ./charts/workflowsa/values-internal-iam.yaml >/tmp/workflowsa-internal.yaml
+helm lint ./charts/goflow
+helm template goflow ./charts/goflow -f ./charts/goflow/values-external-iam.yaml >/tmp/goflow-external.yaml
+helm template goflow ./charts/goflow -f ./charts/goflow/values-internal-iam.yaml >/tmp/goflow-internal.yaml
 ```
 
 ## 4. Docker Hub setup
 
 Create or verify these Docker Hub repositories:
 
-- `workflowsa/workflow-command`
-- `workflowsa/workflow-runtime`
-- `workflowsa/workflow-query`
-- `workflowsa/sync-worker`
-- `workflowsa/frontend`
+- `goflow/workflow-command`
+- `goflow/workflow-runtime`
+- `goflow/workflow-query`
+- `goflow/sync-worker`
+- `goflow/frontend`
 
 Add GitHub Actions secrets:
 
@@ -69,8 +69,8 @@ Use GitHub repository settings: Settings > Secrets and variables > Actions > Rep
 
 ## 5. npm setup
 
-- Confirm the `@workflowsa` npm scope is available and owned by the release maintainers.
-- Confirm `@workflowsa/nodejs-sdk` can be published publicly.
+- Confirm the `@goflow` npm scope is available and owned by the release maintainers.
+- Confirm `@goflow/nodejs-sdk` can be published publicly.
 - Add GitHub Actions secret `NPM_TOKEN`.
 - Use GitHub repository settings: Settings > Secrets and variables > Actions > Repository secrets.
 
@@ -79,7 +79,7 @@ Use GitHub repository settings: Settings > Secrets and variables > Actions > Rep
 Create an RC tag first:
 
 ```bash
-git tag -s v0.1.0-rc.1 -m "Workflowsa v0.1.0-rc.1"
+git tag -s v0.1.0-rc.1 -m "GoFlow v0.1.0-rc.1"
 git push origin v0.1.0-rc.1
 ```
 
@@ -90,13 +90,13 @@ Verify release workflows produce signed images, SBOM/provenance attestations, an
 After images are pushed, validate the release override:
 
 ```bash
-WORKFLOWSA_IMAGE_TAG=v0.1.0-rc.1 make smoke-release-profiles
-WORKFLOWSA_IMAGE_TAG=v0.1.0-rc.1 make up-zitadel-release
+GOFLOW_IMAGE_TAG=v0.1.0-rc.1 make smoke-release-profiles
+GOFLOW_IMAGE_TAG=v0.1.0-rc.1 make up-zitadel-release
 ```
 
 Open:
 
-- Workflowsa: <http://localhost:9100>
+- GoFlow: <http://localhost:9100>
 - ZITADEL: <http://localhost:9180>
 
 Sign in with local development credentials `admin` / `admin` and run the SDK smoke test with a generated SDK token.
@@ -104,7 +104,7 @@ Sign in with local development credentials `admin` / `admin` and run the SDK smo
 ## 8. Final release
 
 ```bash
-git tag -s v0.1.0 -m "Workflowsa v0.1.0"
+git tag -s v0.1.0 -m "GoFlow v0.1.0"
 git push origin v0.1.0
 ```
 

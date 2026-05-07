@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"workflow-engine/backend/services/sync-worker/internal/infrastructure/messaging"
+	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/infrastructure/messaging"
 )
 
 func TestParseTopicsEnv_DeduplicatesAndTrims(t *testing.T) {
-	topics := parseTopicsEnv("  a.b.c , workflowsa.public.job, a.b.c , , workflowsa.public.variable ")
+	topics := parseTopicsEnv("  a.b.c , goflow.public.job, a.b.c , , goflow.public.variable ")
 	if len(topics) != 3 {
 		t.Fatalf("expected 3 unique topics, got %d (%v)", len(topics), topics)
 	}
-	if topics[0] != "a.b.c" || topics[1] != "workflowsa.public.job" || topics[2] != "workflowsa.public.variable" {
+	if topics[0] != "a.b.c" || topics[1] != "goflow.public.job" || topics[2] != "goflow.public.variable" {
 		t.Fatalf("unexpected topic ordering/content: %v", topics)
 	}
 }
@@ -177,7 +177,7 @@ func TestValidateProjectionContract(t *testing.T) {
 		{
 			name:     "hybrid accepts event plus debezium",
 			contract: "hybrid",
-			topics:   []string{"workflow.events.v1", "workflowsa.public.process_instance"},
+			topics:   []string{"workflow.events.v1", "goflow.public.process_instance"},
 			event:    "workflow.events.v1",
 		},
 		{
@@ -190,7 +190,7 @@ func TestValidateProjectionContract(t *testing.T) {
 		{
 			name:     "hybrid rejects missing event topic",
 			contract: "hybrid",
-			topics:   []string{"workflowsa.public.process_instance"},
+			topics:   []string{"goflow.public.process_instance"},
 			event:    "workflow.events.v1",
 			wantErr:  "requires event topic",
 		},
@@ -203,14 +203,14 @@ func TestValidateProjectionContract(t *testing.T) {
 		{
 			name:     "event first rejects debezium topics",
 			contract: "event-first",
-			topics:   []string{"workflow.events.v1", "workflowsa.public.variable"},
+			topics:   []string{"workflow.events.v1", "goflow.public.variable"},
 			event:    "workflow.events.v1",
 			wantErr:  "does not allow Debezium",
 		},
 		{
 			name:     "debezium contract accepts debezium only",
 			contract: "debezium",
-			topics:   []string{"workflowsa.public.process"},
+			topics:   []string{"goflow.public.process"},
 			event:    "workflow.events.v1",
 		},
 		{
@@ -223,7 +223,7 @@ func TestValidateProjectionContract(t *testing.T) {
 		{
 			name:     "unsupported contract is rejected",
 			contract: "something-else",
-			topics:   []string{"workflow.events.v1", "workflowsa.public.process"},
+			topics:   []string{"workflow.events.v1", "goflow.public.process"},
 			event:    "workflow.events.v1",
 			wantErr:  "unsupported SYNC_PROJECTION_CONTRACT",
 		},

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"workflow-engine/backend/libs/model"
-	"workflow-engine/backend/services/workflow-command/internal/domain/repository"
-	"workflow-engine/backend/services/workflow-command/internal/infrastructure/messaging"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/domain/repository"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/infrastructure/messaging"
 )
 
 // MockRepository for testing

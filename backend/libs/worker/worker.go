@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"time"
-	"workflow-engine/backend/libs/model"
 )
 
 type JobHandler func(ctx context.Context, job model.Job) (map[string]any, error)

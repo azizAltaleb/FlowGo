@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"workflow-engine/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 )
 
 var (

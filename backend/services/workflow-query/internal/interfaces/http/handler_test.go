@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/application"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/domain/repository"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
-	"workflow-engine/backend/libs/model"
-	"workflow-engine/backend/services/workflow-query/internal/application"
-	"workflow-engine/backend/services/workflow-query/internal/domain/repository"
 
 	"github.com/gorilla/mux"
 )

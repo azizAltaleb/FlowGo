@@ -32,9 +32,9 @@ RUN chmod +x /entrypoint.sh
 
 EXPOSE 80
 
-LABEL org.opencontainers.image.title="Workflowsa Frontend" \
-      org.opencontainers.image.description="Frontend UI for Workflowsa" \
-      org.opencontainers.image.source="https://github.com/workflowsa/workflowsa" \
+LABEL org.opencontainers.image.title="GoFlow Frontend" \
+      org.opencontainers.image.description="Frontend UI for GoFlow" \
+      org.opencontainers.image.source="https://github.com/goflow/goflow" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
