@@ -17,7 +17,7 @@ const packageDir = candidates.find((candidate) => {
     return false;
   }
   const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-  return pkg.name === '@workflowsa/nodejs-sdk';
+  return pkg.name === '@goflow/nodejs-sdk';
 });
 
 if (!packageDir) {
@@ -53,7 +53,7 @@ function requireArrayIncludes(field, values, expectedValues) {
   }
 }
 
-requireEqual('name', pkg.name, '@workflowsa/nodejs-sdk');
+requireEqual('name', pkg.name, '@goflow/nodejs-sdk');
 requireEqual('license', pkg.license, 'MIT');
 requireEqual('main', pkg.main, 'dist/index.js');
 requireEqual('types', pkg.types, 'dist/index.d.ts');
@@ -73,7 +73,7 @@ if (!String(pkg.engines?.node || '').includes('>=20')) {
   failures.push('engines.node must require Node.js 20 or newer');
 }
 
-requireArrayIncludes('keywords', pkg.keywords, ['workflowsa', 'workflow', 'bpmn', 'worker', 'sdk', 'oidc']);
+requireArrayIncludes('keywords', pkg.keywords, ['goflow', 'workflow', 'bpmn', 'worker', 'sdk', 'oidc']);
 requireArrayIncludes('files', pkg.files, ['dist', 'examples', 'README.md', 'LICENSE']);
 
 const requiredScripts = ['build', 'test', 'validate:package', 'prepack'];

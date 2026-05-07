@@ -2,8 +2,8 @@ package application
 
 import (
 	"context"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"strings"
-	"workflow-engine/backend/libs/model"
 )
 
 // applyInputMappings maps global/parent context variables to local task variables

@@ -2,27 +2,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "workflowsa.fullname" . }}-sync-worker
+  name: {{ include "goflow.fullname" . }}-sync-worker
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: sync-worker
 spec:
   replicas: {{ .Values.replicaCount.syncWorker }}
   selector:
     matchLabels:
-      {{- include "workflowsa.selectorLabels" . | nindent 6 }}
+      {{- include "goflow.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: sync-worker
   template:
     metadata:
       labels:
-        {{- include "workflowsa.selectorLabels" . | nindent 8 }}
+        {{- include "goflow.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: sync-worker
       {{- with .Values.global.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "workflowsa.serviceAccountName" . }}
+      serviceAccountName: {{ include "goflow.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -33,7 +33,7 @@ spec:
           imagePullPolicy: {{ .Values.images.syncWorker.pullPolicy }}
           envFrom:
             - configMapRef:
-                name: {{ include "workflowsa.envConfigName" . }}
+                name: {{ include "goflow.envConfigName" . }}
           resources:
             {{- toYaml .Values.syncWorker.resources | nindent 12 }}
       {{- with .Values.global.nodeSelector }}

@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"time"
-	"workflow-engine/backend/libs/model"
 )
 
 type Repository interface {

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"workflow-engine/backend/libs/auth"
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/services/workflow-query/internal/application"
-	"workflow-engine/backend/services/workflow-query/internal/domain/repository"
+	"github.com/azizAltaleb/goflow/backend/libs/auth"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/application"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/domain/repository"
 
 	"github.com/gorilla/mux"
 )
@@ -28,7 +28,7 @@ func NewHandler(service *application.QueryService) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r *mux.Router) {
-	readOnly := auth.RequireAnyRole(auth.RoleWorkflowsaAdmin, auth.RoleWorkflowsaClient, auth.RoleWorkflowsaViewer)
+	readOnly := auth.RequireAnyRole(auth.RoleGoFlowAdmin, auth.RoleGoFlowClient, auth.RoleGoFlowViewer)
 
 	r.Handle("/instances", readOnly(http.HandlerFunc(h.searchInstances))).Methods("GET")
 	r.Handle("/instances/{id}", readOnly(http.HandlerFunc(h.getInstance))).Methods("GET")

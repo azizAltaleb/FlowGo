@@ -2,7 +2,7 @@ package dto
 
 import (
 	"fmt"
-	"workflow-engine/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 )
 
 // ToWorkflowResponse maps internal workflow model to API response

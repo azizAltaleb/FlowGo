@@ -26,7 +26,7 @@ make cqrs-e2e-smoke
 
 ## SDK Calls Are Unauthorized
 
-- Use a machine token with the `workflowsa client` role.
+- Use a machine token with the `goflow client` role.
 - Confirm the role claim path matches `AUTH_CLAIM_ROLES_PATH`.
 - Confirm the token issuer matches `AUTH_ISSUER_PUBLIC_URL`.
 
@@ -35,8 +35,8 @@ make cqrs-e2e-smoke
 - Render templates locally:
 
 ```bash
-helm lint ./charts/workflowsa
-helm template workflowsa ./charts/workflowsa -f ./charts/workflowsa/values-external-iam.yaml
+helm lint ./charts/goflow
+helm template goflow ./charts/goflow -f ./charts/goflow/values-external-iam.yaml
 ```
 
 - Verify required external secrets exist.

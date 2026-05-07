@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/services/sync-worker/internal/application"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/application"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"

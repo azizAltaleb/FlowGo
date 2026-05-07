@@ -74,10 +74,10 @@ services:
       - "8083:8083"
     environment:
       BOOTSTRAP_SERVERS: kafka:29092
-      GROUP_ID: workflowsa-debezium
-      CONFIG_STORAGE_TOPIC: workflowsa_connect_configs
-      OFFSET_STORAGE_TOPIC: workflowsa_connect_offsets
-      STATUS_STORAGE_TOPIC: workflowsa_connect_statuses
+      GROUP_ID: goflow-debezium
+      CONFIG_STORAGE_TOPIC: goflow_connect_configs
+      OFFSET_STORAGE_TOPIC: goflow_connect_offsets
+      STATUS_STORAGE_TOPIC: goflow_connect_statuses
       KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       KEY_CONVERTER_SCHEMAS_ENABLE: "false"
@@ -104,10 +104,10 @@ services:
       IAM_DEPLOYMENT_MODE: external
       IAM_PROVIDER_NAME: External OIDC Provider
       # Example when the provider is reachable over Docker networking:
-      # AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/workflowsa
+      # AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/goflow
       AUTH_ISSUER_INTERNAL_URL: https://login.example.com
       # Example public URL seen by the browser:
-      # AUTH_ISSUER_PUBLIC_URL: https://customer-auth.example.com/realms/workflowsa
+      # AUTH_ISSUER_PUBLIC_URL: https://customer-auth.example.com/realms/goflow
       AUTH_ISSUER_PUBLIC_URL: https://login.example.com
       AUTH_CLIENT_ID: workflow-backend
       AUTH_TOKEN_MODE: jwt
@@ -117,9 +117,9 @@ services:
       AUTH_INTROSPECTION_CLIENT_SECRET: ""
       AUTH_INTROSPECTION_AUTH_METHOD: basic
       # External IAM must issue one of these roles in the configured roles claim:
-      #   workflowsa client - system/API/SDK integration
-      #   workflowsa admin  - full platform administration
-      #   workflowsa viewer - read-only platform access
+      #   goflow client - system/API/SDK integration
+      #   goflow admin  - full platform administration
+      #   goflow viewer - read-only platform access
       AUTH_CLAIM_SUBJECT_PATH: sub
       AUTH_CLAIM_ROLES_PATH: roles,realm_access.roles,groups
       AUTH_CLAIM_SCOPES_PATH: scope,scp
@@ -165,14 +165,14 @@ services:
       ES_ADDR: http://elasticsearch:9200
       SEARCH_BACKEND: elasticsearch
       QUERY_SERVER_ADDR: 0.0.0.0:8081
-      ES_INDEX_PREFIX: workflowsa
+      ES_INDEX_PREFIX: goflow
       IAM_DEPLOYMENT_MODE: external
       IAM_PROVIDER_NAME: External OIDC Provider
       # Example when the provider is reachable over Docker networking:
-      # AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/workflowsa
+      # AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/goflow
       AUTH_ISSUER_INTERNAL_URL: https://login.example.com
       # Example public URL seen by the browser:
-      # AUTH_ISSUER_PUBLIC_URL: https://customer-auth.example.com/realms/workflowsa
+      # AUTH_ISSUER_PUBLIC_URL: https://customer-auth.example.com/realms/goflow
       AUTH_ISSUER_PUBLIC_URL: https://login.example.com
       AUTH_CLIENT_ID: workflow-backend
       AUTH_TOKEN_MODE: jwt
@@ -181,9 +181,9 @@ services:
       AUTH_INTROSPECTION_CLIENT_SECRET: ""
       AUTH_INTROSPECTION_AUTH_METHOD: basic
       # External IAM must issue one of these roles in the configured roles claim:
-      #   workflowsa client - system/API/SDK integration
-      #   workflowsa admin  - full platform administration
-      #   workflowsa viewer - read-only platform access
+      #   goflow client - system/API/SDK integration
+      #   goflow admin  - full platform administration
+      #   goflow viewer - read-only platform access
       AUTH_CLAIM_SUBJECT_PATH: sub
       AUTH_CLAIM_ROLES_PATH: roles,realm_access.roles,groups
       AUTH_CLAIM_SCOPES_PATH: scope,scp
@@ -213,13 +213,13 @@ services:
       - "8092:8092"
     environment:
       KAFKA_BROKERS: kafka:29092
-      KAFKA_GROUP_ID: workflowsa-sync-worker-v8
-      KAFKA_TOPICS: workflow.events.v1,workflowsa.public.process,workflowsa.public.process_instance,workflowsa.public.element_instance,workflowsa.public.variable,workflowsa.public.job,workflowsa.public.incident,workflowsa.public.timer,workflowsa.public.message_subscription
+      KAFKA_GROUP_ID: goflow-sync-worker-v8
+      KAFKA_TOPICS: workflow.events.v1,goflow.public.process,goflow.public.process_instance,goflow.public.element_instance,goflow.public.variable,goflow.public.job,goflow.public.incident,goflow.public.timer,goflow.public.message_subscription
       SYNC_PROJECTION_CONTRACT: hybrid
       KAFKA_DLQ_TOPIC: workflow.sync.dlq
       CONNECT_BOOTSTRAP_ENABLED: "true"
       CONNECT_URL: http://connect:8083
-      CONNECTOR_NAME: workflowsa-postgres-connector
+      CONNECTOR_NAME: goflow-postgres-connector
       CONNECTOR_FILE: ""
       CONNECTOR_JSON: ""
       CONNECT_WAIT_TIMEOUT_SEC: "180"
@@ -229,7 +229,7 @@ services:
       SYNC_HEALTH_FAIL_ON_STALE: "false"
       SYNC_METRICS_ADDR: :8092
       ES_ADDR: http://elasticsearch:9200
-      ES_INDEX_PREFIX: workflowsa
+      ES_INDEX_PREFIX: goflow
     depends_on:
       kafka:
         condition: service_healthy
@@ -250,12 +250,12 @@ services:
     environment:
       VITE_API_URL: http://localhost:9100/api
       IAM_DEPLOYMENT_MODE: external
-      # Example: https://customer-auth.example.com/realms/workflowsa
+      # Example: https://customer-auth.example.com/realms/goflow
       FRONTEND_AUTH_OIDC_AUTHORITY: https://login.example.com
       # Example client id generated for a SPA or user-agent application.
       FRONTEND_AUTH_OIDC_CLIENT_ID: workflow-frontend
       # The external IAM administrator must create and assign:
-      #   workflowsa admin, workflowsa viewer, workflowsa client
+      #   goflow admin, goflow viewer, goflow client
     depends_on:
       app:
         condition: service_started

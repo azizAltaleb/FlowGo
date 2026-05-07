@@ -5,7 +5,7 @@ COMPOSE_CMD="${COMPOSE_CMD:-docker-compose}"
 POSTGRES_USER="${POSTGRES_USER:-user}"
 POSTGRES_DB="${POSTGRES_DB:-workflow_db}"
 ES_ADDR="${ES_ADDR:-http://localhost:9200}"
-ES_INDEX_PREFIX="${ES_INDEX_PREFIX:-workflowsa}"
+ES_INDEX_PREFIX="${ES_INDEX_PREFIX:-goflow}"
 INCLUDE_KEY_DIFF="${INCLUDE_KEY_DIFF:-false}"
 
 TABLES=(

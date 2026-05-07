@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"workflow-engine/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 )

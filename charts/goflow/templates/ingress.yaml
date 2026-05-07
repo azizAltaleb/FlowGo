@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "workflowsa.fullname" . }}
+  name: {{ include "goflow.fullname" . }}
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -27,7 +27,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "workflowsa.gatewayServiceName" . }}
+                name: {{ include "goflow.gatewayServiceName" . }}
                 port:
                   number: {{ .Values.gateway.service.port }}
 {{- end }}

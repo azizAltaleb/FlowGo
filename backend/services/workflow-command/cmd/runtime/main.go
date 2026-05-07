@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/libs/metrics"
-	"workflow-engine/backend/libs/tracing"
-	"workflow-engine/backend/services/workflow-command/internal/application"
-	"workflow-engine/backend/services/workflow-command/internal/infrastructure/messaging"
-	"workflow-engine/backend/services/workflow-command/internal/infrastructure/persistence"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/libs/metrics"
+	"github.com/azizAltaleb/goflow/backend/libs/tracing"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/application"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/infrastructure/messaging"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/infrastructure/persistence"
 )
 
 func main() {

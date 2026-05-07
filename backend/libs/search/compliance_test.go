@@ -3,8 +3,8 @@ package search_test
 import (
 	"context"
 	"encoding/json"
+	"github.com/azizAltaleb/goflow/backend/libs/search"
 	"testing"
-	"workflow-engine/backend/libs/search"
 )
 
 // ComplianceTestSuite defines a reusable test suite for any implementation of search.Backend.

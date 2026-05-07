@@ -12,11 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	esadapter "workflow-engine/backend/libs/elasticsearch"
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/services/sync-worker/internal/application"
-	"workflow-engine/backend/services/sync-worker/internal/infrastructure/messaging"
-	"workflow-engine/backend/services/sync-worker/internal/infrastructure/persistence"
+	esadapter "github.com/azizAltaleb/goflow/backend/libs/elasticsearch"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/application"
+	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/infrastructure/messaging"
+	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/infrastructure/persistence"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 	defer cancel()
 
 	kafkaBrokers := envOrDefault("KAFKA_BROKERS", "localhost:9092")
-	groupID := envOrDefault("KAFKA_GROUP_ID", "workflowsa-sync-worker")
+	groupID := envOrDefault("KAFKA_GROUP_ID", "goflow-sync-worker")
 	eventTopic := strings.TrimSpace(envOrDefault("KAFKA_TOPIC_EVENTS", "workflow.events.v1"))
 	projectionContract := normalizeProjectionContract(envOrDefault("SYNC_PROJECTION_CONTRACT", "hybrid"))
 	kafkaTopics := parseTopicsEnv(os.Getenv("KAFKA_TOPICS"))
@@ -56,7 +56,7 @@ func main() {
 	eventBusType := strings.ToLower(strings.TrimSpace(envOrDefault("EVENT_BUS_TYPE", "kafka")))
 	connectBootstrapEnabled := envBool("CONNECT_BOOTSTRAP_ENABLED", true)
 	connectURL := strings.TrimSpace(envOrDefault("CONNECT_URL", "http://connect:8083"))
-	connectorName := strings.TrimSpace(envOrDefault("CONNECTOR_NAME", "workflowsa-postgres-connector"))
+	connectorName := strings.TrimSpace(envOrDefault("CONNECTOR_NAME", "goflow-postgres-connector"))
 	connectorFile := strings.TrimSpace(os.Getenv("CONNECTOR_FILE"))
 	connectorJSON := strings.TrimSpace(os.Getenv("CONNECTOR_JSON"))
 	connectWaitTimeoutSec := envInt("CONNECT_WAIT_TIMEOUT_SEC", 180)

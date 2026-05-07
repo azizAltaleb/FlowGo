@@ -6,13 +6,13 @@ import (
 )
 
 const (
-	RoleWorkflowsaClient = "workflowsa client"
-	RoleWorkflowsaAdmin  = "workflowsa admin"
-	RoleWorkflowsaViewer = "workflowsa viewer"
+	RoleGoFlowClient = "goflow client"
+	RoleGoFlowAdmin  = "goflow admin"
+	RoleGoFlowViewer = "goflow viewer"
 )
 
 func StandardRoles() []string {
-	return []string{RoleWorkflowsaClient, RoleWorkflowsaAdmin, RoleWorkflowsaViewer}
+	return []string{RoleGoFlowClient, RoleGoFlowAdmin, RoleGoFlowViewer}
 }
 
 func (p Principal) HasRole(role string) bool {

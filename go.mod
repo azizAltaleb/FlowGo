@@ -1,4 +1,4 @@
-module workflow-engine
+module github.com/azizAltaleb/goflow
 
 go 1.25.0
 

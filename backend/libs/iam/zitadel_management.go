@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"workflow-engine/backend/libs/auth"
+	"github.com/azizAltaleb/goflow/backend/libs/auth"
 )
 
 var ErrZITADELManagementNotConfigured = errors.New("zitadel management is not configured")
@@ -173,9 +173,9 @@ func ResolveZITADELManagementConfigFromEnv(authConfig auth.Config, frontendConfi
 	if ownerPATFile == "" {
 		ownerPATFile = "/zitadel/bootstrap/owner.pat"
 	}
-	bootstrapStateFile := strings.TrimSpace(os.Getenv("WORKFLOWSA_ZITADEL_BOOTSTRAP_STATE_FILE"))
+	bootstrapStateFile := strings.TrimSpace(os.Getenv("GOFLOW_ZITADEL_BOOTSTRAP_STATE_FILE"))
 	if bootstrapStateFile == "" {
-		bootstrapStateFile = "/workflowsa/bootstrap/workflowsa-zitadel.json"
+		bootstrapStateFile = "/goflow/bootstrap/goflow-zitadel.json"
 	}
 	return ZITADELManagementConfig{
 		BaseURL:            strings.TrimRight(baseURL, "/"),

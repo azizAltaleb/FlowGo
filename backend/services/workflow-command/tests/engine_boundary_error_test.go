@@ -2,10 +2,10 @@ package tests
 
 import (
 	"context"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/application"
 	"strconv"
 	"testing"
-	"workflow-engine/backend/libs/model"
-	"workflow-engine/backend/services/workflow-command/internal/application"
 )
 
 func TestBoundaryErrorEventExecution(t *testing.T) {

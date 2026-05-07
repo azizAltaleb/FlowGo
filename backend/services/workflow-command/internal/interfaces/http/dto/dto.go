@@ -1,8 +1,8 @@
 package dto
 
 import (
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"time"
-	"workflow-engine/backend/libs/model"
 )
 
 // --- Workflow Definitions ---

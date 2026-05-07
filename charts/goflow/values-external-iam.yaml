@@ -28,7 +28,7 @@ zitadel:
 
 ingress:
   enabled: true
-  host: workflowsa.example.com
+  host: goflow.example.com
   tls:
     enabled: true
-    secretName: workflowsa-tls
+    secretName: goflow-tls

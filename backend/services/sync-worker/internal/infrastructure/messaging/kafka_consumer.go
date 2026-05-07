@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/services/sync-worker/internal/application"
-	"workflow-engine/backend/services/sync-worker/internal/domain/model"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/application"
+	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/domain/model"
 
 	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel"

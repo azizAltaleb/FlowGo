@@ -5,6 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/azizAltaleb/goflow/backend/libs/auth"
+	"github.com/azizAltaleb/goflow/backend/libs/iam"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
+	workerSDK "github.com/azizAltaleb/goflow/backend/libs/worker"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/application"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/infrastructure/messaging"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/infrastructure/persistence"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/interfaces/http/dto"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,14 +21,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"workflow-engine/backend/libs/auth"
-	"workflow-engine/backend/libs/iam"
-	"workflow-engine/backend/libs/model"
-	workerSDK "workflow-engine/backend/libs/worker"
-	"workflow-engine/backend/services/workflow-command/internal/application"
-	"workflow-engine/backend/services/workflow-command/internal/infrastructure/messaging"
-	"workflow-engine/backend/services/workflow-command/internal/infrastructure/persistence"
-	"workflow-engine/backend/services/workflow-command/internal/interfaces/http/dto"
 
 	"github.com/gorilla/mux"
 	"gorm.io/driver/sqlite"
@@ -33,8 +33,8 @@ func setupTestHandler(t *testing.T) *Handler {
 		ProviderName:        "Corporate OIDC",
 		ConfigurationSource: "docker-compose",
 		AuthConfig: auth.Config{
-			InternalIssuerURL:   "http://identity.internal/realms/workflowsa",
-			ExternalIssuerURL:   "https://identity.example.com/realms/workflowsa",
+			InternalIssuerURL:   "http://identity.internal/realms/goflow",
+			ExternalIssuerURL:   "https://identity.example.com/realms/goflow",
 			ClientID:            "workflow-backend",
 			TokenValidationMode: auth.TokenModeJWT,
 			EnforceAudience:     false,
@@ -48,7 +48,7 @@ func setupTestHandler(t *testing.T) *Handler {
 		},
 		FrontendConfig: iam.FrontendAuthConfig{
 			Enabled:       true,
-			OIDCAuthority: "https://identity.example.com/realms/workflowsa",
+			OIDCAuthority: "https://identity.example.com/realms/goflow",
 			OIDCClientID:  "workflow-frontend",
 		},
 	})
@@ -122,16 +122,16 @@ func TestIdentityConfigAPI(t *testing.T) {
 	if config.TokenValidationMode != auth.TokenModeJWT {
 		t.Fatalf("Expected token mode %q, got %q", auth.TokenModeJWT, config.TokenValidationMode)
 	}
-	if config.InternalIssuerURL != "http://identity.internal/realms/workflowsa" {
+	if config.InternalIssuerURL != "http://identity.internal/realms/goflow" {
 		t.Fatalf("Unexpected internal issuer %q", config.InternalIssuerURL)
 	}
-	if config.ExternalIssuerURL != "https://identity.example.com/realms/workflowsa" {
+	if config.ExternalIssuerURL != "https://identity.example.com/realms/goflow" {
 		t.Fatalf("Unexpected external issuer %q", config.ExternalIssuerURL)
 	}
 	if config.ClientID != "workflow-backend" {
 		t.Fatalf("Expected client ID workflow-backend, got %q", config.ClientID)
 	}
-	if config.FrontendOIDCAuthority != "https://identity.example.com/realms/workflowsa" {
+	if config.FrontendOIDCAuthority != "https://identity.example.com/realms/goflow" {
 		t.Fatalf("Unexpected frontend authority %q", config.FrontendOIDCAuthority)
 	}
 	if config.FrontendOIDCClientID != "workflow-frontend" {
@@ -140,8 +140,8 @@ func TestIdentityConfigAPI(t *testing.T) {
 	if len(config.StandardRoles) != 3 {
 		t.Fatalf("Expected 3 standard roles, got %#v", config.StandardRoles)
 	}
-	if config.StandardRoles[0] != auth.RoleWorkflowsaClient {
-		t.Fatalf("Expected first standard role %q, got %q", auth.RoleWorkflowsaClient, config.StandardRoles[0])
+	if config.StandardRoles[0] != auth.RoleGoFlowClient {
+		t.Fatalf("Expected first standard role %q, got %q", auth.RoleGoFlowClient, config.StandardRoles[0])
 	}
 }
 
@@ -150,7 +150,7 @@ func TestIdentityManagementRoutesExternalModeReturnNotFound(t *testing.T) {
 	r := mux.NewRouter()
 	h.RegisterRoutes(r)
 	req := httptest.NewRequest(http.MethodGet, "/identity/management/users", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleWorkflowsaAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleGoFlowAdmin}}))
 	rec := httptest.NewRecorder()
 
 	r.ServeHTTP(rec, req)
@@ -165,7 +165,7 @@ func TestIdentityManagementRoutesBundledRequireAdmin(t *testing.T) {
 	r := mux.NewRouter()
 	h.RegisterRoutes(r)
 	req := httptest.NewRequest(http.MethodGet, "/identity/management/users", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "viewer", Roles: []string{auth.RoleWorkflowsaViewer}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "viewer", Roles: []string{auth.RoleGoFlowViewer}}))
 	rec := httptest.NewRecorder()
 
 	r.ServeHTTP(rec, req)
@@ -177,7 +177,7 @@ func TestIdentityManagementRoutesBundledRequireAdmin(t *testing.T) {
 
 func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 	tokenFile := t.TempDir() + "/owner.pat"
-	stateFile := t.TempDir() + "/workflowsa-zitadel.json"
+	stateFile := t.TempDir() + "/goflow-zitadel.json"
 	if err := os.WriteFile(tokenFile, []byte("owner-token"), 0600); err != nil {
 		t.Fatalf("Failed to write owner token: %v", err)
 	}
@@ -192,9 +192,9 @@ func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/zitadel.user.v2.UserService/ListUsers":
-			_, _ = w.Write([]byte(`{"result":[{"userId":"user-1","username":"admin@example.com","preferredLoginName":"admin@example.com","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-01T00:00:00Z"},"human":{"profile":{"givenName":"Admin","familyName":"User","displayName":"Admin User"},"email":{"email":"admin@example.com","isVerified":true}}},{"userId":"user-2","username":"workflowsa-bootstrap","preferredLoginName":"workflowsa-bootstrap","state":"USER_STATE_ACTIVE","machine":{"name":"workflowsa-bootstrap"}},{"userId":"user-3","username":"login-client","preferredLoginName":"login-client","state":"USER_STATE_ACTIVE","machine":{"name":"workflow-login-client"}}]}`))
+			_, _ = w.Write([]byte(`{"result":[{"userId":"user-1","username":"admin@example.com","preferredLoginName":"admin@example.com","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-01T00:00:00Z"},"human":{"profile":{"givenName":"Admin","familyName":"User","displayName":"Admin User"},"email":{"email":"admin@example.com","isVerified":true}}},{"userId":"user-2","username":"goflow-bootstrap","preferredLoginName":"goflow-bootstrap","state":"USER_STATE_ACTIVE","machine":{"name":"goflow-bootstrap"}},{"userId":"user-3","username":"login-client","preferredLoginName":"login-client","state":"USER_STATE_ACTIVE","machine":{"name":"workflow-login-client"}}]}`))
 		case "/zitadel.authorization.v2.AuthorizationService/ListAuthorizations":
-			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"user-1"},"roles":[{"key":"workflowsa admin","displayName":"Workflowsa Admin","group":"Workflowsa"}]}]}`))
+			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"user-1"},"roles":[{"key":"goflow admin","displayName":"GoFlow Admin","group":"GoFlow"}]}]}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -212,7 +212,7 @@ func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 	r := mux.NewRouter()
 	h.RegisterRoutes(r)
 	req := httptest.NewRequest(http.MethodGet, "/identity/management/users", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleWorkflowsaAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleGoFlowAdmin}}))
 	rec := httptest.NewRecorder()
 
 	r.ServeHTTP(rec, req)
@@ -224,7 +224,7 @@ func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode users response: %v", err)
 	}
-	hiddenIdentities := []string{"workflow-login-client", "login-client", "workflowsa-bootstrap"}
+	hiddenIdentities := []string{"workflow-login-client", "login-client", "goflow-bootstrap"}
 	for _, user := range response.Users {
 		userIdentities := []string{user.Username, user.PreferredLoginName, user.DisplayName, user.Email}
 		for _, userIdentity := range userIdentities {
@@ -241,14 +241,14 @@ func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 	if response.Users[0].Email != "admin@example.com" {
 		t.Fatalf("Unexpected user email %q", response.Users[0].Email)
 	}
-	if len(response.Users[0].Roles) != 1 || response.Users[0].Roles[0] != auth.RoleWorkflowsaAdmin {
+	if len(response.Users[0].Roles) != 1 || response.Users[0].Roles[0] != auth.RoleGoFlowAdmin {
 		t.Fatalf("Unexpected user roles %#v", response.Users[0].Roles)
 	}
 }
 
 func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 	tokenFile := t.TempDir() + "/owner.pat"
-	stateFile := t.TempDir() + "/workflowsa-zitadel.json"
+	stateFile := t.TempDir() + "/goflow-zitadel.json"
 	if err := os.WriteFile(tokenFile, []byte("owner-token"), 0600); err != nil {
 		t.Fatalf("Failed to write owner token: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 	h.RegisterRoutes(r)
 	body := `{"username":"sdk-orders","name":"Orders SDK","description":"Order system","environment":"production","owner_email":"platform@example.com","purpose":"Order worker","token_expires_at":"2027-01-01T00:00:00Z"}`
 	req := httptest.NewRequest(http.MethodPost, "/identity/management/clients", strings.NewReader(body))
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleWorkflowsaAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleGoFlowAdmin}}))
 	rec := httptest.NewRecorder()
 
 	r.ServeHTTP(rec, req)
@@ -315,8 +315,8 @@ func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 	if response.ClientID != "client-user-1" || response.TokenID != "pat-1" || response.Token != "sdk-token" {
 		t.Fatalf("Unexpected client token response: %#v", response)
 	}
-	if response.Role != auth.RoleWorkflowsaClient {
-		t.Fatalf("Expected client role %q, got %q", auth.RoleWorkflowsaClient, response.Role)
+	if response.Role != auth.RoleGoFlowClient {
+		t.Fatalf("Expected client role %q, got %q", auth.RoleGoFlowClient, response.Role)
 	}
 	if createUserPayload["organizationId"] != "org-1" || createUserPayload["username"] != "sdk-orders" {
 		t.Fatalf("Unexpected create user payload: %#v", createUserPayload)
@@ -333,7 +333,7 @@ func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 		t.Fatalf("Unexpected machine payload: %#v", machine)
 	}
 	roleKeys, ok := createAuthorizationPayload["roleKeys"].([]any)
-	if !ok || len(roleKeys) != 1 || roleKeys[0] != auth.RoleWorkflowsaClient {
+	if !ok || len(roleKeys) != 1 || roleKeys[0] != auth.RoleGoFlowClient {
 		t.Fatalf("Unexpected authorization payload: %#v", createAuthorizationPayload)
 	}
 	if tokenPayload["userId"] != "client-user-1" || tokenPayload["expirationDate"] != "2027-01-01T00:00:00Z" {
@@ -343,7 +343,7 @@ func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 
 func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 	tokenFile := t.TempDir() + "/owner.pat"
-	stateFile := t.TempDir() + "/workflowsa-zitadel.json"
+	stateFile := t.TempDir() + "/goflow-zitadel.json"
 	if err := os.WriteFile(tokenFile, []byte("owner-token"), 0600); err != nil {
 		t.Fatalf("Failed to write owner token: %v", err)
 	}
@@ -361,13 +361,13 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/zitadel.user.v2.UserService/ListUsers":
-			_, _ = w.Write([]byte(`{"result":[{"userId":"client-user-1","username":"sdk-orders","preferredLoginName":"sdk-orders","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-02T00:00:00Z"},"machine":{"name":"Orders SDK","description":"workflowsa-client:{\"description\":\"Order system\",\"environment\":\"production\",\"owner_email\":\"platform@example.com\",\"purpose\":\"Order worker\"}"}},{"userId":"bootstrap","username":"workflowsa-bootstrap","state":"USER_STATE_ACTIVE","machine":{"name":"workflowsa-bootstrap"}}]}`))
+			_, _ = w.Write([]byte(`{"result":[{"userId":"client-user-1","username":"sdk-orders","preferredLoginName":"sdk-orders","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-02T00:00:00Z"},"machine":{"name":"Orders SDK","description":"goflow-client:{\"description\":\"Order system\",\"environment\":\"production\",\"owner_email\":\"platform@example.com\",\"purpose\":\"Order worker\"}"}},{"userId":"bootstrap","username":"goflow-bootstrap","state":"USER_STATE_ACTIVE","machine":{"name":"goflow-bootstrap"}}]}`))
 		case "/zitadel.authorization.v2.AuthorizationService/ListAuthorizations":
-			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-user-1"},"roles":[{"key":"workflowsa client"}]}]}`))
+			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-user-1"},"roles":[{"key":"goflow client"}]}]}`))
 		case "/zitadel.user.v2.UserService/ListPersonalAccessTokens":
 			_, _ = w.Write([]byte(`{"result":[{"id":"pat-1","userId":"client-user-1","organizationId":"org-1","creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-01T00:00:00Z","expirationDate":"2027-01-01T00:00:00Z"}]}`))
 		case "/zitadel.user.v2.UserService/GetUserByID":
-			_, _ = w.Write([]byte(`{"user":{"userId":"client-user-1","username":"sdk-orders","preferredLoginName":"sdk-orders","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-02T00:00:00Z"},"machine":{"name":"Orders SDK","description":"workflowsa-client:{\"description\":\"Order system\",\"environment\":\"production\",\"owner_email\":\"platform@example.com\",\"purpose\":\"Order worker\"}"}}}`))
+			_, _ = w.Write([]byte(`{"user":{"userId":"client-user-1","username":"sdk-orders","preferredLoginName":"sdk-orders","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-02T00:00:00Z"},"machine":{"name":"Orders SDK","description":"goflow-client:{\"description\":\"Order system\",\"environment\":\"production\",\"owner_email\":\"platform@example.com\",\"purpose\":\"Order worker\"}"}}}`))
 		case "/zitadel.user.v2.UserService/AddPersonalAccessToken":
 			if err := json.NewDecoder(r.Body).Decode(&rotatePayload); err != nil {
 				t.Fatalf("failed to decode rotate payload: %v", err)
@@ -401,7 +401,7 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 	h.RegisterRoutes(r)
 
 	req := httptest.NewRequest(http.MethodGet, "/identity/management/clients", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleWorkflowsaAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleGoFlowAdmin}}))
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -420,7 +420,7 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 
 	rotateBody := `{"token_expires_at":"2028-01-01T00:00:00Z"}`
 	req = httptest.NewRequest(http.MethodPost, "/identity/management/clients/client-user-1/tokens", strings.NewReader(rotateBody))
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleWorkflowsaAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleGoFlowAdmin}}))
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -435,7 +435,7 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodDelete, "/identity/management/clients/client-user-1/tokens/pat-1", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleWorkflowsaAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleGoFlowAdmin}}))
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
@@ -446,7 +446,7 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodDelete, "/identity/management/clients/client-user-1", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleWorkflowsaAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleGoFlowAdmin}}))
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
