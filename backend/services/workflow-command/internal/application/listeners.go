@@ -3,8 +3,8 @@ package application
 import (
 	"context"
 	"fmt"
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 )
 
 // executeTaskListeners runs registered listeners for a specific lifecycle event (create, complete, etc.)
@@ -27,8 +27,8 @@ func (e *Engine) executeTaskListeners(ctx context.Context, instance *model.Workf
 				})
 
 				// Execute the handler
-				// Note: Listeners typically shouldn't block or fail the task if they fail, 
-				// but in some engines they do. We'll log error and proceed for now, 
+				// Note: Listeners typically shouldn't block or fail the task if they fail,
+				// but in some engines they do. We'll log error and proceed for now,
 				// or fail if critical? Let's propagate error for now to allow strict validation.
 				if err := handler(ctx, instance, step); err != nil {
 					log.Error(ctx, "task listener failed", map[string]any{

@@ -8,7 +8,7 @@ The fastest path is the bundled ZITADEL Docker Compose stack.
 - Docker Compose
 - Node.js 20+ if you want to run the SDK smoke test locally
 
-## Start Workflowsa with Bundled ZITADEL
+## Start GoFlow with Bundled ZITADEL
 
 ```bash
 docker compose -f docker-compose.zitadel.yml up -d --build
@@ -16,7 +16,7 @@ docker compose -f docker-compose.zitadel.yml up -d --build
 
 Open:
 
-- Workflowsa: <http://localhost:9100>
+- GoFlow: <http://localhost:9100>
 - ZITADEL: <http://localhost:9180>
 
 The local default admin login is:
@@ -29,9 +29,9 @@ These credentials are for local development only.
 
 ## Create an SDK Client Token
 
-1. Sign in to Workflowsa as `admin`.
+1. Sign in to GoFlow as `admin`.
 2. Open the SDK Clients page.
-3. Create a client with the `workflowsa client` role.
+3. Create a client with the `goflow client` role.
 4. Copy the one-time token immediately.
 
 ## Run the Node.js SDK Smoke Test
@@ -40,7 +40,7 @@ These credentials are for local development only.
 cd clients/nodejs-sdk
 npm ci
 npm test
-WORKFLOWSA_TOKEN=<token> WORKFLOWSA_BASE_URL=http://localhost:9100/api node examples/sdk-smoke-test.js
+GOFLOW_TOKEN=<token> GOFLOW_BASE_URL=http://localhost:9100/api node examples/sdk-smoke-test.js
 ```
 
 ## Stop the Stack

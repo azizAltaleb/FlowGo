@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"workflow-engine/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
 )
 
 func TestEnsureConnectorBootstrap_Disabled(t *testing.T) {
@@ -36,7 +36,7 @@ func TestEnsureConnectorBootstrap_RegistersWhenMissing(t *testing.T) {
 			postCalls.Add(1)
 			created.Store(true)
 			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"name":"workflowsa-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"goflow-postgres-connector"}`))
 			return
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/") && strings.HasSuffix(r.URL.Path, "/status"):
 			if created.Load() {
@@ -50,7 +50,7 @@ func TestEnsureConnectorBootstrap_RegistersWhenMissing(t *testing.T) {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/"):
 			if created.Load() {
 				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(`{"name":"workflowsa-postgres-connector"}`))
+				_, _ = w.Write([]byte(`{"name":"goflow-postgres-connector"}`))
 				return
 			}
 			w.WriteHeader(http.StatusNotFound)
@@ -65,7 +65,7 @@ func TestEnsureConnectorBootstrap_RegistersWhenMissing(t *testing.T) {
 	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
 		Enabled:       true,
 		ConnectURL:    server.URL,
-		ConnectorName: "workflowsa-postgres-connector",
+		ConnectorName: "goflow-postgres-connector",
 		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
 		WaitTimeout:   2 * time.Second,
 		PollInterval:  10 * time.Millisecond,
@@ -93,12 +93,12 @@ func TestEnsureConnectorBootstrap_SkipsCreateWhenAlreadyExists(t *testing.T) {
 			return
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/"):
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"name":"workflowsa-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"goflow-postgres-connector"}`))
 			return
 		case r.Method == http.MethodPost && r.URL.Path == "/connectors":
 			postCalls.Add(1)
 			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"name":"workflowsa-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"goflow-postgres-connector"}`))
 			return
 		default:
 			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
@@ -109,7 +109,7 @@ func TestEnsureConnectorBootstrap_SkipsCreateWhenAlreadyExists(t *testing.T) {
 	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
 		Enabled:       true,
 		ConnectURL:    server.URL,
-		ConnectorName: "workflowsa-postgres-connector",
+		ConnectorName: "goflow-postgres-connector",
 		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
 		WaitTimeout:   2 * time.Second,
 		PollInterval:  10 * time.Millisecond,
@@ -153,7 +153,7 @@ func TestEnsureConnectorBootstrap_HandlesConflictAsSuccess(t *testing.T) {
 	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
 		Enabled:       true,
 		ConnectURL:    server.URL,
-		ConnectorName: "workflowsa-postgres-connector",
+		ConnectorName: "goflow-postgres-connector",
 		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
 		WaitTimeout:   2 * time.Second,
 		PollInterval:  10 * time.Millisecond,
@@ -179,7 +179,7 @@ func TestEnsureConnectorBootstrap_TimesOutWhenConnectorNotRunning(t *testing.T) 
 			return
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/"):
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"name":"workflowsa-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"goflow-postgres-connector"}`))
 			return
 		default:
 			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
@@ -190,7 +190,7 @@ func TestEnsureConnectorBootstrap_TimesOutWhenConnectorNotRunning(t *testing.T) 
 	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
 		Enabled:       true,
 		ConnectURL:    server.URL,
-		ConnectorName: "workflowsa-postgres-connector",
+		ConnectorName: "goflow-postgres-connector",
 		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
 		WaitTimeout:   200 * time.Millisecond,
 		PollInterval:  10 * time.Millisecond,
@@ -224,7 +224,7 @@ func TestBuildConnectorCreateRequest_OverridesNameAndParsesConfigOnlyPayload(t *
 
 func TestBuildConnectorCreateRequest_UsesEmbeddedDefaultWhenNoOverride(t *testing.T) {
 	request, source, err := buildConnectorCreateRequest(connectorBootstrapOptions{
-		ConnectorName: "workflowsa-postgres-connector",
+		ConnectorName: "goflow-postgres-connector",
 	})
 	if err != nil {
 		t.Fatalf("expected no error from embedded default, got %v", err)
@@ -232,7 +232,7 @@ func TestBuildConnectorCreateRequest_UsesEmbeddedDefaultWhenNoOverride(t *testin
 	if source != "embedded-default" {
 		t.Fatalf("expected embedded-default source, got %s", source)
 	}
-	if request.Name != "workflowsa-postgres-connector" {
+	if request.Name != "goflow-postgres-connector" {
 		t.Fatalf("expected connector name, got %s", request.Name)
 	}
 	if _, ok := request.Config["connector.class"]; !ok {

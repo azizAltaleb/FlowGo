@@ -3,11 +3,11 @@ package bpmn
 import (
 	"encoding/xml"
 	"fmt"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
 	"html"
 	"io"
 	"strconv"
 	"strings"
-	"workflow-engine/backend/libs/model"
 )
 
 // Definitions represents the top-level element in a BPMN 2.0 XML file.
@@ -108,9 +108,9 @@ type ServiceTask struct {
 	Name              string             `xml:"name,attr"`
 	JobType           string             `xml:"jobType,attr"`
 	ExtensionElements *ExtensionElements `xml:"extensionElements"`
-	Topic             string             `xml:"http://workflowsa.com/schema/1.0/bpmn topic,attr"`
+	Topic             string             `xml:"http://goflow.com/schema/1.0/bpmn topic,attr"`
 	PlainTopic        string             `xml:"topic,attr"`
-	TaskType          string             `xml:"http://workflowsa.com/schema/1.0/bpmn taskType,attr"`
+	TaskType          string             `xml:"http://goflow.com/schema/1.0/bpmn taskType,attr"`
 	PlainTaskType     string             `xml:"taskType,attr"`
 }
 
@@ -118,11 +118,11 @@ type ScriptTask struct {
 	ID                  string             `xml:"id,attr"`
 	Name                string             `xml:"name,attr"`
 	ExtensionElements   *ExtensionElements `xml:"extensionElements"`
-	ScriptFormat        string             `xml:"http://workflowsa.com/schema/1.0/bpmn scriptFormat,attr"`
+	ScriptFormat        string             `xml:"http://goflow.com/schema/1.0/bpmn scriptFormat,attr"`
 	PlainScriptFormat   string             `xml:"scriptFormat,attr"`
-	ResultVariable      string             `xml:"http://workflowsa.com/schema/1.0/bpmn resultVariable,attr"`
+	ResultVariable      string             `xml:"http://goflow.com/schema/1.0/bpmn resultVariable,attr"`
 	PlainResultVariable string             `xml:"resultVariable,attr"`
-	Timeout             string             `xml:"http://workflowsa.com/schema/1.0/bpmn timeout,attr"`
+	Timeout             string             `xml:"http://goflow.com/schema/1.0/bpmn timeout,attr"`
 	PlainTimeout        string             `xml:"timeout,attr"`
 	Script              string             `xml:"script"`
 }
@@ -132,12 +132,12 @@ type UserTask struct {
 	Name                 string             `xml:"name,attr"`
 	ExtensionElements    *ExtensionElements `xml:"extensionElements"`
 	Assignee             string             `xml:"assignee,attr"`
-	WorkflowAssignee     string             `xml:"http://workflowsa.com/schema/1.0/bpmn assignee,attr"`
-	CandidateUsers       string             `xml:"http://workflowsa.com/schema/1.0/bpmn candidateUsers,attr"`
+	WorkflowAssignee     string             `xml:"http://goflow.com/schema/1.0/bpmn assignee,attr"`
+	CandidateUsers       string             `xml:"http://goflow.com/schema/1.0/bpmn candidateUsers,attr"`
 	PlainCandidateUsers  string             `xml:"candidateUsers,attr"`
-	CandidateGroups      string             `xml:"http://workflowsa.com/schema/1.0/bpmn candidateGroups,attr"`
+	CandidateGroups      string             `xml:"http://goflow.com/schema/1.0/bpmn candidateGroups,attr"`
 	PlainCandidateGroups string             `xml:"candidateGroups,attr"`
-	DueDate              string             `xml:"http://workflowsa.com/schema/1.0/bpmn dueDate,attr"`
+	DueDate              string             `xml:"http://goflow.com/schema/1.0/bpmn dueDate,attr"`
 	PlainDueDate         string             `xml:"dueDate,attr"`
 }
 
@@ -146,7 +146,7 @@ type ReceiveTask struct {
 	Name                string             `xml:"name,attr"`
 	ExtensionElements   *ExtensionElements `xml:"extensionElements"`
 	MessageRef          string             `xml:"messageRef,attr"`
-	CorrelationKey      string             `xml:"http://workflowsa.com/schema/1.0/bpmn correlationKey,attr"`
+	CorrelationKey      string             `xml:"http://goflow.com/schema/1.0/bpmn correlationKey,attr"`
 	PlainCorrelationKey string             `xml:"correlationKey,attr"`
 }
 
@@ -160,9 +160,9 @@ type BusinessRuleTask struct {
 	ID                  string             `xml:"id,attr"`
 	Name                string             `xml:"name,attr"`
 	ExtensionElements   *ExtensionElements `xml:"extensionElements"`
-	DecisionRef         string             `xml:"http://workflowsa.com/schema/1.0/bpmn decisionRef,attr"`
+	DecisionRef         string             `xml:"http://goflow.com/schema/1.0/bpmn decisionRef,attr"`
 	PlainDecisionRef    string             `xml:"decisionRef,attr"`
-	ResultVariable      string             `xml:"http://workflowsa.com/schema/1.0/bpmn resultVariable,attr"`
+	ResultVariable      string             `xml:"http://goflow.com/schema/1.0/bpmn resultVariable,attr"`
 	PlainResultVariable string             `xml:"resultVariable,attr"`
 }
 
@@ -198,9 +198,9 @@ type IntermediateCatchEvent struct {
 	ID                     string                  `xml:"id,attr"`
 	Name                   string                  `xml:"name,attr"`
 	ExtensionElements      *ExtensionElements      `xml:"extensionElements"`
-	TimerDuration          string                  `xml:"http://workflowsa.com/schema/1.0/bpmn timerDuration,attr"`
+	TimerDuration          string                  `xml:"http://goflow.com/schema/1.0/bpmn timerDuration,attr"`
 	PlainTimerDuration     string                  `xml:"timerDuration,attr"`
-	CorrelationKey         string                  `xml:"http://workflowsa.com/schema/1.0/bpmn correlationKey,attr"`
+	CorrelationKey         string                  `xml:"http://goflow.com/schema/1.0/bpmn correlationKey,attr"`
 	PlainCorrelationKey    string                  `xml:"correlationKey,attr"`
 	TimerEventDefinition   *TimerEventDefinition   `xml:"timerEventDefinition"`
 	MessageEventDefinition *MessageEventDefinition `xml:"messageEventDefinition"`
@@ -211,11 +211,11 @@ type IntermediateThrowEvent struct {
 	ID                        string                     `xml:"id,attr"`
 	Name                      string                     `xml:"name,attr"`
 	ExtensionElements         *ExtensionElements         `xml:"extensionElements"`
-	CorrelationKey            string                     `xml:"http://workflowsa.com/schema/1.0/bpmn correlationKey,attr"`
+	CorrelationKey            string                     `xml:"http://goflow.com/schema/1.0/bpmn correlationKey,attr"`
 	PlainCorrelationKey       string                     `xml:"correlationKey,attr"`
-	ErrorCode                 string                     `xml:"http://workflowsa.com/schema/1.0/bpmn errorCode,attr"`
+	ErrorCode                 string                     `xml:"http://goflow.com/schema/1.0/bpmn errorCode,attr"`
 	PlainErrorCode            string                     `xml:"errorCode,attr"`
-	ErrorMessage              string                     `xml:"http://workflowsa.com/schema/1.0/bpmn errorMessage,attr"`
+	ErrorMessage              string                     `xml:"http://goflow.com/schema/1.0/bpmn errorMessage,attr"`
 	PlainErrorMessage         string                     `xml:"errorMessage,attr"`
 	MessageEventDefinition    *MessageEventDefinition    `xml:"messageEventDefinition"`
 	SignalEventDefinition     *SignalEventDefinition     `xml:"signalEventDefinition"`
@@ -229,13 +229,13 @@ type BoundaryEvent struct {
 	ExtensionElements         *ExtensionElements         `xml:"extensionElements"`
 	AttachedToRef             string                     `xml:"attachedToRef,attr"`
 	CancelActivity            string                     `xml:"cancelActivity,attr"`
-	TimerDuration             string                     `xml:"http://workflowsa.com/schema/1.0/bpmn timerDuration,attr"`
+	TimerDuration             string                     `xml:"http://goflow.com/schema/1.0/bpmn timerDuration,attr"`
 	PlainTimerDuration        string                     `xml:"timerDuration,attr"`
-	CorrelationKey            string                     `xml:"http://workflowsa.com/schema/1.0/bpmn correlationKey,attr"`
+	CorrelationKey            string                     `xml:"http://goflow.com/schema/1.0/bpmn correlationKey,attr"`
 	PlainCorrelationKey       string                     `xml:"correlationKey,attr"`
-	ErrorCode                 string                     `xml:"http://workflowsa.com/schema/1.0/bpmn errorCode,attr"`
+	ErrorCode                 string                     `xml:"http://goflow.com/schema/1.0/bpmn errorCode,attr"`
 	PlainErrorCode            string                     `xml:"errorCode,attr"`
-	ErrorMessage              string                     `xml:"http://workflowsa.com/schema/1.0/bpmn errorMessage,attr"`
+	ErrorMessage              string                     `xml:"http://goflow.com/schema/1.0/bpmn errorMessage,attr"`
 	PlainErrorMessage         string                     `xml:"errorMessage,attr"`
 	TimerEventDefinition      *TimerEventDefinition      `xml:"timerEventDefinition"`
 	MessageEventDefinition    *MessageEventDefinition    `xml:"messageEventDefinition"`
@@ -276,7 +276,7 @@ type SequenceFlow struct {
 	SourceRef           string               `xml:"sourceRef,attr"`
 	TargetRef           string               `xml:"targetRef,attr"`
 	ConditionExpression *ConditionExpression `xml:"conditionExpression"`
-	WorkflowCondition   string               `xml:"http://workflowsa.com/schema/1.0/bpmn condition,attr"`
+	WorkflowCondition   string               `xml:"http://goflow.com/schema/1.0/bpmn condition,attr"`
 }
 
 // ConditionExpression holds the logic for a conditional flow.
@@ -285,12 +285,12 @@ type ConditionExpression struct {
 }
 
 type ExtensionElements struct {
-	WorkflowProperties      *WorkflowProperties `xml:"http://workflowsa.com/schema/1.0/bpmn properties"`
+	WorkflowProperties      *WorkflowProperties `xml:"http://goflow.com/schema/1.0/bpmn properties"`
 	PlainWorkflowProperties *WorkflowProperties `xml:"properties"`
 }
 
 type WorkflowProperties struct {
-	Properties      []WorkflowProperty `xml:"http://workflowsa.com/schema/1.0/bpmn property"`
+	Properties      []WorkflowProperty `xml:"http://goflow.com/schema/1.0/bpmn property"`
 	PlainProperties []WorkflowProperty `xml:"property"`
 }
 

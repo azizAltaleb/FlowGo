@@ -47,16 +47,16 @@ if [[ "${RUN_NPM_CHECKS}" == "true" ]]; then
   run npm --prefix clients/nodejs-sdk test
   run npm --prefix clients/nodejs-sdk run validate:package
   run_in clients/nodejs-sdk npm pack --dry-run
-  echo "+ (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/workflowsa-nodejs-sdk-sbom.cdx.json)"
-  (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/workflowsa-nodejs-sdk-sbom.cdx.json)
+  echo "+ (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/goflow-nodejs-sdk-sbom.cdx.json)"
+  (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/goflow-nodejs-sdk-sbom.cdx.json)
 fi
 
 if [[ "${RUN_DOCKER_BUILDS}" == "true" ]]; then
-  run docker build -f backend/Dockerfile --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t workflowsa/workflow-command:dry-run .
-  run docker build -f backend/Dockerfile.runtime --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t workflowsa/workflow-runtime:dry-run .
-  run docker build -f backend/Dockerfile.workflow-query --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t workflowsa/workflow-query:dry-run .
-  run docker build -f backend/Dockerfile.sync-worker --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t workflowsa/sync-worker:dry-run .
-  run docker build -f frontend/Dockerfile --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t workflowsa/frontend:dry-run frontend
+  run docker build -f backend/Dockerfile --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t goflow/workflow-command:dry-run .
+  run docker build -f backend/Dockerfile.runtime --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t goflow/workflow-runtime:dry-run .
+  run docker build -f backend/Dockerfile.workflow-query --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t goflow/workflow-query:dry-run .
+  run docker build -f backend/Dockerfile.sync-worker --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t goflow/sync-worker:dry-run .
+  run docker build -f frontend/Dockerfile --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t goflow/frontend:dry-run frontend
 fi
 
 echo "Release dry run passed"

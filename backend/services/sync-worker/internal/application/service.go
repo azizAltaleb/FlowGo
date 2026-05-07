@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	pb "workflow-engine/backend/api/v1/go"
-	"workflow-engine/backend/libs/logger"
-	"workflow-engine/backend/services/sync-worker/internal/domain/model"
-	"workflow-engine/backend/services/sync-worker/internal/domain/repository"
+	pb "github.com/azizAltaleb/goflow/backend/api/v1/go"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/domain/model"
+	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/domain/repository"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -178,8 +178,8 @@ func (s *SyncService) denormalizeVariable(ctx context.Context, msg model.Debeziu
 	}
 	name := fmt.Sprint(nameVal)
 
-	// Target Index: workflowsa-process_instance
-	targetIndex := "workflowsa-process_instance"
+	// Target Index: goflow-process_instance
+	targetIndex := "goflow-process_instance"
 	if s.indexPrefix != "" {
 		targetIndex = s.indexPrefix + "-process_instance"
 	}

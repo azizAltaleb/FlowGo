@@ -1,7 +1,7 @@
 {
-  "name": "@workflowsa/nodejs-sdk",
+  "name": "@goflow/nodejs-sdk",
   "version": "0.1.0",
-  "description": "Node.js SDK for Workflowsa workflow, worker, identity, and management APIs",
+  "description": "Node.js SDK for GoFlow workflow, worker, identity, and management APIs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,24 +13,24 @@
     "prepack": "npm run build"
   },
   "keywords": [
-    "workflowsa",
+    "goflow",
     "workflow",
     "bpmn",
     "worker",
     "sdk",
     "oidc"
   ],
-  "author": "Workflowsa contributors",
+  "author": "GoFlow contributors",
   "license": "MIT",
   "type": "commonjs",
-  "homepage": "https://github.com/azizAltaleb/workflowsa#readme",
+  "homepage": "https://github.com/azizAltaleb/GoFlow#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/azizAltaleb/workflowsa.git",
+    "url": "git+https://github.com/azizAltaleb/GoFlow.git",
     "directory": "clients/nodejs-sdk"
   },
   "bugs": {
-    "url": "https://github.com/azizAltaleb/workflowsa/issues"
+    "url": "https://github.com/azizAltaleb/GoFlow/issues"
   },
   "engines": {
     "node": ">=20"

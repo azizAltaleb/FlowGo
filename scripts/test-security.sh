@@ -93,7 +93,7 @@ echo "[security] Running trivy container scan..."
   echo ""
 } >> "${REPORTS}/security.md"
 
-IMAGES=("workflowsa-app" "workflowsa-workflow-query" "workflowsa-workflow-runtime" "workflowsa-sync-worker")
+IMAGES=("goflow-app" "goflow-workflow-query" "goflow-workflow-runtime" "goflow-sync-worker")
 TRIVY_CMD=""
 
 if command -v trivy &>/dev/null; then

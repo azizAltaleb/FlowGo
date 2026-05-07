@@ -1,13 +1,13 @@
-const { WorkflowsaClient } = require('../dist');
+const { GoFlowClient } = require('../dist');
 
 const config = {
-  baseUrl: process.env.WORKFLOWSA_BASE_URL || 'http://localhost:9100/api',
-  token: process.env.WORKFLOWSA_TOKEN || '<PASTE_WORKFLOWSA_CLIENT_ACCESS_TOKEN_HERE>',
-  workflowKey: process.env.WORKFLOWSA_WORKFLOW_KEY || '<WORKFLOW_DEFINITION_KEY_OR_ID_TO_START>',
-  businessKey: process.env.WORKFLOWSA_BUSINESS_KEY || `sdk-smoke-${Date.now()}`,
-  messageName: process.env.WORKFLOWSA_MESSAGE_NAME || '<OPTIONAL_BPMN_MESSAGE_NAME>',
-  messageCorrelationKey: process.env.WORKFLOWSA_MESSAGE_CORRELATION_KEY || '<OPTIONAL_MESSAGE_CORRELATION_KEY>',
-  workerJobType: process.env.WORKFLOWSA_WORKER_JOB_TYPE || '<OPTIONAL_SERVICE_TASK_JOB_TYPE>',
+  baseUrl: process.env.GOFLOW_BASE_URL || 'http://localhost:9100/api',
+  token: process.env.GOFLOW_TOKEN || '<PASTE_GOFLOW_CLIENT_ACCESS_TOKEN_HERE>',
+  workflowKey: process.env.GOFLOW_WORKFLOW_KEY || '<WORKFLOW_DEFINITION_KEY_OR_ID_TO_START>',
+  businessKey: process.env.GOFLOW_BUSINESS_KEY || `sdk-smoke-${Date.now()}`,
+  messageName: process.env.GOFLOW_MESSAGE_NAME || '<OPTIONAL_BPMN_MESSAGE_NAME>',
+  messageCorrelationKey: process.env.GOFLOW_MESSAGE_CORRELATION_KEY || '<OPTIONAL_MESSAGE_CORRELATION_KEY>',
+  workerJobType: process.env.GOFLOW_WORKER_JOB_TYPE || '<OPTIONAL_SERVICE_TASK_JOB_TYPE>',
 };
 
 function requireValue(name, value) {
@@ -21,9 +21,9 @@ function optionalValue(value) {
 }
 
 async function main() {
-  requireValue('WORKFLOWSA_TOKEN', config.token);
+  requireValue('GOFLOW_TOKEN', config.token);
 
-  const client = new WorkflowsaClient({
+  const client = new GoFlowClient({
     baseUrl: config.baseUrl,
     token: config.token,
   });
@@ -44,7 +44,7 @@ async function main() {
     });
     console.log(JSON.stringify(instance, null, 2));
   } else {
-    console.log('3. Skipping startInstance. Set WORKFLOWSA_WORKFLOW_KEY to test workflow start.');
+    console.log('3. Skipping startInstance. Set GOFLOW_WORKFLOW_KEY to test workflow start.');
   }
 
   if (optionalValue(config.messageName) && optionalValue(config.messageCorrelationKey)) {
@@ -54,7 +54,7 @@ async function main() {
     });
     console.log(JSON.stringify(response, null, 2));
   } else {
-    console.log('4. Skipping publishMessage. Set WORKFLOWSA_MESSAGE_NAME and WORKFLOWSA_MESSAGE_CORRELATION_KEY to test messages.');
+    console.log('4. Skipping publishMessage. Set GOFLOW_MESSAGE_NAME and GOFLOW_MESSAGE_CORRELATION_KEY to test messages.');
   }
 
   if (optionalValue(config.workerJobType)) {
@@ -74,7 +74,7 @@ async function main() {
     const completedJobs = await worker.runOnce();
     console.log(`Completed jobs: ${completedJobs}`);
   } else {
-    console.log('5. Skipping worker test. Set WORKFLOWSA_WORKER_JOB_TYPE to activate and complete one job.');
+    console.log('5. Skipping worker test. Set GOFLOW_WORKER_JOB_TYPE to activate and complete one job.');
   }
 
   console.log('SDK smoke test completed.');

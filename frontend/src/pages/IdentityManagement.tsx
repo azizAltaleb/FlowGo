@@ -29,7 +29,7 @@ const emptyUser: CreateIdentityManagementUserRequest = {
 };
 
 function isAdmin(identity: IdentityResponse | null) {
-  return (identity?.principal?.roles || []).some((role) => role.toLowerCase() === "workflowsa admin");
+  return (identity?.principal?.roles || []).some((role) => role.toLowerCase() === "goflow admin");
 }
 
 function roleToggle(values: string[], role: string) {
@@ -159,7 +159,7 @@ export default function IdentityManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Identity</h2>
-          <p className="text-sm text-muted-foreground">Manage bundled ZITADEL users and Workflowsa role assignments.</p>
+          <p className="text-sm text-muted-foreground">Manage bundled ZITADEL users and GoFlow role assignments.</p>
         </div>
         <Button variant="outline" size="sm" onClick={load} disabled={saving}>
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -172,11 +172,11 @@ export default function IdentityManagement() {
       <Card>
         <CardHeader>
           <CardTitle>Access</CardTitle>
-          <CardDescription>This screen is available only in bundled ZITADEL mode for workflowsa admin users.</CardDescription>
+          <CardDescription>This screen is available only in bundled ZITADEL mode for goflow admin users.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <Badge>Bundled ZITADEL</Badge>
-          <Badge variant="success">workflowsa admin</Badge>
+          <Badge variant="success">goflow admin</Badge>
           <Badge variant="outline">{identity?.principal?.email || identity?.principal?.subject}</Badge>
         </CardContent>
       </Card>
@@ -184,7 +184,7 @@ export default function IdentityManagement() {
       <Card>
         <CardHeader>
           <CardTitle>Add user</CardTitle>
-          <CardDescription>Create a human ZITADEL user and assign Workflowsa roles.</CardDescription>
+          <CardDescription>Create a human ZITADEL user and assign GoFlow roles.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-3 md:grid-cols-2" onSubmit={submitUser}>
@@ -250,7 +250,7 @@ export default function IdentityManagement() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Roles</CardTitle><CardDescription>View, update, and delete Workflowsa project roles.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>Roles</CardTitle><CardDescription>View, update, and delete GoFlow project roles.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
           {editingRoleKey && <form className="grid gap-3 md:grid-cols-4" onSubmit={submitRoleEdit}><Input value={editingRoleKey} disabled /><Input required value={editingRole.display_name} onChange={(event) => setEditingRole({ ...editingRole, display_name: event.target.value })} /><Input value={editingRole.group} onChange={(event) => setEditingRole({ ...editingRole, group: event.target.value })} /><div className="flex gap-2"><Button type="submit" disabled={saving}>Save</Button><Button type="button" variant="outline" onClick={() => setEditingRoleKey(null)}>Cancel</Button></div></form>}
           <Table>

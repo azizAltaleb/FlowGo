@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "workflowsa.fullname" . }}-gateway-nginx
+  name: {{ include "goflow.fullname" . }}-gateway-nginx
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
 data:
   default.conf: |
@@ -15,7 +15,7 @@ data:
         client_max_body_size 20m;
 
         location / {
-            proxy_pass http://{{ include "workflowsa.frontendServiceName" . }}:{{ .Values.frontend.service.port }};
+            proxy_pass http://{{ include "goflow.frontendServiceName" . }}:{{ .Values.frontend.service.port }};
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
@@ -28,7 +28,7 @@ data:
 
         location /api/query/ {
             rewrite ^/api/query/(.*) /$1 break;
-            proxy_pass http://{{ include "workflowsa.queryServiceName" . }}:{{ .Values.query.service.port }};
+            proxy_pass http://{{ include "goflow.queryServiceName" . }}:{{ .Values.query.service.port }};
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -37,7 +37,7 @@ data:
 
         location /api/ {
             rewrite ^/api/(.*) /$1 break;
-            proxy_pass http://{{ include "workflowsa.commandServiceName" . }}:{{ .Values.command.service.port }};
+            proxy_pass http://{{ include "goflow.commandServiceName" . }}:{{ .Values.command.service.port }};
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -48,9 +48,9 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "workflowsa.gatewayServiceName" . }}
+  name: {{ include "goflow.gatewayServiceName" . }}
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
 spec:
   type: {{ .Values.gateway.service.type }}
@@ -59,33 +59,33 @@ spec:
       port: {{ .Values.gateway.service.port }}
       targetPort: http
   selector:
-    {{- include "workflowsa.selectorLabels" . | nindent 4 }}
+    {{- include "goflow.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "workflowsa.fullname" . }}-gateway
+  name: {{ include "goflow.fullname" . }}-gateway
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: gateway
 spec:
   replicas: {{ .Values.replicaCount.gateway }}
   selector:
     matchLabels:
-      {{- include "workflowsa.selectorLabels" . | nindent 6 }}
+      {{- include "goflow.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: gateway
   template:
     metadata:
       labels:
-        {{- include "workflowsa.selectorLabels" . | nindent 8 }}
+        {{- include "goflow.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: gateway
       {{- with .Values.global.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "workflowsa.serviceAccountName" . }}
+      serviceAccountName: {{ include "goflow.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -119,7 +119,7 @@ spec:
       volumes:
         - name: nginx-config
           configMap:
-            name: {{ include "workflowsa.fullname" . }}-gateway-nginx
+            name: {{ include "goflow.fullname" . }}-gateway-nginx
       {{- with .Values.global.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

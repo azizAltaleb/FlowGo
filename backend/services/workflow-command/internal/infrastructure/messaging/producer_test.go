@@ -1,8 +1,8 @@
 package messaging
 
 import (
+	workflowapi "github.com/azizAltaleb/goflow/backend/api/v1/go"
 	"testing"
-	workflowapi "workflow-engine/backend/api/v1/go"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"

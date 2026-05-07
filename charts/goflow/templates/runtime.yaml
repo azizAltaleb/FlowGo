@@ -2,27 +2,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "workflowsa.fullname" . }}-runtime
+  name: {{ include "goflow.fullname" . }}-runtime
   labels:
-    {{- include "workflowsa.labels" . | nindent 4 }}
+    {{- include "goflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: runtime
 spec:
   replicas: {{ .Values.replicaCount.runtime }}
   selector:
     matchLabels:
-      {{- include "workflowsa.selectorLabels" . | nindent 6 }}
+      {{- include "goflow.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: runtime
   template:
     metadata:
       labels:
-        {{- include "workflowsa.selectorLabels" . | nindent 8 }}
+        {{- include "goflow.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: runtime
       {{- with .Values.global.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "workflowsa.serviceAccountName" . }}
+      serviceAccountName: {{ include "goflow.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -33,14 +33,14 @@ spec:
           imagePullPolicy: {{ .Values.images.runtime.pullPolicy }}
           envFrom:
             - configMapRef:
-                name: {{ include "workflowsa.envConfigName" . }}
+                name: {{ include "goflow.envConfigName" . }}
           env:
             - name: RUNTIME_ENABLED
               value: {{ .Values.runtime.env.runtimeEnabled | quote }}
             - name: PG_DSN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "workflowsa.envSecretName" . }}
+                  name: {{ include "goflow.envSecretName" . }}
                   key: {{ .Values.postgresql.existingSecretKey | default "PG_DSN" }}
           resources:
             {{- toYaml .Values.runtime.resources | nindent 12 }}

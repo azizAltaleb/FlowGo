@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"workflow-engine/backend/libs/logger"
+	"github.com/azizAltaleb/goflow/backend/libs/logger"
 )
 
 type Middleware struct {

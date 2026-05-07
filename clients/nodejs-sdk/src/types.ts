@@ -5,7 +5,7 @@ export interface JsonObject {
 }
 export interface JsonArray extends Array<JsonValue> {}
 
-export interface WorkflowsaClientOptions {
+export interface GoFlowClientOptions {
     baseUrl?: string;
     queryBaseUrl?: string;
     token?: string | (() => string | Promise<string>);

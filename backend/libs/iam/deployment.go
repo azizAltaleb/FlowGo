@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"workflow-engine/backend/libs/auth"
+	"github.com/azizAltaleb/goflow/backend/libs/auth"
 )
 
 const (

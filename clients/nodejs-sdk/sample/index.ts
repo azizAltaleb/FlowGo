@@ -1,8 +1,8 @@
-import { WorkflowsaClient } from '../src';
+import { GoFlowClient } from '../src';
 
-const client = new WorkflowsaClient({
-    baseUrl: process.env.WORKFLOWSA_API_URL || 'http://localhost:9100/api',
-    token: process.env.WORKFLOWSA_TOKEN || '',
+const client = new GoFlowClient({
+    baseUrl: process.env.GOFLOW_API_URL || 'http://localhost:9100/api',
+    token: process.env.GOFLOW_TOKEN || '',
 });
 
 const worker = client.createWorker('payment-service', async (job) => {

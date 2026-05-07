@@ -1,6 +1,6 @@
 # Stability Policy
 
-Workflowsa is pre-1.0 software.
+GoFlow is pre-1.0 software.
 
 ## Versioning
 

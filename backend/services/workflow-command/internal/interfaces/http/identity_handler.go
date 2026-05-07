@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"workflow-engine/backend/libs/auth"
-	"workflow-engine/backend/services/workflow-command/internal/interfaces/http/dto"
+	"github.com/azizAltaleb/goflow/backend/libs/auth"
+	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/interfaces/http/dto"
 )
 
 func (h *Handler) getIdentityConfig(w http.ResponseWriter, _ *http.Request) {

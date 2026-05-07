@@ -36,8 +36,8 @@ import (
 	"log"
 	"time"
 
-	"workflow-engine/backend/libs/model"
-	"workflow-engine/backend/libs/worker"
+	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/goflow/backend/libs/worker"
 )
 
 func main() {

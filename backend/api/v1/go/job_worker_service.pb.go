@@ -629,24 +629,24 @@ func file_backend_api_proto_job_worker_service_proto_rawDescGZIP() []byte {
 
 var file_backend_api_proto_job_worker_service_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_backend_api_proto_job_worker_service_proto_goTypes = []interface{}{
-	(*ActivateJobsRequest)(nil),  // 0: workflowsa.api.v1.ActivateJobsRequest
-	(*ActivateJobsResponse)(nil), // 1: workflowsa.api.v1.ActivateJobsResponse
-	(*Job)(nil),                  // 2: workflowsa.api.v1.Job
-	(*CompleteJobRequest)(nil),   // 3: workflowsa.api.v1.CompleteJobRequest
-	(*CompleteJobResponse)(nil),  // 4: workflowsa.api.v1.CompleteJobResponse
-	(*FailJobRequest)(nil),       // 5: workflowsa.api.v1.FailJobRequest
-	(*FailJobResponse)(nil),      // 6: workflowsa.api.v1.FailJobResponse
-	nil,                          // 7: workflowsa.api.v1.Job.CustomHeadersEntry
+	(*ActivateJobsRequest)(nil),  // 0: goflow.api.v1.ActivateJobsRequest
+	(*ActivateJobsResponse)(nil), // 1: goflow.api.v1.ActivateJobsResponse
+	(*Job)(nil),                  // 2: goflow.api.v1.Job
+	(*CompleteJobRequest)(nil),   // 3: goflow.api.v1.CompleteJobRequest
+	(*CompleteJobResponse)(nil),  // 4: goflow.api.v1.CompleteJobResponse
+	(*FailJobRequest)(nil),       // 5: goflow.api.v1.FailJobRequest
+	(*FailJobResponse)(nil),      // 6: goflow.api.v1.FailJobResponse
+	nil,                          // 7: goflow.api.v1.Job.CustomHeadersEntry
 }
 var file_backend_api_proto_job_worker_service_proto_depIdxs = []int32{
-	2, // 0: workflowsa.api.v1.ActivateJobsResponse.jobs:type_name -> workflowsa.api.v1.Job
-	7, // 1: workflowsa.api.v1.Job.custom_headers:type_name -> workflowsa.api.v1.Job.CustomHeadersEntry
-	0, // 2: workflowsa.api.v1.JobWorkerService.ActivateJobs:input_type -> workflowsa.api.v1.ActivateJobsRequest
-	3, // 3: workflowsa.api.v1.JobWorkerService.CompleteJob:input_type -> workflowsa.api.v1.CompleteJobRequest
-	5, // 4: workflowsa.api.v1.JobWorkerService.FailJob:input_type -> workflowsa.api.v1.FailJobRequest
-	1, // 5: workflowsa.api.v1.JobWorkerService.ActivateJobs:output_type -> workflowsa.api.v1.ActivateJobsResponse
-	4, // 6: workflowsa.api.v1.JobWorkerService.CompleteJob:output_type -> workflowsa.api.v1.CompleteJobResponse
-	6, // 7: workflowsa.api.v1.JobWorkerService.FailJob:output_type -> workflowsa.api.v1.FailJobResponse
+	2, // 0: goflow.api.v1.ActivateJobsResponse.jobs:type_name -> goflow.api.v1.Job
+	7, // 1: goflow.api.v1.Job.custom_headers:type_name -> goflow.api.v1.Job.CustomHeadersEntry
+	0, // 2: goflow.api.v1.JobWorkerService.ActivateJobs:input_type -> goflow.api.v1.ActivateJobsRequest
+	3, // 3: goflow.api.v1.JobWorkerService.CompleteJob:input_type -> goflow.api.v1.CompleteJobRequest
+	5, // 4: goflow.api.v1.JobWorkerService.FailJob:input_type -> goflow.api.v1.FailJobRequest
+	1, // 5: goflow.api.v1.JobWorkerService.ActivateJobs:output_type -> goflow.api.v1.ActivateJobsResponse
+	4, // 6: goflow.api.v1.JobWorkerService.CompleteJob:output_type -> goflow.api.v1.CompleteJobResponse
+	6, // 7: goflow.api.v1.JobWorkerService.FailJob:output_type -> goflow.api.v1.FailJobResponse
 	5, // [5:8] is the sub-list for method output_type
 	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
