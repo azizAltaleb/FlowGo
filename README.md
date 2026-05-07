@@ -7,7 +7,7 @@ GoFlow is an open-source BPMN workflow engine with a Go backend, React modeler/a
 - **Backend**: Go, Gorilla Mux, Postgres, Kafka/NATS, Elasticsearch/OpenSearch, outbox/idempotency, and worker APIs.
 - **Frontend**: React, Vite, TypeScript, Tailwind CSS, BPMN modeler, dashboards, IAM, and SDK client management.
 - **Deployment**: Docker Compose for local/evaluation use and Helm for production Kubernetes environments.
-- **SDK**: `@goflow/nodejs-sdk` for workflow, worker, identity, and management APIs.
+- **SDK**: `@gofl0w/nodejs-sdk` for workflow, worker, identity, and management APIs.
 
 Read more in [docs/architecture.md](docs/architecture.md).
 
@@ -86,8 +86,8 @@ We provide a `Makefile` to simplify common development tasks:
 | :--- | :--- |
 | `make up` | Start the external IAM deployment |
 | `make up-zitadel` | Start the bundled ZITADEL deployment |
-| `make up-external-iam-release` | Start the external IAM deployment using published `goflow/*` images |
-| `make up-zitadel-release` | Start the bundled ZITADEL deployment using published `goflow/*` images |
+| `make up-external-iam-release` | Start the external IAM deployment using published `gofl0w/*` images |
+| `make up-zitadel-release` | Start the bundled ZITADEL deployment using published `gofl0w/*` images |
 | `docker compose -f docker-compose.external-iam.yml up -d --build` | Start the external IAM deployment |
 | `docker compose -f docker-compose.zitadel.yml up -d --build` | Start the bundled ZITADEL deployment |
 | `docker compose -f docker-compose.external-iam.yml config` | Validate the external IAM compose file |
@@ -194,7 +194,7 @@ The engine supports a wide range of BPMN 2.0 elements and advanced features:
 
 ## Node.js SDK
 
-The Node.js SDK is published as `@goflow/nodejs-sdk`.
+The Node.js SDK is published as `@gofl0w/nodejs-sdk`.
 
 Local development:
 

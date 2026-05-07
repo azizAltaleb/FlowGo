@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   publish-nodejs-sdk:
-    name: Publish @goflow/nodejs-sdk
+    name: Publish @gofl0w/nodejs-sdk
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,13 +48,13 @@ jobs:
         run: npm pack --dry-run
 
       - name: Generate package SBOM
-        run: npm sbom --sbom-format cyclonedx --omit dev > goflow-nodejs-sdk-sbom.cdx.json
+        run: npm sbom --sbom-format cyclonedx --omit dev > gofl0w-nodejs-sdk-sbom.cdx.json
 
       - name: Upload package SBOM
         uses: actions/upload-artifact@v4
         with:
-          name: goflow-nodejs-sdk-sbom
-          path: clients/nodejs-sdk/goflow-nodejs-sdk-sbom.cdx.json
+          name: gofl0w-nodejs-sdk-sbom
+          path: clients/nodejs-sdk/gofl0w-nodejs-sdk-sbom.cdx.json
           if-no-files-found: error
 
       - name: Publish

@@ -1,5 +1,5 @@
 {
-  "name": "@goflow/nodejs-sdk",
+  "name": "@gofl0w/nodejs-sdk",
   "version": "0.1.0",
   "description": "Node.js SDK for GoFlow workflow, worker, identity, and management APIs",
   "main": "dist/index.js",
@@ -23,14 +23,14 @@
   "author": "GoFlow contributors",
   "license": "MIT",
   "type": "commonjs",
-  "homepage": "https://github.com/azizAltaleb/GoFlow#readme",
+  "homepage": "https://github.com/azizAltaleb/workflowsa#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/azizAltaleb/GoFlow.git",
+    "url": "git+https://github.com/azizAltaleb/workflowsa.git",
     "directory": "clients/nodejs-sdk"
   },
   "bugs": {
-    "url": "https://github.com/azizAltaleb/GoFlow/issues"
+    "url": "https://github.com/azizAltaleb/workflowsa/issues"
   },
   "engines": {
     "node": ">=20"
