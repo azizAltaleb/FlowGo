@@ -1,11 +1,11 @@
 # Node.js SDK
 
-The Node.js SDK package is `@goflow/nodejs-sdk`.
+The Node.js SDK package is `@gofl0w/nodejs-sdk`.
 
 ## Install
 
 ```bash
-npm install @goflow/nodejs-sdk
+npm install @gofl0w/nodejs-sdk
 ```
 
 For local development from the repository:

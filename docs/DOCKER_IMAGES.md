@@ -1,16 +1,16 @@
 # Docker Images
 
-GoFlow publishes first-party images under the `goflow` Docker Hub namespace.
+GoFlow publishes first-party images under the `gofl0w` Docker Hub namespace.
 
 ## Image Repositories
 
 | Compose service | Image | Description |
 | :--- | :--- | :--- |
-| `app` | `goflow/workflow-command` | Command API, workflow deployment, runtime-facing command endpoints, and worker API. |
-| `workflow-runtime` | `goflow/workflow-runtime` | Runtime loops for timers, SLA checks, and background workflow execution. |
-| `workflow-query` | `goflow/workflow-query` | CQRS read/query API backed by Elasticsearch or OpenSearch. |
-| `sync-worker` | `goflow/sync-worker` | Debezium/Kafka projection worker for query read models. |
-| `frontend` | `goflow/frontend` | React admin/modeler UI served by NGINX. |
+| `app` | `gofl0w/workflow-command` | Command API, workflow deployment, runtime-facing command endpoints, and worker API. |
+| `workflow-runtime` | `gofl0w/workflow-runtime` | Runtime loops for timers, SLA checks, and background workflow execution. |
+| `workflow-query` | `gofl0w/workflow-query` | CQRS read/query API backed by Elasticsearch or OpenSearch. |
+| `sync-worker` | `gofl0w/sync-worker` | Debezium/Kafka projection worker for query read models. |
+| `frontend` | `gofl0w/frontend` | React admin/modeler UI served by NGINX. |
 
 ## Tags
 
@@ -33,7 +33,7 @@ GOFLOW_IMAGE_TAG=v0.1.0 make up-zitadel-release
 Use a staging registry or forked namespace with:
 
 ```bash
-GOFLOW_IMAGE_REGISTRY=example-registry/goflow GOFLOW_IMAGE_TAG=v0.1.0 make up-zitadel-release
+GOFLOW_IMAGE_REGISTRY=example-registry/gofl0w GOFLOW_IMAGE_TAG=v0.1.0 make up-zitadel-release
 ```
 
 Validate the release override without starting containers:

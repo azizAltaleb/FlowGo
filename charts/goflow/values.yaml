@@ -18,23 +18,23 @@ replicaCount:
 
 images:
   command:
-    repository: goflow/workflow-command
+    repository: gofl0w/workflow-command
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   query:
-    repository: goflow/workflow-query
+    repository: gofl0w/workflow-query
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   runtime:
-    repository: goflow/workflow-runtime
+    repository: gofl0w/workflow-runtime
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   syncWorker:
-    repository: goflow/sync-worker
+    repository: gofl0w/sync-worker
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   frontend:
-    repository: goflow/frontend
+    repository: gofl0w/frontend
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   gateway:

@@ -2,7 +2,7 @@
 
 This chart deploys GoFlow for production Kubernetes environments.
 
-Default GoFlow image repositories point to Docker Hub under `goflow/*` and use a pinned release tag. Pin image tags explicitly for production rollouts.
+Default GoFlow image repositories point to Docker Hub under `gofl0w/*` and use a pinned release tag. Pin image tags explicitly for production rollouts.
 
 ## Deployment models
 

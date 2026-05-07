@@ -37,7 +37,7 @@ npm --prefix clients/nodejs-sdk ci
 npm --prefix clients/nodejs-sdk test
 npm --prefix clients/nodejs-sdk run validate:package
 (cd clients/nodejs-sdk && npm pack --dry-run)
-(cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev >/tmp/goflow-nodejs-sdk-sbom.cdx.json)
+(cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev >/tmp/gofl0w-nodejs-sdk-sbom.cdx.json)
 make release-dry-run
 go test ./backend/... -count=1
 ```
@@ -54,11 +54,11 @@ helm template goflow ./charts/goflow -f ./charts/goflow/values-internal-iam.yaml
 
 Create or verify these Docker Hub repositories:
 
-- `goflow/workflow-command`
-- `goflow/workflow-runtime`
-- `goflow/workflow-query`
-- `goflow/sync-worker`
-- `goflow/frontend`
+- `gofl0w/workflow-command`
+- `gofl0w/workflow-runtime`
+- `gofl0w/workflow-query`
+- `gofl0w/sync-worker`
+- `gofl0w/frontend`
 
 Add GitHub Actions secrets:
 
@@ -69,8 +69,8 @@ Use GitHub repository settings: Settings > Secrets and variables > Actions > Rep
 
 ## 5. npm setup
 
-- Confirm the `@goflow` npm scope is available and owned by the release maintainers.
-- Confirm `@goflow/nodejs-sdk` can be published publicly.
+- Confirm the `@gofl0w` npm scope is available and owned by the release maintainers.
+- Confirm `@gofl0w/nodejs-sdk` can be published publicly.
 - Add GitHub Actions secret `NPM_TOKEN`.
 - Use GitHub repository settings: Settings > Secrets and variables > Actions > Repository secrets.
 

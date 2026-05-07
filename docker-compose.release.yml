@@ -1,20 +1,20 @@
 services:
   app:
-    image: ${GOFLOW_IMAGE_REGISTRY:-goflow}/workflow-command:${GOFLOW_IMAGE_TAG:-0.1.0}
+    image: ${GOFLOW_IMAGE_REGISTRY:-gofl0w}/workflow-command:${GOFLOW_IMAGE_TAG:-0.1.0}
     build: !reset null
 
   workflow-runtime:
-    image: ${GOFLOW_IMAGE_REGISTRY:-goflow}/workflow-runtime:${GOFLOW_IMAGE_TAG:-0.1.0}
+    image: ${GOFLOW_IMAGE_REGISTRY:-gofl0w}/workflow-runtime:${GOFLOW_IMAGE_TAG:-0.1.0}
     build: !reset null
 
   workflow-query:
-    image: ${GOFLOW_IMAGE_REGISTRY:-goflow}/workflow-query:${GOFLOW_IMAGE_TAG:-0.1.0}
+    image: ${GOFLOW_IMAGE_REGISTRY:-gofl0w}/workflow-query:${GOFLOW_IMAGE_TAG:-0.1.0}
     build: !reset null
 
   sync-worker:
-    image: ${GOFLOW_IMAGE_REGISTRY:-goflow}/sync-worker:${GOFLOW_IMAGE_TAG:-0.1.0}
+    image: ${GOFLOW_IMAGE_REGISTRY:-gofl0w}/sync-worker:${GOFLOW_IMAGE_TAG:-0.1.0}
     build: !reset null
 
   frontend:
-    image: ${GOFLOW_IMAGE_REGISTRY:-goflow}/frontend:${GOFLOW_IMAGE_TAG:-0.1.0}
+    image: ${GOFLOW_IMAGE_REGISTRY:-gofl0w}/frontend:${GOFLOW_IMAGE_TAG:-0.1.0}
     build: !reset null
