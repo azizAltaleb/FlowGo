@@ -26,7 +26,7 @@ EXPOSE 8081
 
 LABEL org.opencontainers.image.title="GoFlow Query Service" \
       org.opencontainers.image.description="Read/query API service for GoFlow" \
-      org.opencontainers.image.source="https://github.com/azizAltaleb/workflowsa" \
+      org.opencontainers.image.source="https://github.com/azizAltaleb/GoFlow" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
