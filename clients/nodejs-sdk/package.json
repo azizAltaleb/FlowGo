@@ -1,5 +1,5 @@
 {
-  "name": "@gofl0w/nodejs-sdk",
+  "name": "@goflow/nodejs-sdk",
   "version": "0.1.0",
   "description": "Node.js SDK for GoFlow workflow, worker, identity, and management APIs",
   "main": "dist/index.js",
