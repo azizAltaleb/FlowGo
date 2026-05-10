@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25.10-alpine AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ USER goflow
 
 LABEL org.opencontainers.image.title="GoFlow Runtime" \
       org.opencontainers.image.description="Workflow runtime service for GoFlow" \
-      org.opencontainers.image.source="https://github.com/azizAltaleb/workflowsa" \
+      org.opencontainers.image.source="https://github.com/azizAltaleb/GoFlow" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"

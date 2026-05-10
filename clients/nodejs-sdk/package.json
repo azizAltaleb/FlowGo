@@ -23,14 +23,14 @@
   "author": "GoFlow contributors",
   "license": "MIT",
   "type": "commonjs",
-  "homepage": "https://github.com/azizAltaleb/workflowsa#readme",
+  "homepage": "https://github.com/azizAltaleb/GoFlow#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/azizAltaleb/workflowsa.git",
+    "url": "git+https://github.com/azizAltaleb/GoFlow.git",
     "directory": "clients/nodejs-sdk"
   },
   "bugs": {
-    "url": "https://github.com/azizAltaleb/workflowsa/issues"
+    "url": "https://github.com/azizAltaleb/GoFlow/issues"
   },
   "engines": {
     "node": ">=20"

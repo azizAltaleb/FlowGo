@@ -434,8 +434,6 @@ export class GoFlowClient {
     }
 }
 
-export class ZeebeClient extends GoFlowClient {}
-
 function normalizeBaseUrl(value: string): string {
     return value.replace(/\/+$/, '');
 }
