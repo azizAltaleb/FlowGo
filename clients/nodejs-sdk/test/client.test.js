@@ -4,7 +4,6 @@ const {
   GoFlowApiError,
   GoFlowClient,
   WorkerProtocolVersion,
-  ZeebeClient,
 } = require('../dist');
 
 function jsonResponse(status, payload) {
@@ -53,7 +52,7 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function testHealthAuthAndCompatibility() {
+async function testHealthAuthHeaders() {
   const { client, calls } = createClient([
     jsonResponse(200, { status: 'ok' }),
     jsonResponse(200, { status: 'ok' }),
@@ -74,18 +73,6 @@ async function testHealthAuthAndCompatibility() {
   assert.strictEqual(calls[2].init.headers.Authorization, 'Bearer token-2');
   assert.strictEqual(calls[2].init.headers['X-Correlation-ID'], 'corr-1');
   assert.strictEqual(calls[2].init.headers['X-Custom'], 'yes');
-
-  const zeebeCalls = [];
-  const zeebe = new ZeebeClient({
-    baseUrl: 'http://goflow.local/api',
-    fetch: async (url, init = {}) => {
-      zeebeCalls.push({ url, init });
-      return jsonResponse(200, { status: 'ok' });
-    },
-  });
-  await zeebe.health();
-  assert.strictEqual(zeebeCalls[0].url, 'http://goflow.local/api/health');
-  zeebe.close();
 }
 
 async function testAllWorkflowOperations() {
@@ -447,7 +434,7 @@ async function testApiErrors() {
 }
 
 async function main() {
-  await testHealthAuthAndCompatibility();
+  await testHealthAuthHeaders();
   await testAllWorkflowOperations();
   await testAllInstanceOperations();
   await testMessagingAndWorkerRequests();

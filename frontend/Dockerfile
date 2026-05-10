@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -34,7 +34,7 @@ EXPOSE 80
 
 LABEL org.opencontainers.image.title="GoFlow Frontend" \
       org.opencontainers.image.description="Frontend UI for GoFlow" \
-      org.opencontainers.image.source="https://github.com/azizAltaleb/workflowsa" \
+      org.opencontainers.image.source="https://github.com/azizAltaleb/GoFlow" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
