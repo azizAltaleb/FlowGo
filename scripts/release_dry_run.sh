@@ -47,8 +47,8 @@ if [[ "${RUN_NPM_CHECKS}" == "true" ]]; then
   run npm --prefix clients/nodejs-sdk test
   run npm --prefix clients/nodejs-sdk run validate:package
   run_in clients/nodejs-sdk npm pack --dry-run
-  echo "+ (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/gofl0w-nodejs-sdk-sbom.cdx.json)"
-  (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/gofl0w-nodejs-sdk-sbom.cdx.json)
+  echo "+ (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/goflow-nodejs-sdk-sbom.cdx.json)"
+  (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/goflow-nodejs-sdk-sbom.cdx.json)
 fi
 
 if [[ "${RUN_DOCKER_BUILDS}" == "true" ]]; then

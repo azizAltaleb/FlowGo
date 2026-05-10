@@ -10,7 +10,7 @@ GoFlow is pre-1.0 software. Compatibility guarantees are conservative until the 
 | Command API | `v1` routes and generated protobuf API | Additive changes are preferred. Breaking changes require release notes. |
 | Query API | `v1` HTTP responses | Response fields may be added. Existing field meaning should remain stable. |
 | Worker API | Protocol headers and `/jobs/*` endpoints | Wire compatibility is protected by conformance checks. |
-| Node.js SDK | `@gofl0w/nodejs-sdk@0.1.x` | Patch releases should preserve public method signatures where practical. |
+| Node.js SDK | `@goflow/nodejs-sdk@0.1.x` | Patch releases should preserve public method signatures where practical. |
 | Docker images | `gofl0w/*:v0.1.x` | Image environment variables and exposed ports should stay stable within a minor line. |
 | Helm chart | `charts/goflow` `0.1.x` | Values may be added. Renames/removals require migration notes. |
 
@@ -38,7 +38,7 @@ GoFlow is pre-1.0 software. Compatibility guarantees are conservative until the 
 
 | SDK package | Compatible platform target | Notes |
 | :--- | :--- | :--- |
-| `@gofl0w/nodejs-sdk@0.1.x` | GoFlow `v0.1.x` | Use Node.js 20 or newer. |
+| `@goflow/nodejs-sdk@0.1.x` | GoFlow `v0.1.x` | Use Node.js 20 or newer. |
 
 The SDK can target local Compose through `GOFLOW_BASE_URL=http://localhost:9100/api` and a token with the `goflow client` role.
 
