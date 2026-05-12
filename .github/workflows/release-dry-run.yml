@@ -26,6 +26,6 @@ jobs:
 
       - name: Run release dry run
         env:
-          VERSION: 0.1.0-dry-run
+          VERSION: 0.1.1-dry-run
           REVISION: ${{ github.sha }}
         run: bash scripts/release_dry_run.sh
