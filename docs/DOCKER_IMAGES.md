@@ -16,7 +16,7 @@ FlowGo publishes first-party images under the `flowgo` Docker Hub namespace.
 
 | Tag | Meaning |
 | :--- | :--- |
-| `v0.1.0` | Exact release tag. Prefer this for reproducible deployments. |
+| `v0.1.1` | Exact FlowGo release tag. Prefer this for reproducible deployments. |
 | `0.1` | Latest patch in the `0.1` line. |
 | `latest` | Optional convenience tag only after the release policy is explicitly enabled. |
 
@@ -27,13 +27,13 @@ Production deployments should pin exact version tags or image digests.
 Use the release override to switch local builds to published images:
 
 ```bash
-FLOWGO_IMAGE_TAG=v0.1.0 make up-zitadel-release
+FLOWGO_IMAGE_TAG=v0.1.1 make up-zitadel-release
 ```
 
 Use a staging registry or forked namespace with:
 
 ```bash
-FLOWGO_IMAGE_REGISTRY=example-registry/flowgo FLOWGO_IMAGE_TAG=v0.1.0 make up-zitadel-release
+FLOWGO_IMAGE_REGISTRY=example-registry/flowgo FLOWGO_IMAGE_TAG=v0.1.1 make up-zitadel-release
 ```
 
 Validate the release override without starting containers:

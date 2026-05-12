@@ -1,20 +1,20 @@
 services:
   app:
-    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/workflow-command:${FLOWGO_IMAGE_TAG:-0.1.0}
+    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/workflow-command:${FLOWGO_IMAGE_TAG:-0.1.1}
     build: !reset null
 
   workflow-runtime:
-    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/workflow-runtime:${FLOWGO_IMAGE_TAG:-0.1.0}
+    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/workflow-runtime:${FLOWGO_IMAGE_TAG:-0.1.1}
     build: !reset null
 
   workflow-query:
-    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/workflow-query:${FLOWGO_IMAGE_TAG:-0.1.0}
+    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/workflow-query:${FLOWGO_IMAGE_TAG:-0.1.1}
     build: !reset null
 
   sync-worker:
-    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/sync-worker:${FLOWGO_IMAGE_TAG:-0.1.0}
+    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/sync-worker:${FLOWGO_IMAGE_TAG:-0.1.1}
     build: !reset null
 
   frontend:
-    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/frontend:${FLOWGO_IMAGE_TAG:-0.1.0}
+    image: ${FLOWGO_IMAGE_REGISTRY:-flowgo}/frontend:${FLOWGO_IMAGE_TAG:-0.1.1}
     build: !reset null

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_NPM_CHECKS="${RUN_NPM_CHECKS:-true}"
 RUN_DOCKER_BUILDS="${RUN_DOCKER_BUILDS:-true}"
-VERSION="${VERSION:-0.1.0-dry-run}"
+VERSION="${VERSION:-0.1.1-dry-run}"
 REVISION="${REVISION:-$(git -C "${ROOT_DIR}" rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 
 run() {

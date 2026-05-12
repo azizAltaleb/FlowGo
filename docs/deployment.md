@@ -23,7 +23,7 @@ make smoke-profiles
 Run published Docker Hub images instead of building locally:
 
 ```bash
-FLOWGO_IMAGE_TAG=0.1.0 make up-zitadel-release
+FLOWGO_IMAGE_TAG=0.1.1 make up-zitadel-release
 ```
 
 Validate the published-image compose override:
