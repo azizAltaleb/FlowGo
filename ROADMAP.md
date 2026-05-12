@@ -2,7 +2,7 @@
 
 This roadmap communicates the intended direction for the open-source project. It is not a contractual commitment.
 
-## Public Launch: `v0.1.0`
+## Public Launch: `v0.1.1`
 
 - **GitHub readiness**: governance files, issue templates, security policy, dependency automation, and release notes.
 - **Docker Hub readiness**: signed multi-architecture images with SBOMs for command, runtime, query, sync-worker, and frontend.

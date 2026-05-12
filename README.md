@@ -108,7 +108,7 @@ We provide a `Makefile` to simplify common development tasks:
 To run published images instead of local builds, apply `docker-compose.release.yml` or use the release Make targets. Override the tag with `FLOWGO_IMAGE_TAG`, for example:
 
 ```bash
-FLOWGO_IMAGE_TAG=0.1.0 make up-zitadel-release
+FLOWGO_IMAGE_TAG=0.1.1 make up-zitadel-release
 ```
 
 ## IAM configuration (OIDC, two deployment modes)
