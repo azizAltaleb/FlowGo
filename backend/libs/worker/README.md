@@ -36,8 +36,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/azizAltaleb/goflow/backend/libs/model"
-	"github.com/azizAltaleb/goflow/backend/libs/worker"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/worker"
 )
 
 func main() {

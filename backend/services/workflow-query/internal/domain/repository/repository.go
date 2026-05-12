@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 )
 
 var (

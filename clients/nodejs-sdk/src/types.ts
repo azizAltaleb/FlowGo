@@ -5,7 +5,7 @@ export interface JsonObject {
 }
 export interface JsonArray extends Array<JsonValue> {}
 
-export interface GoFlowClientOptions {
+export interface FlowGoClientOptions {
     baseUrl?: string;
     queryBaseUrl?: string;
     token?: string | (() => string | Promise<string>);

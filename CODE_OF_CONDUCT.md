@@ -2,7 +2,7 @@
 
 ## Our Pledge
 
-We pledge to make participation in the GoFlow community a harassment-free experience for everyone.
+We pledge to make participation in the FlowGo community a harassment-free experience for everyone.
 
 ## Our Standards
 
@@ -19,7 +19,7 @@ Unacceptable behavior includes harassment, threats, personal attacks, publishing
 
 Maintainers may remove comments, close issues, restrict participation, or ban contributors who violate this code.
 
-Report conduct concerns to `conduct@goflow.dev`.
+Report conduct concerns to `conduct@flowgo.dev`.
 
 ## Attribution
 

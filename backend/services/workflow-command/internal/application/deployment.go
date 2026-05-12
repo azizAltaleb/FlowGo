@@ -7,8 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
-	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/domain/bpmn"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/domain/bpmn"
 	"time"
 )
 

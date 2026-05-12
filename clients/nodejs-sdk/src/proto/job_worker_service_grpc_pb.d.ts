@@ -1,4 +1,4 @@
-// package: goflow.api.v1
+// package: flowgo.api.v1
 // file: job_worker_service.proto
 
 /* tslint:disable */
@@ -15,7 +15,7 @@ interface IJobWorkerServiceService extends grpc.ServiceDefinition<grpc.UntypedSe
 }
 
 interface IJobWorkerServiceService_IActivateJobs extends grpc.MethodDefinition<job_worker_service_pb.ActivateJobsRequest, job_worker_service_pb.ActivateJobsResponse> {
-    path: "/goflow.api.v1.JobWorkerService/ActivateJobs";
+    path: "/flowgo.api.v1.JobWorkerService/ActivateJobs";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<job_worker_service_pb.ActivateJobsRequest>;
@@ -24,7 +24,7 @@ interface IJobWorkerServiceService_IActivateJobs extends grpc.MethodDefinition<j
     responseDeserialize: grpc.deserialize<job_worker_service_pb.ActivateJobsResponse>;
 }
 interface IJobWorkerServiceService_ICompleteJob extends grpc.MethodDefinition<job_worker_service_pb.CompleteJobRequest, job_worker_service_pb.CompleteJobResponse> {
-    path: "/goflow.api.v1.JobWorkerService/CompleteJob";
+    path: "/flowgo.api.v1.JobWorkerService/CompleteJob";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<job_worker_service_pb.CompleteJobRequest>;
@@ -33,7 +33,7 @@ interface IJobWorkerServiceService_ICompleteJob extends grpc.MethodDefinition<jo
     responseDeserialize: grpc.deserialize<job_worker_service_pb.CompleteJobResponse>;
 }
 interface IJobWorkerServiceService_IFailJob extends grpc.MethodDefinition<job_worker_service_pb.FailJobRequest, job_worker_service_pb.FailJobResponse> {
-    path: "/goflow.api.v1.JobWorkerService/FailJob";
+    path: "/flowgo.api.v1.JobWorkerService/FailJob";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<job_worker_service_pb.FailJobRequest>;

@@ -17,14 +17,14 @@ ARG REVISION=unknown
 
 WORKDIR /app
 
-RUN addgroup -S goflow && adduser -S -G goflow goflow
+RUN addgroup -S flowgo && adduser -S -G flowgo flowgo
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /app/workflow-runtime .
-USER goflow
+USER flowgo
 
-LABEL org.opencontainers.image.title="GoFlow Runtime" \
-      org.opencontainers.image.description="Workflow runtime service for GoFlow" \
-      org.opencontainers.image.source="https://github.com/azizAltaleb/GoFlow" \
+LABEL org.opencontainers.image.title="FlowGo Runtime" \
+      org.opencontainers.image.description="Workflow runtime service for FlowGo" \
+      org.opencontainers.image.source="https://github.com/azizAltaleb/FlowGo" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"

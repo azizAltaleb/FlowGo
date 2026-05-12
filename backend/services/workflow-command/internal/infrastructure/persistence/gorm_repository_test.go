@@ -2,7 +2,7 @@ package persistence
 
 import (
 	"context"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 	"testing"
 	"time"
 

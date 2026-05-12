@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/azizAltaleb/goflow/backend/libs/auth"
-	"github.com/azizAltaleb/goflow/backend/libs/iam"
-	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/interfaces/http/dto"
+	"github.com/azizAltaleb/flowgo/backend/libs/auth"
+	"github.com/azizAltaleb/flowgo/backend/libs/iam"
+	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/interfaces/http/dto"
 
 	"github.com/gorilla/mux"
 )
@@ -42,7 +42,7 @@ func (h *Handler) requireBundledIAMAdmin(fn http.HandlerFunc) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if !principal.HasRole(auth.RoleGoFlowAdmin) {
+		if !principal.HasRole(auth.RoleFlowGoAdmin) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -335,7 +335,7 @@ func writeIdentityManagementError(w http.ResponseWriter, err error) {
 	case errors.Is(err, iam.ErrZITADELManagementNotConfigured):
 		http.Error(w, "ZITADEL management is not configured", http.StatusServiceUnavailable)
 	case errors.Is(err, iam.ErrZITADELManagedClientNotFound):
-		http.Error(w, "GoFlow client was not found", http.StatusNotFound)
+		http.Error(w, "FlowGo client was not found", http.StatusNotFound)
 	case errors.As(err, &zitadelErr):
 		status := http.StatusBadGateway
 		if zitadelErr.StatusCode == http.StatusBadRequest || zitadelErr.StatusCode == http.StatusNotFound || zitadelErr.StatusCode == http.StatusConflict {

@@ -8,13 +8,13 @@ const BASE = __ENV.COMMAND_URL || "http://localhost:8080";
 
 const MINIMAL_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-  xmlns:goflow="http://goflow.com/schema/1.0/bpmn"
+  xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn"
   id="Definitions_perf" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="perf-workflow" name="Perf Test" isExecutable="true">
     <bpmn:startEvent id="start1">
       <bpmn:outgoing>flow1</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:serviceTask id="task1" name="Do Work" goflow:taskType="perf-task">
+    <bpmn:serviceTask id="task1" name="Do Work" flowgo:taskType="perf-task">
       <bpmn:incoming>flow1</bpmn:incoming>
       <bpmn:outgoing>flow2</bpmn:outgoing>
     </bpmn:serviceTask>

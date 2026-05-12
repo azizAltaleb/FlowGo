@@ -55,21 +55,21 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
   const elementName = (data.label as string) || '';
   
   // User Task properties
-  const assignee = (data['@_goflow:assignee'] as string) || '';
-  const candidateUsers = (data['@_goflow:candidateUsers'] as string) || '';
-  const candidateGroups = (data['@_goflow:candidateGroups'] as string) || '';
+  const assignee = (data['@_flowgo:assignee'] as string) || '';
+  const candidateUsers = (data['@_flowgo:candidateUsers'] as string) || '';
+  const candidateGroups = (data['@_flowgo:candidateGroups'] as string) || '';
   
   // Business Rule Task properties
-  const decisionRef = (data['@_goflow:decisionRef'] as string) || '';
-  const brResultVariable = (data['@_goflow:resultVariable'] as string) || '';
+  const decisionRef = (data['@_flowgo:decisionRef'] as string) || '';
+  const brResultVariable = (data['@_flowgo:resultVariable'] as string) || '';
 
   // Service Task properties
-  const topic = (data['@_goflow:topic'] as string) || '';
-  const taskType = (data['@_goflow:taskType'] as string) || '';
+  const topic = (data['@_flowgo:topic'] as string) || '';
+  const taskType = (data['@_flowgo:taskType'] as string) || '';
 
   // Script Task properties
   const scriptFormat = (data['@_scriptFormat'] as string) || '';
-  const scriptResultVariable = (data['@_goflow:resultVariable'] as string) || '';
+  const scriptResultVariable = (data['@_flowgo:resultVariable'] as string) || '';
 
   // Sequence Flow properties
   let condition = '';
@@ -143,7 +143,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Assignee</Label>
                                     <DebouncedInput
                                     value={assignee}
-                                    onValueChange={(val) => updateField('@_goflow:assignee', val)}
+                                    onValueChange={(val) => updateField('@_flowgo:assignee', val)}
                                     placeholder="e.g. user@example.com"
                                     className="bg-white"
                                     />
@@ -152,7 +152,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Candidate Users</Label>
                                     <DebouncedInput
                                     value={candidateUsers}
-                                    onValueChange={(val) => updateField('@_goflow:candidateUsers', val)}
+                                    onValueChange={(val) => updateField('@_flowgo:candidateUsers', val)}
                                     placeholder="e.g. user1,user2"
                                     className="bg-white"
                                     />
@@ -161,7 +161,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Candidate Groups</Label>
                                     <DebouncedInput
                                     value={candidateGroups}
-                                    onValueChange={(val) => updateField('@_goflow:candidateGroups', val)}
+                                    onValueChange={(val) => updateField('@_flowgo:candidateGroups', val)}
                                     placeholder="e.g. managers,hr"
                                     className="bg-white"
                                     />
@@ -179,7 +179,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Decision Ref</Label>
                                     <DebouncedInput
                                     value={decisionRef}
-                                    onValueChange={(val) => updateField('@_goflow:decisionRef', val)}
+                                    onValueChange={(val) => updateField('@_flowgo:decisionRef', val)}
                                     placeholder="e.g. approve_decision"
                                     className="bg-white"
                                     />
@@ -188,7 +188,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Result Variable</Label>
                                     <DebouncedInput
                                     value={brResultVariable}
-                                    onValueChange={(val) => updateField('@_goflow:resultVariable', val)}
+                                    onValueChange={(val) => updateField('@_flowgo:resultVariable', val)}
                                     placeholder="e.g. decisionResult"
                                     className="bg-white"
                                     />
@@ -206,7 +206,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Topic</Label>
                                     <DebouncedInput
                                     value={topic}
-                                    onValueChange={(val) => updateField('@_goflow:topic', val)}
+                                    onValueChange={(val) => updateField('@_flowgo:topic', val)}
                                     placeholder="e.g. payment_processing"
                                     className="bg-white"
                                     />
@@ -215,7 +215,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Task Type</Label>
                                     <DebouncedInput
                                     value={taskType}
-                                    onValueChange={(val) => updateField('@_goflow:taskType', val)}
+                                    onValueChange={(val) => updateField('@_flowgo:taskType', val)}
                                     placeholder="e.g. external"
                                     className="bg-white"
                                     />
@@ -242,7 +242,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Result Variable</Label>
                                     <DebouncedInput
                                     value={scriptResultVariable}
-                                    onValueChange={(val) => updateField('@_goflow:resultVariable', val)}
+                                    onValueChange={(val) => updateField('@_flowgo:resultVariable', val)}
                                     placeholder="e.g. scriptResult"
                                     className="bg-white"
                                     />

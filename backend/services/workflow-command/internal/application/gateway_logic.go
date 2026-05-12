@@ -3,8 +3,8 @@ package application
 import (
 	"context"
 	"fmt"
-	"github.com/azizAltaleb/goflow/backend/libs/logger"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/logger"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 	"strings"
 	"time"
 )
