@@ -8,7 +8,7 @@ import (
 
 func TestStandardRoles(t *testing.T) {
 	roles := StandardRoles()
-	expected := []string{RoleGoFlowClient, RoleGoFlowAdmin, RoleGoFlowViewer}
+	expected := []string{RoleFlowGoClient, RoleFlowGoAdmin, RoleFlowGoViewer}
 	if len(roles) != len(expected) {
 		t.Fatalf("expected %d standard roles, got %d", len(expected), len(roles))
 	}
@@ -20,11 +20,11 @@ func TestStandardRoles(t *testing.T) {
 }
 
 func TestPrincipalHasRole(t *testing.T) {
-	principal := Principal{Roles: []string{" GoFlow Admin "}}
-	if !principal.HasRole(RoleGoFlowAdmin) {
+	principal := Principal{Roles: []string{" FlowGo Admin "}}
+	if !principal.HasRole(RoleFlowGoAdmin) {
 		t.Fatal("expected case-insensitive role match")
 	}
-	if principal.HasRole(RoleGoFlowViewer) {
+	if principal.HasRole(RoleFlowGoViewer) {
 		t.Fatal("did not expect viewer role match")
 	}
 }
@@ -33,10 +33,10 @@ func TestRequireAnyRole(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
-	handler := RequireAnyRole(RoleGoFlowAdmin)(next)
+	handler := RequireAnyRole(RoleFlowGoAdmin)(next)
 
 	allowedReq := httptest.NewRequest(http.MethodGet, "/", nil)
-	allowedReq = allowedReq.WithContext(WithPrincipal(allowedReq.Context(), Principal{Roles: []string{RoleGoFlowAdmin}}))
+	allowedReq = allowedReq.WithContext(WithPrincipal(allowedReq.Context(), Principal{Roles: []string{RoleFlowGoAdmin}}))
 	allowedResp := httptest.NewRecorder()
 	handler.ServeHTTP(allowedResp, allowedReq)
 	if allowedResp.Code != http.StatusNoContent {
@@ -44,7 +44,7 @@ func TestRequireAnyRole(t *testing.T) {
 	}
 
 	deniedReq := httptest.NewRequest(http.MethodGet, "/", nil)
-	deniedReq = deniedReq.WithContext(WithPrincipal(deniedReq.Context(), Principal{Roles: []string{RoleGoFlowViewer}}))
+	deniedReq = deniedReq.WithContext(WithPrincipal(deniedReq.Context(), Principal{Roles: []string{RoleFlowGoViewer}}))
 	deniedResp := httptest.NewRecorder()
 	handler.ServeHTTP(deniedResp, deniedReq)
 	if deniedResp.Code != http.StatusForbidden {

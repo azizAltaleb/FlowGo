@@ -1,14 +1,14 @@
 apiVersion: v2
-name: goflow
-description: Production Helm chart for GoFlow with external OIDC or bundled ZITADEL IAM
+name: flowgo
+description: Production Helm chart for FlowGo with external OIDC or bundled ZITADEL IAM
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
 keywords:
-  - goflow
+  - flowgo
   - workflow-engine
   - bpmn
   - oidc
   - zitadel
 maintainers:
-  - name: GoFlow
+  - name: FlowGo

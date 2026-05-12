@@ -1236,35 +1236,35 @@ func file_backend_api_proto_events_proto_rawDescGZIP() []byte {
 
 var file_backend_api_proto_events_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_backend_api_proto_events_proto_goTypes = []interface{}{
-	(*ProcessInstanceCreated)(nil),    // 0: goflow.api.v1.ProcessInstanceCreated
-	(*ProcessInstanceCompleted)(nil),  // 1: goflow.api.v1.ProcessInstanceCompleted
-	(*ProcessInstanceTerminated)(nil), // 2: goflow.api.v1.ProcessInstanceTerminated
-	(*ElementInstanceActivated)(nil),  // 3: goflow.api.v1.ElementInstanceActivated
-	(*ElementInstanceCompleted)(nil),  // 4: goflow.api.v1.ElementInstanceCompleted
-	(*ElementInstanceTerminated)(nil), // 5: goflow.api.v1.ElementInstanceTerminated
-	(*JobCreated)(nil),                // 6: goflow.api.v1.JobCreated
-	(*JobActivated)(nil),              // 7: goflow.api.v1.JobActivated
-	(*JobCompleted)(nil),              // 8: goflow.api.v1.JobCompleted
-	(*JobFailed)(nil),                 // 9: goflow.api.v1.JobFailed
-	(*VariableUpdated)(nil),           // 10: goflow.api.v1.VariableUpdated
-	(*IncidentCreated)(nil),           // 11: goflow.api.v1.IncidentCreated
-	(*IncidentResolved)(nil),          // 12: goflow.api.v1.IncidentResolved
+	(*ProcessInstanceCreated)(nil),    // 0: flowgo.api.v1.ProcessInstanceCreated
+	(*ProcessInstanceCompleted)(nil),  // 1: flowgo.api.v1.ProcessInstanceCompleted
+	(*ProcessInstanceTerminated)(nil), // 2: flowgo.api.v1.ProcessInstanceTerminated
+	(*ElementInstanceActivated)(nil),  // 3: flowgo.api.v1.ElementInstanceActivated
+	(*ElementInstanceCompleted)(nil),  // 4: flowgo.api.v1.ElementInstanceCompleted
+	(*ElementInstanceTerminated)(nil), // 5: flowgo.api.v1.ElementInstanceTerminated
+	(*JobCreated)(nil),                // 6: flowgo.api.v1.JobCreated
+	(*JobActivated)(nil),              // 7: flowgo.api.v1.JobActivated
+	(*JobCompleted)(nil),              // 8: flowgo.api.v1.JobCompleted
+	(*JobFailed)(nil),                 // 9: flowgo.api.v1.JobFailed
+	(*VariableUpdated)(nil),           // 10: flowgo.api.v1.VariableUpdated
+	(*IncidentCreated)(nil),           // 11: flowgo.api.v1.IncidentCreated
+	(*IncidentResolved)(nil),          // 12: flowgo.api.v1.IncidentResolved
 	(*timestamppb.Timestamp)(nil),     // 13: google.protobuf.Timestamp
 }
 var file_backend_api_proto_events_proto_depIdxs = []int32{
-	13, // 0: goflow.api.v1.ProcessInstanceCreated.created_at:type_name -> google.protobuf.Timestamp
-	13, // 1: goflow.api.v1.ProcessInstanceCompleted.end_time:type_name -> google.protobuf.Timestamp
-	13, // 2: goflow.api.v1.ProcessInstanceTerminated.end_time:type_name -> google.protobuf.Timestamp
-	13, // 3: goflow.api.v1.ElementInstanceActivated.created_at:type_name -> google.protobuf.Timestamp
-	13, // 4: goflow.api.v1.ElementInstanceCompleted.end_time:type_name -> google.protobuf.Timestamp
-	13, // 5: goflow.api.v1.ElementInstanceTerminated.end_time:type_name -> google.protobuf.Timestamp
-	13, // 6: goflow.api.v1.JobCreated.created_at:type_name -> google.protobuf.Timestamp
-	13, // 7: goflow.api.v1.JobActivated.lock_expiration_time:type_name -> google.protobuf.Timestamp
-	13, // 8: goflow.api.v1.JobCompleted.updated_at:type_name -> google.protobuf.Timestamp
-	13, // 9: goflow.api.v1.JobFailed.updated_at:type_name -> google.protobuf.Timestamp
-	13, // 10: goflow.api.v1.VariableUpdated.updated_at:type_name -> google.protobuf.Timestamp
-	13, // 11: goflow.api.v1.IncidentCreated.created_at:type_name -> google.protobuf.Timestamp
-	13, // 12: goflow.api.v1.IncidentResolved.resolved_at:type_name -> google.protobuf.Timestamp
+	13, // 0: flowgo.api.v1.ProcessInstanceCreated.created_at:type_name -> google.protobuf.Timestamp
+	13, // 1: flowgo.api.v1.ProcessInstanceCompleted.end_time:type_name -> google.protobuf.Timestamp
+	13, // 2: flowgo.api.v1.ProcessInstanceTerminated.end_time:type_name -> google.protobuf.Timestamp
+	13, // 3: flowgo.api.v1.ElementInstanceActivated.created_at:type_name -> google.protobuf.Timestamp
+	13, // 4: flowgo.api.v1.ElementInstanceCompleted.end_time:type_name -> google.protobuf.Timestamp
+	13, // 5: flowgo.api.v1.ElementInstanceTerminated.end_time:type_name -> google.protobuf.Timestamp
+	13, // 6: flowgo.api.v1.JobCreated.created_at:type_name -> google.protobuf.Timestamp
+	13, // 7: flowgo.api.v1.JobActivated.lock_expiration_time:type_name -> google.protobuf.Timestamp
+	13, // 8: flowgo.api.v1.JobCompleted.updated_at:type_name -> google.protobuf.Timestamp
+	13, // 9: flowgo.api.v1.JobFailed.updated_at:type_name -> google.protobuf.Timestamp
+	13, // 10: flowgo.api.v1.VariableUpdated.updated_at:type_name -> google.protobuf.Timestamp
+	13, // 11: flowgo.api.v1.IncidentCreated.created_at:type_name -> google.protobuf.Timestamp
+	13, // 12: flowgo.api.v1.IncidentResolved.resolved_at:type_name -> google.protobuf.Timestamp
 	13, // [13:13] is the sub-list for method output_type
 	13, // [13:13] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name

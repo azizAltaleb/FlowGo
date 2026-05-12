@@ -27,22 +27,22 @@ func NewOutboxCollector(snapshotFn OutboxSnapshotFn) *OutboxCollector {
 	c := &OutboxCollector{
 		snapshot: snapshotFn,
 		pending: prometheus.NewDesc(
-			"goflow_outbox_pending",
+			"flowgo_outbox_pending",
 			"Number of outbox events pending publication.",
 			nil, nil,
 		),
 		success: prometheus.NewDesc(
-			"goflow_outbox_publish_success_total",
+			"flowgo_outbox_publish_success_total",
 			"Total outbox events successfully published.",
 			nil, nil,
 		),
 		failure: prometheus.NewDesc(
-			"goflow_outbox_publish_failure_total",
+			"flowgo_outbox_publish_failure_total",
 			"Total outbox events that failed to publish.",
 			nil, nil,
 		),
 		lagSeconds: prometheus.NewDesc(
-			"goflow_outbox_publish_lag_seconds",
+			"flowgo_outbox_publish_lag_seconds",
 			"Age in seconds of the oldest unpublished outbox event.",
 			nil, nil,
 		),

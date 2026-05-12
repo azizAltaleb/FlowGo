@@ -31,10 +31,10 @@ export default function ExtensionProps({ data, onUpdate }: ExtensionPropsProps) 
       
       if (data && data["bpmn:extensionElements"]) {
           const extensionElements = data["bpmn:extensionElements"] as Record<string, unknown>;
-          const workflowProperties = extensionElements["goflow:properties"] as Record<string, unknown>;
+          const workflowProperties = extensionElements["flowgo:properties"] as Record<string, unknown>;
           
-          if (workflowProperties && workflowProperties["goflow:property"]) {
-              const props = workflowProperties["goflow:property"];
+          if (workflowProperties && workflowProperties["flowgo:property"]) {
+              const props = workflowProperties["flowgo:property"];
               propsArray = (Array.isArray(props) ? props : [props]) as WorkflowProperty[];
           }
       }
@@ -81,8 +81,8 @@ export default function ExtensionProps({ data, onUpdate }: ExtensionPropsProps) 
     
     if (newProps.length > 0) {
         newExtensionElements = {
-            "goflow:properties": {
-                "goflow:property": newProps.map(p => ({
+            "flowgo:properties": {
+                "flowgo:property": newProps.map(p => ({
                     "@_name": p.name,
                     "@_value": p.value
                 }))

@@ -1,7 +1,7 @@
 package id_test
 
 import (
-	"github.com/azizAltaleb/goflow/backend/libs/id"
+	"github.com/azizAltaleb/flowgo/backend/libs/id"
 	"testing"
 	"time"
 )

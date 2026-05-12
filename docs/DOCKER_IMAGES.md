@@ -1,16 +1,16 @@
 # Docker Images
 
-GoFlow publishes first-party images under the `gofl0w` Docker Hub namespace.
+FlowGo publishes first-party images under the `flowgo` Docker Hub namespace.
 
 ## Image Repositories
 
 | Compose service | Image | Description |
 | :--- | :--- | :--- |
-| `app` | `gofl0w/workflow-command` | Command API, workflow deployment, runtime-facing command endpoints, and worker API. |
-| `workflow-runtime` | `gofl0w/workflow-runtime` | Runtime loops for timers, SLA checks, and background workflow execution. |
-| `workflow-query` | `gofl0w/workflow-query` | CQRS read/query API backed by Elasticsearch or OpenSearch. |
-| `sync-worker` | `gofl0w/sync-worker` | Debezium/Kafka projection worker for query read models. |
-| `frontend` | `gofl0w/frontend` | React admin/modeler UI served by NGINX. |
+| `app` | `flowgo/workflow-command` | Command API, workflow deployment, runtime-facing command endpoints, and worker API. |
+| `workflow-runtime` | `flowgo/workflow-runtime` | Runtime loops for timers, SLA checks, and background workflow execution. |
+| `workflow-query` | `flowgo/workflow-query` | CQRS read/query API backed by Elasticsearch or OpenSearch. |
+| `sync-worker` | `flowgo/sync-worker` | Debezium/Kafka projection worker for query read models. |
+| `frontend` | `flowgo/frontend` | React admin/modeler UI served by NGINX. |
 
 ## Tags
 
@@ -27,13 +27,13 @@ Production deployments should pin exact version tags or image digests.
 Use the release override to switch local builds to published images:
 
 ```bash
-GOFLOW_IMAGE_TAG=v0.1.0 make up-zitadel-release
+FLOWGO_IMAGE_TAG=v0.1.0 make up-zitadel-release
 ```
 
 Use a staging registry or forked namespace with:
 
 ```bash
-GOFLOW_IMAGE_REGISTRY=example-registry/gofl0w GOFLOW_IMAGE_TAG=v0.1.0 make up-zitadel-release
+FLOWGO_IMAGE_REGISTRY=example-registry/flowgo FLOWGO_IMAGE_TAG=v0.1.0 make up-zitadel-release
 ```
 
 Validate the release override without starting containers:

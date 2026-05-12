@@ -1,7 +1,7 @@
 {
-  "name": "@goflow/nodejs-sdk",
+  "name": "@flowgo/nodejs-sdk",
   "version": "0.1.0",
-  "description": "Node.js SDK for GoFlow workflow, worker, identity, and management APIs",
+  "description": "Node.js SDK for FlowGo workflow, worker, identity, and management APIs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,24 +13,24 @@
     "prepack": "npm run build"
   },
   "keywords": [
-    "goflow",
+    "flowgo",
     "workflow",
     "bpmn",
     "worker",
     "sdk",
     "oidc"
   ],
-  "author": "GoFlow contributors",
+  "author": "FlowGo contributors",
   "license": "MIT",
   "type": "commonjs",
-  "homepage": "https://github.com/azizAltaleb/GoFlow#readme",
+  "homepage": "https://github.com/azizAltaleb/FlowGo#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/azizAltaleb/GoFlow.git",
+    "url": "git+https://github.com/azizAltaleb/FlowGo.git",
     "directory": "clients/nodejs-sdk"
   },
   "bugs": {
-    "url": "https://github.com/azizAltaleb/GoFlow/issues"
+    "url": "https://github.com/azizAltaleb/FlowGo/issues"
   },
   "engines": {
     "node": ">=20"

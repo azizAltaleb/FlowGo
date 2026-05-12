@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 	"time"
 )
 

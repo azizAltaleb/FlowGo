@@ -39,11 +39,11 @@ function emptyClientForm(): CreateIdentityManagementClientTokenRequest {
 }
 
 function isAdmin(identity: IdentityResponse | null) {
-  return (identity?.principal?.roles || []).some((role) => role.toLowerCase() === "goflow admin");
+  return (identity?.principal?.roles || []).some((role) => role.toLowerCase() === "flowgo admin");
 }
 
 function messageFromError(err: unknown) {
-  return err instanceof Error ? err.message : "GoFlow client request failed";
+  return err instanceof Error ? err.message : "FlowGo client request failed";
 }
 
 function toISODateTime(value?: string) {
@@ -73,7 +73,7 @@ function tokenStatusVariant(status: string, expiresAt: string) {
   return "success";
 }
 
-export default function GoFlowClients() {
+export default function FlowGoClients() {
   const [identity, setIdentity] = useState<IdentityResponse | null>(null);
   const [config, setConfig] = useState<IdentityConfigResponse | null>(null);
   const [clients, setClients] = useState<IdentityManagementClient[]>([]);
@@ -163,7 +163,7 @@ export default function GoFlowClients() {
     }
   };
 
-  if (loading) return <div className="p-4">Loading GoFlow clients...</div>;
+  if (loading) return <div className="p-4">Loading FlowGo clients...</div>;
   if (config && !canManage) return <Navigate to="/" replace />;
 
   return (
@@ -171,7 +171,7 @@ export default function GoFlowClients() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">SDK Clients</h2>
-          <p className="text-sm text-muted-foreground">Manage GoFlow Client machine identities and one-time SDK tokens.</p>
+          <p className="text-sm text-muted-foreground">Manage FlowGo Client machine identities and one-time SDK tokens.</p>
         </div>
         <Button variant="outline" size="sm" onClick={load} disabled={saving}>
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -193,7 +193,7 @@ export default function GoFlowClients() {
           <CardDescription>Recommended controls for community-standard SDK integrations.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm md:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-md border p-3"><div className="font-medium">Least privilege</div><div className="text-muted-foreground">Clients receive only the goflow client role.</div></div>
+          <div className="rounded-md border p-3"><div className="font-medium">Least privilege</div><div className="text-muted-foreground">Clients receive only the flowgo client role.</div></div>
           <div className="rounded-md border p-3"><div className="font-medium">Ownership</div><div className="text-muted-foreground">Every client has an owner email for rotation and incident response.</div></div>
           <div className="rounded-md border p-3"><div className="font-medium">Environment scoped</div><div className="text-muted-foreground">Use separate clients for sandbox, staging, and production.</div></div>
           <div className="rounded-md border p-3"><div className="font-medium">Purpose declared</div><div className="text-muted-foreground">Document which app, worker, or automation uses the token.</div></div>
@@ -237,7 +237,7 @@ export default function GoFlowClients() {
             <Textarea readOnly value={createdToken.token} className="font-mono" />
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => copyToken(createdToken.token)}><Copy className="mr-2 h-4 w-4" />Copy token</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => copyToken(`GOFLOW_TOKEN=${createdToken.token}`)}><Copy className="mr-2 h-4 w-4" />Copy env var</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => copyToken(`FLOWGO_TOKEN=${createdToken.token}`)}><Copy className="mr-2 h-4 w-4" />Copy env var</Button>
             </div>
           </CardContent>
         </Card>

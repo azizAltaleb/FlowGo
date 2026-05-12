@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/azizAltaleb/goflow/backend/libs/auth"
+	"github.com/azizAltaleb/flowgo/backend/libs/auth"
 )
 
 const (

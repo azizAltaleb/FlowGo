@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "goflow.zitadelBootstrapPvc" . }}
+  name: {{ include "flowgo.zitadelBootstrapPvc" . }}
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-bootstrap
 spec:
   accessModes:
@@ -19,10 +19,10 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "goflow.goflowBootstrapPvc" . }}
+  name: {{ include "flowgo.flowgoBootstrapPvc" . }}
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
-    app.kubernetes.io/component: goflow-bootstrap
+    {{- include "flowgo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flowgo-bootstrap
 spec:
   accessModes:
     {{- toYaml .Values.zitadel.bootstrapStorage.accessModes | nindent 4 }}
@@ -36,9 +36,9 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "goflow.fullname" . }}-zitadel-bootstrap-script
+  name: {{ include "flowgo.fullname" . }}-zitadel-bootstrap-script
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-login
 data:
   bootstrap_zitadel.mjs: |-
@@ -48,9 +48,9 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "goflow.fullname" . }}-zitadel-postgresql
+  name: {{ include "flowgo.fullname" . }}-zitadel-postgresql
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-postgresql
 spec:
   ports:
@@ -58,27 +58,27 @@ spec:
       port: 5432
       targetPort: postgres
   selector:
-    {{- include "goflow.selectorLabels" . | nindent 4 }}
+    {{- include "flowgo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-postgresql
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "goflow.fullname" . }}-zitadel-postgresql
+  name: {{ include "flowgo.fullname" . }}-zitadel-postgresql
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-postgresql
 spec:
-  serviceName: {{ include "goflow.fullname" . }}-zitadel-postgresql
+  serviceName: {{ include "flowgo.fullname" . }}-zitadel-postgresql
   replicas: 1
   selector:
     matchLabels:
-      {{- include "goflow.selectorLabels" . | nindent 6 }}
+      {{- include "flowgo.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: zitadel-postgresql
   template:
     metadata:
       labels:
-        {{- include "goflow.selectorLabels" . | nindent 8 }}
+        {{- include "flowgo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: zitadel-postgresql
     spec:
       containers:
@@ -96,7 +96,7 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "goflow.zitadelSecretName" . }}
+                  name: {{ include "flowgo.zitadelSecretName" . }}
                   key: ZITADEL_POSTGRES_PASSWORD
           volumeMounts:
             - name: data
@@ -128,9 +128,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "goflow.fullname" . }}-zitadel-api
+  name: {{ include "flowgo.fullname" . }}-zitadel-api
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-api
 spec:
   ports:
@@ -138,26 +138,26 @@ spec:
       port: 8080
       targetPort: http
   selector:
-    {{- include "goflow.selectorLabels" . | nindent 4 }}
+    {{- include "flowgo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-api
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "goflow.fullname" . }}-zitadel-api
+  name: {{ include "flowgo.fullname" . }}-zitadel-api
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-api
 spec:
   replicas: {{ .Values.zitadel.api.replicas }}
   selector:
     matchLabels:
-      {{- include "goflow.selectorLabels" . | nindent 6 }}
+      {{- include "flowgo.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: zitadel-api
   template:
     metadata:
       labels:
-        {{- include "goflow.selectorLabels" . | nindent 8 }}
+        {{- include "flowgo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: zitadel-api
     spec:
       containers:
@@ -175,12 +175,12 @@ spec:
             - name: ZITADEL_MASTERKEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "goflow.zitadelSecretName" . }}
+                  name: {{ include "flowgo.zitadelSecretName" . }}
                   key: ZITADEL_MASTERKEY
             - name: ZITADEL_DATABASE_POSTGRES_DSN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "goflow.zitadelSecretName" . }}
+                  name: {{ include "flowgo.zitadelSecretName" . }}
                   key: ZITADEL_DATABASE_POSTGRES_DSN
             - name: ZITADEL_PORT
               value: "8080"
@@ -197,7 +197,7 @@ spec:
             - name: ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "goflow.zitadelSecretName" . }}
+                  name: {{ include "flowgo.zitadelSecretName" . }}
                   key: ZITADEL_ADMIN_PASSWORD
             - name: ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED
               value: "false"
@@ -224,9 +224,9 @@ spec:
             - name: ZITADEL_FIRSTINSTANCE_PATPATH
               value: /zitadel/bootstrap/owner.pat
             - name: ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME
-              value: goflow-bootstrap
+              value: flowgo-bootstrap
             - name: ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME
-              value: goflow-bootstrap
+              value: flowgo-bootstrap
             - name: ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE
               value: "2099-01-01T00:00:00Z"
             - name: ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH
@@ -269,14 +269,14 @@ spec:
       volumes:
         - name: zitadel-bootstrap
           persistentVolumeClaim:
-            claimName: {{ include "goflow.zitadelBootstrapPvc" . }}
+            claimName: {{ include "flowgo.zitadelBootstrapPvc" . }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "goflow.fullname" . }}-zitadel-login
+  name: {{ include "flowgo.fullname" . }}-zitadel-login
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-login
 spec:
   ports:
@@ -284,26 +284,26 @@ spec:
       port: 3000
       targetPort: http
   selector:
-    {{- include "goflow.selectorLabels" . | nindent 4 }}
+    {{- include "flowgo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-login
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "goflow.fullname" . }}-zitadel-login
+  name: {{ include "flowgo.fullname" . }}-zitadel-login
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel-login
 spec:
   replicas: {{ .Values.zitadel.login.replicas }}
   selector:
     matchLabels:
-      {{- include "goflow.selectorLabels" . | nindent 6 }}
+      {{- include "flowgo.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: zitadel-login
   template:
     metadata:
       labels:
-        {{- include "goflow.selectorLabels" . | nindent 8 }}
+        {{- include "flowgo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: zitadel-login
     spec:
       containers:
@@ -320,7 +320,7 @@ spec:
               containerPort: 3000
           env:
             - name: ZITADEL_API_URL
-              value: {{ include "goflow.zitadelApiUrl" . | quote }}
+              value: {{ include "flowgo.zitadelApiUrl" . | quote }}
             - name: NEXT_PUBLIC_BASE_PATH
               value: /ui/v2/login
             - name: ZITADEL_SERVICE_USER_TOKEN_FILE
@@ -328,27 +328,27 @@ spec:
             - name: CUSTOM_REQUEST_HEADERS
               value: {{ printf "Host:%s,X-Forwarded-Proto:%s" .Values.zitadel.externalDomain (ternary "https" "http" .Values.zitadel.externalSecure) | quote }}
             - name: ZITADEL_INTERNAL_URL
-              value: {{ include "goflow.zitadelApiUrl" . | quote }}
+              value: {{ include "flowgo.zitadelApiUrl" . | quote }}
             - name: ZITADEL_PUBLIC_URL
               value: {{ .Values.zitadel.publicUrl | quote }}
             - name: ZITADEL_OWNER_PAT_FILE
               value: /zitadel/bootstrap/owner.pat
-            - name: GOFLOW_FRONTEND_CLIENT_ID_FILE
-              value: /goflow/bootstrap/goflow-frontend-client-id
-            - name: GOFLOW_ZITADEL_BOOTSTRAP_STATE_FILE
-              value: /goflow/bootstrap/goflow-zitadel.json
-            - name: GOFLOW_FRONTEND_URL
+            - name: FLOWGO_FRONTEND_CLIENT_ID_FILE
+              value: /flowgo/bootstrap/flowgo-frontend-client-id
+            - name: FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE
+              value: /flowgo/bootstrap/flowgo-zitadel.json
+            - name: FLOWGO_FRONTEND_URL
               value: {{ .Values.zitadel.bootstrap.frontendUrl | quote }}
-            - name: GOFLOW_PROJECT_NAME
+            - name: FLOWGO_PROJECT_NAME
               value: {{ .Values.zitadel.bootstrap.projectName | quote }}
-            - name: GOFLOW_FRONTEND_APP_NAME
+            - name: FLOWGO_FRONTEND_APP_NAME
               value: {{ .Values.zitadel.bootstrap.frontendAppName | quote }}
             - name: ZITADEL_ADMIN_USERNAME
               value: {{ .Values.zitadel.bootstrap.adminUsername | quote }}
             - name: ZITADEL_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "goflow.zitadelSecretName" . }}
+                  name: {{ include "flowgo.zitadelSecretName" . }}
                   key: ZITADEL_ADMIN_PASSWORD
             - name: ZITADEL_ADMIN_GIVEN_NAME
               value: {{ .Values.zitadel.bootstrap.adminGivenName | quote }}
@@ -370,8 +370,8 @@ spec:
             - name: zitadel-bootstrap
               mountPath: /zitadel/bootstrap
               readOnly: true
-            - name: goflow-bootstrap
-              mountPath: /goflow/bootstrap
+            - name: flowgo-bootstrap
+              mountPath: /flowgo/bootstrap
           livenessProbe:
             httpGet:
               path: /ui/v2/login/healthy
@@ -389,21 +389,21 @@ spec:
       volumes:
         - name: bootstrap-script
           configMap:
-            name: {{ include "goflow.fullname" . }}-zitadel-bootstrap-script
+            name: {{ include "flowgo.fullname" . }}-zitadel-bootstrap-script
         - name: zitadel-bootstrap
           persistentVolumeClaim:
-            claimName: {{ include "goflow.zitadelBootstrapPvc" . }}
-        - name: goflow-bootstrap
+            claimName: {{ include "flowgo.zitadelBootstrapPvc" . }}
+        - name: flowgo-bootstrap
           persistentVolumeClaim:
-            claimName: {{ include "goflow.goflowBootstrapPvc" . }}
+            claimName: {{ include "flowgo.flowgoBootstrapPvc" . }}
 {{- if .Values.zitadel.ingress.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "goflow.fullname" . }}-zitadel
+  name: {{ include "flowgo.fullname" . }}-zitadel
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: zitadel
   {{- with .Values.zitadel.ingress.annotations }}
   annotations:
@@ -427,21 +427,21 @@ spec:
             pathType: Exact
             backend:
               service:
-                name: {{ include "goflow.fullname" . }}-zitadel-login
+                name: {{ include "flowgo.fullname" . }}-zitadel-login
                 port:
                   number: 3000
           - path: /ui/v2/login
             pathType: Prefix
             backend:
               service:
-                name: {{ include "goflow.fullname" . }}-zitadel-login
+                name: {{ include "flowgo.fullname" . }}-zitadel-login
                 port:
                   number: 3000
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "goflow.fullname" . }}-zitadel-api
+                name: {{ include "flowgo.fullname" . }}-zitadel-api
                 port:
                   number: 8080
 {{- end }}

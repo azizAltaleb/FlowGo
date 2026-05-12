@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/azizAltaleb/goflow/backend/libs/logger"
-	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/application"
-	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/domain/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/logger"
+	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/application"
+	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/domain/model"
 
 	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel"

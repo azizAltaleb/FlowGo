@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
-	"github.com/azizAltaleb/goflow/backend/libs/search"
-	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/domain/repository"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/search"
+	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/domain/repository"
 	"strconv"
 	"strings"
 	"time"
@@ -22,8 +22,8 @@ type ESRepository struct {
 var _ repository.QueryRepository = &ESRepository{}
 
 func NewESRepository(client search.Backend, indexPrefix string) *ESRepository {
-	instanceIndex := "goflow-process_instance"
-	processIndex := "goflow-process"
+	instanceIndex := "flowgo-process_instance"
+	processIndex := "flowgo-process"
 	if indexPrefix != "" {
 		instanceIndex = indexPrefix + "-process_instance"
 		processIndex = indexPrefix + "-process"

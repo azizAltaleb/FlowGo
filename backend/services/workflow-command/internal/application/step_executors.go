@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	pb "github.com/azizAltaleb/goflow/backend/api/v1/go"
-	"github.com/azizAltaleb/goflow/backend/libs/id"
-	"github.com/azizAltaleb/goflow/backend/libs/logger"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	pb "github.com/azizAltaleb/flowgo/backend/api/v1/go"
+	"github.com/azizAltaleb/flowgo/backend/libs/id"
+	"github.com/azizAltaleb/flowgo/backend/libs/logger"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 	"strconv"
 	"time"
 
@@ -194,7 +194,7 @@ func (x *UserTaskExecutor) Execute(ctx context.Context, e *Engine, instance *mod
 		job = &model.Job{
 			Key:                  jobKey,
 			ID:                   id.GenerateUUIDv7(),
-			Type:                 "goflow:userTask", // Standard type for user tasks
+			Type:                 "flowgo:userTask", // Standard type for user tasks
 			ProcessInstanceKey:   piKey,
 			ElementInstanceKey:   exec.ElementInstanceKey,
 			ProcessDefinitionKey: wf.ID,

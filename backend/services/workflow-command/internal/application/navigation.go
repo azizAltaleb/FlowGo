@@ -3,9 +3,9 @@ package application
 import (
 	"context"
 	"fmt"
-	pb "github.com/azizAltaleb/goflow/backend/api/v1/go"
-	"github.com/azizAltaleb/goflow/backend/libs/id"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	pb "github.com/azizAltaleb/flowgo/backend/api/v1/go"
+	"github.com/azizAltaleb/flowgo/backend/libs/id"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 	"strconv"
 	"time"
 

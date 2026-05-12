@@ -3,9 +3,9 @@ package application
 import (
 	"context"
 	"errors"
-	pb "github.com/azizAltaleb/goflow/backend/api/v1/go"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
-	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/domain/repository"
+	pb "github.com/azizAltaleb/flowgo/backend/api/v1/go"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/domain/repository"
 	"testing"
 	"time"
 

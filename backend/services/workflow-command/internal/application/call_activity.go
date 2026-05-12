@@ -3,7 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 	"strconv"
 	"time"
 )

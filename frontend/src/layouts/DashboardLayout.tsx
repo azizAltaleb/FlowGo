@@ -24,7 +24,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
   const location = useLocation();
   const canShowIdentity =
     identityConfig?.deployment_mode === "zitadel" &&
-    (identity?.principal?.roles || []).some((role) => role.toLowerCase() === "goflow admin");
+    (identity?.principal?.roles || []).some((role) => role.toLowerCase() === "flowgo admin");
   const visibleSidebarItems = sidebarItems.filter((item) => !["/identity", "/sdk-clients"].includes(item.href) || canShowIdentity);
 
   useEffect(() => {

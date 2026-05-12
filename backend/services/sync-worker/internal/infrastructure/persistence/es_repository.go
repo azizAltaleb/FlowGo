@@ -2,8 +2,8 @@ package persistence
 
 import (
 	"context"
-	"github.com/azizAltaleb/goflow/backend/libs/elasticsearch"
-	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/domain/repository"
+	"github.com/azizAltaleb/flowgo/backend/libs/elasticsearch"
+	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/domain/repository"
 )
 
 type ESRepository struct {

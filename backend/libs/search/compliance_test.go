@@ -3,7 +3,7 @@ package search_test
 import (
 	"context"
 	"encoding/json"
-	"github.com/azizAltaleb/goflow/backend/libs/search"
+	"github.com/azizAltaleb/flowgo/backend/libs/search"
 	"testing"
 )
 

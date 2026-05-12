@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-GoFlow is pre-1.0 software. Security fixes are provided for the latest released minor version and the `main` branch unless a release note states otherwise.
+FlowGo is pre-1.0 software. Security fixes are provided for the latest released minor version and the `main` branch unless a release note states otherwise.
 
 | Version | Supported |
 | :--- | :--- |
@@ -14,13 +14,13 @@ GoFlow is pre-1.0 software. Security fixes are provided for the latest released 
 
 Please do not open public GitHub issues for suspected vulnerabilities.
 
-Report security issues by emailing the maintainers at `security@goflow.dev` or by using GitHub private vulnerability reporting after the public repository is enabled.
+Report security issues by emailing the maintainers at `security@flowgo.dev` or by using GitHub private vulnerability reporting after the public repository is enabled.
 
 Include:
 
 - **Impact**: affected component and expected severity.
 - **Reproduction**: steps, request payloads, logs, or proof of concept.
-- **Environment**: GoFlow version, deployment mode, IAM mode, and Docker/Helm details.
+- **Environment**: FlowGo version, deployment mode, IAM mode, and Docker/Helm details.
 - **Mitigation**: any workaround you have identified.
 
 We aim to acknowledge reports within 3 business days and provide a remediation plan after validation.
@@ -37,9 +37,9 @@ We aim to acknowledge reports within 3 business days and provide a remediation p
 
 In scope:
 
-- GoFlow command, query, runtime, sync-worker, frontend, Helm chart, Docker images, and Node.js SDK.
+- FlowGo command, query, runtime, sync-worker, frontend, Helm chart, Docker images, and Node.js SDK.
 - Authentication, authorization, token handling, workflow execution isolation, and supply-chain issues.
 
 Out of scope:
 
-- Vulnerabilities in third-party services deployed and configured independently, unless GoFlow documentation or defaults make them exploitable.
+- Vulnerabilities in third-party services deployed and configured independently, unless FlowGo documentation or defaults make them exploitable.

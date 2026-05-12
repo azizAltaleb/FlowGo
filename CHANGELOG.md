@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to GoFlow will be documented in this file.
+All notable changes to FlowGo will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning while it remains pre-1.0.
 
@@ -22,4 +22,4 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
-- Initial public release target for GoFlow source, Docker images, Helm chart, and Node.js SDK.
+- Initial public release target for FlowGo source, Docker images, Helm chart, and Node.js SDK.
