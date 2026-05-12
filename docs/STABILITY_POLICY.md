@@ -1,6 +1,6 @@
 # Stability Policy
 
-GoFlow is pre-1.0 software.
+FlowGo is pre-1.0 software.
 
 ## Versioning
 

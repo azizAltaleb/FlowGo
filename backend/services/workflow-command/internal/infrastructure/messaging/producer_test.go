@@ -1,7 +1,7 @@
 package messaging
 
 import (
-	workflowapi "github.com/azizAltaleb/goflow/backend/api/v1/go"
+	workflowapi "github.com/azizAltaleb/flowgo/backend/api/v1/go"
 	"testing"
 
 	"google.golang.org/protobuf/proto"

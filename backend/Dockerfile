@@ -17,16 +17,16 @@ ARG REVISION=unknown
 
 WORKDIR /app
 
-RUN addgroup -S goflow && adduser -S -G goflow goflow
+RUN addgroup -S flowgo && adduser -S -G flowgo flowgo
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /app/workflow-command .
-USER goflow
+USER flowgo
 
 EXPOSE 8080
 
-LABEL org.opencontainers.image.title="GoFlow Command Service" \
-      org.opencontainers.image.description="Command API service for GoFlow" \
-      org.opencontainers.image.source="https://github.com/azizAltaleb/GoFlow" \
+LABEL org.opencontainers.image.title="FlowGo Command Service" \
+      org.opencontainers.image.description="Command API service for FlowGo" \
+      org.opencontainers.image.source="https://github.com/azizAltaleb/FlowGo" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"

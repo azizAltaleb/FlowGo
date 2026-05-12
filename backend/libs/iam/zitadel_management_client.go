@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/goflow/backend/libs/auth"
+	"github.com/azizAltaleb/flowgo/backend/libs/auth"
 )
 
 type zitadelUser struct {
@@ -219,10 +219,10 @@ func (c *ZITADELManagementClient) ListClients(ctx context.Context) ([]ManagedCli
 			continue
 		}
 		roles := normalizeRoleKeys(rolesByUser[managed.ClientID])
-		if !roleKeysContain(roles, auth.RoleGoFlowClient) {
+		if !roleKeysContain(roles, auth.RoleFlowGoClient) {
 			continue
 		}
-		managed.Role = auth.RoleGoFlowClient
+		managed.Role = auth.RoleFlowGoClient
 		managed.Tokens = tokensByUser[managed.ClientID]
 		sort.Slice(managed.Tokens, func(i, j int) bool {
 			return managed.Tokens[i].TokenCreatedAt > managed.Tokens[j].TokenCreatedAt
@@ -267,7 +267,7 @@ func (c *ZITADELManagementClient) CreateClientToken(ctx context.Context, input M
 	if err := c.connect(ctx, "/zitadel.user.v2.UserService/CreateUser", payload, &createResponse); err != nil {
 		return ManagedClientToken{}, err
 	}
-	if err := c.setUserRoles(ctx, state, createResponse.ID, []string{auth.RoleGoFlowClient}); err != nil {
+	if err := c.setUserRoles(ctx, state, createResponse.ID, []string{auth.RoleFlowGoClient}); err != nil {
 		_ = c.DeleteUser(ctx, createResponse.ID)
 		return ManagedClientToken{}, err
 	}
@@ -292,7 +292,7 @@ func (c *ZITADELManagementClient) CreateClientToken(ctx context.Context, input M
 		Environment:    strings.TrimSpace(input.Environment),
 		OwnerEmail:     strings.TrimSpace(input.OwnerEmail),
 		Purpose:        strings.TrimSpace(input.Purpose),
-		Role:           auth.RoleGoFlowClient,
+		Role:           auth.RoleFlowGoClient,
 		TokenID:        tokenResponse.TokenID,
 		Token:          tokenResponse.Token,
 		TokenCreatedAt: tokenResponse.CreationDate,
@@ -325,7 +325,7 @@ func (c *ZITADELManagementClient) RotateClientToken(ctx context.Context, clientI
 		Environment:    client.Environment,
 		OwnerEmail:     client.OwnerEmail,
 		Purpose:        client.Purpose,
-		Role:           auth.RoleGoFlowClient,
+		Role:           auth.RoleFlowGoClient,
 		TokenID:        tokenResponse.TokenID,
 		Token:          tokenResponse.Token,
 		TokenCreatedAt: tokenResponse.CreationDate,
@@ -438,7 +438,7 @@ func (c *ZITADELManagementClient) CreateRole(ctx context.Context, input ManagedR
 	}
 	role := ManagedRole{Key: strings.TrimSpace(input.Key), DisplayName: strings.TrimSpace(input.DisplayName), Group: strings.TrimSpace(input.Group)}
 	if role.Group == "" {
-		role.Group = "GoFlow"
+		role.Group = "FlowGo"
 	}
 	if err := c.connect(ctx, "/zitadel.project.v2.ProjectService/AddProjectRole", map[string]any{
 		"projectId":   state.ProjectID,
@@ -543,10 +543,10 @@ func (c *ZITADELManagementClient) getClient(ctx context.Context, clientID string
 	for _, role := range authorization.Roles {
 		roles = append(roles, role.Key)
 	}
-	if !roleKeysContain(normalizeRoleKeys(roles), auth.RoleGoFlowClient) {
+	if !roleKeysContain(normalizeRoleKeys(roles), auth.RoleFlowGoClient) {
 		return ManagedClient{}, ErrZITADELManagedClientNotFound
 	}
-	client.Role = auth.RoleGoFlowClient
+	client.Role = auth.RoleFlowGoClient
 	return client, nil
 }
 
@@ -650,7 +650,7 @@ func managedUserIsVisible(user ManagedUser) bool {
 	if user.Type == "machine" {
 		return false
 	}
-	hiddenIdentities := []string{"workflow-login-client", "login-client", "goflow-bootstrap"}
+	hiddenIdentities := []string{"workflow-login-client", "login-client", "flowgo-bootstrap"}
 	userIdentities := []string{user.Username, user.PreferredLoginName, user.DisplayName, user.Email}
 	for _, userIdentity := range userIdentities {
 		for _, hiddenIdentity := range hiddenIdentities {
@@ -666,7 +666,7 @@ func managedClientIsVisible(client ManagedClient) bool {
 	if strings.TrimSpace(client.ClientID) == "" {
 		return false
 	}
-	hiddenIdentities := []string{"workflow-login-client", "login-client", "goflow-bootstrap"}
+	hiddenIdentities := []string{"workflow-login-client", "login-client", "flowgo-bootstrap"}
 	clientIdentities := []string{client.Username, client.Name}
 	for _, clientIdentity := range clientIdentities {
 		for _, hiddenIdentity := range hiddenIdentities {
@@ -703,7 +703,7 @@ func encodeClientDescription(client ManagedClient) string {
 	if err != nil {
 		return strings.TrimSpace(client.Description)
 	}
-	return "goflow-client:" + string(encoded)
+	return "flowgo-client:" + string(encoded)
 }
 
 func decodeClientDescription(value string) (string, string, string, string) {
@@ -711,7 +711,7 @@ func decodeClientDescription(value string) (string, string, string, string) {
 	if trimmed == "" {
 		return "", "", "", ""
 	}
-	raw := strings.TrimPrefix(trimmed, "goflow-client:")
+	raw := strings.TrimPrefix(trimmed, "flowgo-client:")
 	if !strings.HasPrefix(raw, "{") {
 		return trimmed, "", "", ""
 	}

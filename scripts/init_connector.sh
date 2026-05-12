@@ -2,7 +2,7 @@
 set -euo pipefail
 
 CONNECT_URL="${CONNECT_URL:-http://localhost:8083}"
-CONNECTOR_NAME="${CONNECTOR_NAME:-goflow-postgres-connector}"
+CONNECTOR_NAME="${CONNECTOR_NAME:-flowgo-postgres-connector}"
 CONNECTOR_FILE="${CONNECTOR_FILE:-debezium/connector-register.json}"
 CONNECT_WAIT_TIMEOUT_SEC="${CONNECT_WAIT_TIMEOUT_SEC:-180}"
 

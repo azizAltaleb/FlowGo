@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/flowgo/backend/libs/logger"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 )

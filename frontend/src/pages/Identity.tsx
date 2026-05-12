@@ -127,7 +127,7 @@ export default function Identity() {
               <Badge variant="outline">docker-compose.zitadel.yml</Badge>
             </div>
             <p className="text-muted-foreground">
-              Use this mode when you want GoFlow to provide its own IAM stack with ZITADEL.
+              Use this mode when you want FlowGo to provide its own IAM stack with ZITADEL.
             </p>
           </CardContent>
         </Card>
@@ -226,7 +226,7 @@ export default function Identity() {
         <CardHeader>
           <CardTitle>Roles</CardTitle>
           <CardDescription>
-            GoFlow recognizes these standard IAM roles: {standardRoles.join(", ") || "-"}.
+            FlowGo recognizes these standard IAM roles: {standardRoles.join(", ") || "-"}.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">

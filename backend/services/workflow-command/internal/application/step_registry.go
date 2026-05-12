@@ -2,7 +2,7 @@ package application
 
 import (
 	"context"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 )
 
 // StepExecutor defines the strategy interface for executing BPMN steps

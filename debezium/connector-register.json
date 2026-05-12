@@ -1,5 +1,5 @@
 {
-  "name": "goflow-postgres-connector",
+  "name": "flowgo-postgres-connector",
   "config": {
     "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
     "plugin.name": "pgoutput",
@@ -10,11 +10,11 @@
     "database.password": "password",
     "database.dbname": "workflow_db",
 
-    "topic.prefix": "goflow",
+    "topic.prefix": "flowgo",
     "schema.include.list": "public",
     "table.include.list": "public.process,public.process_instance,public.element_instance,public.variable,public.job,public.incident,public.timer,public.message_subscription",
 
-    "slot.name": "goflow_slot",
+    "slot.name": "flowgo_slot",
     "publication.autocreate.mode": "filtered",
 
     "include.schema.changes": "false",

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/azizAltaleb/goflow/backend/libs/logger"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
-	"github.com/azizAltaleb/goflow/backend/services/workflow-command/internal/domain/repository"
+	"github.com/azizAltaleb/flowgo/backend/libs/logger"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/domain/repository"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

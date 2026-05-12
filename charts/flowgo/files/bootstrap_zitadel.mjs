@@ -22,11 +22,11 @@ function canonicalIdentity(value) {
 const ZITADEL_INTERNAL_URL = env("ZITADEL_INTERNAL_URL", "http://zitadel-api:8080").replace(/\/$/, "");
 const ZITADEL_PUBLIC_URL = env("ZITADEL_PUBLIC_URL", "http://localhost:9180").replace(/\/$/, "");
 const OWNER_PAT_FILE = env("ZITADEL_OWNER_PAT_FILE", "/zitadel/bootstrap/owner.pat");
-const CLIENT_ID_FILE = env("GOFLOW_FRONTEND_CLIENT_ID_FILE", "/goflow/bootstrap/goflow-frontend-client-id");
-const BOOTSTRAP_STATE_FILE = env("GOFLOW_ZITADEL_BOOTSTRAP_STATE_FILE", "/goflow/bootstrap/goflow-zitadel.json");
-const PROJECT_NAME = env("GOFLOW_PROJECT_NAME", "GoFlow");
-const FRONTEND_APP_NAME = env("GOFLOW_FRONTEND_APP_NAME", "GoFlow Frontend");
-const FRONTEND_URL = env("GOFLOW_FRONTEND_URL", "http://localhost:9100").replace(/\/$/, "");
+const CLIENT_ID_FILE = env("FLOWGO_FRONTEND_CLIENT_ID_FILE", "/flowgo/bootstrap/flowgo-frontend-client-id");
+const BOOTSTRAP_STATE_FILE = env("FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE", "/flowgo/bootstrap/flowgo-zitadel.json");
+const PROJECT_NAME = env("FLOWGO_PROJECT_NAME", "FlowGo");
+const FRONTEND_APP_NAME = env("FLOWGO_FRONTEND_APP_NAME", "FlowGo Frontend");
+const FRONTEND_URL = env("FLOWGO_FRONTEND_URL", "http://localhost:9100").replace(/\/$/, "");
 const ADMIN_USERNAME = env("ZITADEL_ADMIN_USERNAME", env("ZITADEL_ADMIN_LOGIN_NAME", "admin"));
 const ADMIN_PASSWORD = env("ZITADEL_ADMIN_PASSWORD", "admin");
 const ADMIN_GIVEN_NAME = env("ZITADEL_ADMIN_GIVEN_NAME", "admin");
@@ -43,9 +43,9 @@ const LEGACY_ADMIN_IDENTIFIERS = new Set(
 );
 const PUBLIC_HOST = new URL(ZITADEL_PUBLIC_URL).host;
 const ROLES = [
-  ["goflow client", "GoFlow Client"],
-  ["goflow admin", "GoFlow Admin"],
-  ["goflow viewer", "GoFlow Viewer"],
+  ["flowgo client", "FlowGo Client"],
+  ["flowgo admin", "FlowGo Admin"],
+  ["flowgo viewer", "FlowGo Viewer"],
 ];
 
 function log(message) {
@@ -273,7 +273,7 @@ async function ensureRoles(token, projectId) {
         projectId,
         roleKey,
         displayName,
-        group: "GoFlow",
+        group: "FlowGo",
       });
       log(`created role ${roleKey}`);
     } catch (error) {
@@ -375,7 +375,7 @@ async function listProjectAuthorizations(token) {
 }
 
 function authorizationHasAdminRole(authorization, projectId) {
-  return authorization.project?.id === projectId && (authorization.roles || []).some((role) => role.key === "goflow admin");
+  return authorization.project?.id === projectId && (authorization.roles || []).some((role) => role.key === "flowgo admin");
 }
 
 async function updateAdminUser(token, user) {
@@ -467,9 +467,9 @@ async function assignAdminRole(token, orgId, projectId, userId) {
       userId,
       projectId,
       organizationId: orgId,
-      roleKeys: ["goflow admin"],
+      roleKeys: ["flowgo admin"],
     });
-    log(`assigned goflow admin to ${ADMIN_LOGIN_NAME}`);
+    log(`assigned flowgo admin to ${ADMIN_LOGIN_NAME}`);
   } catch (error) {
     if (isAlreadyExists(error)) {
       log(`admin authorization already exists for ${ADMIN_LOGIN_NAME}`);

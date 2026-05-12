@@ -1,8 +1,8 @@
-# GoFlow Helm Chart
+# FlowGo Helm Chart
 
-This chart deploys GoFlow for production Kubernetes environments.
+This chart deploys FlowGo for production Kubernetes environments.
 
-Default GoFlow image repositories point to Docker Hub under `gofl0w/*` and use a pinned release tag. Pin image tags explicitly for production rollouts.
+Default FlowGo image repositories point to Docker Hub under `flowgo/*` and use a pinned release tag. Pin image tags explicitly for production rollouts.
 
 ## Deployment models
 
@@ -16,15 +16,15 @@ The chart expects production Postgres, Kafka or NATS, Elasticsearch or OpenSearc
 ## External IAM install
 
 ```bash
-helm upgrade --install goflow ./charts/goflow \
-  --namespace goflow --create-namespace \
-  -f ./charts/goflow/values-external-iam.yaml \
+helm upgrade --install flowgo ./charts/flowgo \
+  --namespace flowgo --create-namespace \
+  -f ./charts/flowgo/values-external-iam.yaml \
   --set images.command.repository=REGISTRY/workflow-command \
   --set images.query.repository=REGISTRY/workflow-query \
   --set images.runtime.repository=REGISTRY/workflow-runtime \
   --set images.syncWorker.repository=REGISTRY/sync-worker \
   --set images.frontend.repository=REGISTRY/frontend \
-  --set postgresql.existingSecret=goflow-postgres \
+  --set postgresql.existingSecret=flowgo-postgres \
   --set iam.auth.issuerPublicUrl=https://login.example.com \
   --set iam.auth.issuerInternalUrl=https://login.example.com \
   --set iam.frontend.oidcAuthority=https://login.example.com \
@@ -34,15 +34,15 @@ helm upgrade --install goflow ./charts/goflow \
 ## Internal ZITADEL IAM install
 
 ```bash
-helm upgrade --install goflow ./charts/goflow \
-  --namespace goflow --create-namespace \
-  -f ./charts/goflow/values-internal-iam.yaml \
+helm upgrade --install flowgo ./charts/flowgo \
+  --namespace flowgo --create-namespace \
+  -f ./charts/flowgo/values-internal-iam.yaml \
   --set images.command.repository=REGISTRY/workflow-command \
   --set images.query.repository=REGISTRY/workflow-query \
   --set images.runtime.repository=REGISTRY/workflow-runtime \
   --set images.syncWorker.repository=REGISTRY/sync-worker \
   --set images.frontend.repository=REGISTRY/frontend \
-  --set postgresql.existingSecret=goflow-postgres \
+  --set postgresql.existingSecret=flowgo-postgres \
   --set zitadel.masterkey=REPLACE_WITH_32_CHAR_MASTERKEY \
   --set zitadel.bootstrap.adminPassword=REPLACE_WITH_ADMIN_PASSWORD
 ```
@@ -63,4 +63,4 @@ The gateway exposes the frontend at `/`, command API at `/api/`, and query API a
 - Use TLS-enabled ingress and production OIDC issuer URLs.
 - Keep `iam.auth.enforceAudience=true` unless a documented compatibility exception is required.
 - Prefer externally managed Postgres, Kafka/NATS, Elasticsearch/OpenSearch, and secret management.
-- Use signed GoFlow release images and verify SBOM/provenance artifacts when available.
+- Use signed FlowGo release images and verify SBOM/provenance artifacts when available.

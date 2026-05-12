@@ -18,23 +18,23 @@ replicaCount:
 
 images:
   command:
-    repository: gofl0w/workflow-command
+    repository: flowgo/workflow-command
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   query:
-    repository: gofl0w/workflow-query
+    repository: flowgo/workflow-query
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   runtime:
-    repository: gofl0w/workflow-runtime
+    repository: flowgo/workflow-runtime
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   syncWorker:
-    repository: gofl0w/sync-worker
+    repository: flowgo/sync-worker
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   frontend:
-    repository: gofl0w/frontend
+    repository: flowgo/frontend
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   gateway:
@@ -52,7 +52,7 @@ postgresql:
   host: "postgres.example.internal"
   port: 5432
   database: workflow_db
-  user: goflow
+  user: flowgo
   password: "change-me"
   sslMode: require
   existingSecret: ""
@@ -61,7 +61,7 @@ postgresql:
 search:
   backend: elasticsearch
   address: "https://elasticsearch.example.internal:9200"
-  indexPrefix: goflow
+  indexPrefix: flowgo
 
 eventBus:
   type: kafka
@@ -72,7 +72,7 @@ eventBus:
     url: "nats://nats.example.internal:4222"
 
 cors:
-  allowedOrigins: "https://goflow.example.com"
+  allowedOrigins: "https://flowgo.example.com"
   allowCredentials: false
 
 iam:
@@ -156,13 +156,13 @@ runtime:
 syncWorker:
   enabled: true
   env:
-    groupId: goflow-sync-worker
-    topics: workflow.events.v1,goflow.public.process,goflow.public.process_instance,goflow.public.element_instance,goflow.public.variable,goflow.public.job,goflow.public.incident,goflow.public.timer,goflow.public.message_subscription
+    groupId: flowgo-sync-worker
+    topics: workflow.events.v1,flowgo.public.process,flowgo.public.process_instance,flowgo.public.element_instance,flowgo.public.variable,flowgo.public.job,flowgo.public.incident,flowgo.public.timer,flowgo.public.message_subscription
     projectionContract: hybrid
     dlqTopic: workflow.sync.dlq
     connectBootstrapEnabled: "true"
     connectUrl: "http://debezium-connect.example.internal:8083"
-    connectorName: goflow-postgres-connector
+    connectorName: flowgo-postgres-connector
     connectorFile: ""
     connectorJson: ""
     connectWaitTimeoutSec: "180"
@@ -207,24 +207,24 @@ ingress:
   enabled: true
   className: nginx
   annotations: {}
-  host: goflow.example.com
+  host: flowgo.example.com
   tls:
     enabled: true
-    secretName: goflow-tls
+    secretName: flowgo-tls
 
 zitadel:
   enabled: false
-  publicUrl: "https://iam.goflow.example.com"
-  externalDomain: iam.goflow.example.com
+  publicUrl: "https://iam.flowgo.example.com"
+  externalDomain: iam.flowgo.example.com
   externalPort: 443
   externalSecure: true
   masterkey: MasterkeyNeedsToHave32Characters
   existingSecret: ""
   bootstrap:
     waitSeconds: "240"
-    projectName: GoFlow
-    frontendAppName: GoFlow Frontend
-    frontendUrl: "https://goflow.example.com"
+    projectName: FlowGo
+    frontendAppName: FlowGo Frontend
+    frontendUrl: "https://flowgo.example.com"
     adminUsername: admin
     adminPassword: "change-me"
     adminGivenName: admin
@@ -285,7 +285,7 @@ zitadel:
     enabled: true
     className: nginx
     annotations: {}
-    host: iam.goflow.example.com
+    host: iam.flowgo.example.com
     tls:
       enabled: true
-      secretName: goflow-iam-tls
+      secretName: flowgo-iam-tls

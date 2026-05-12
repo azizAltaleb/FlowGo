@@ -3,8 +3,8 @@ package messaging
 import (
 	"context"
 	"fmt"
-	workflowapi "github.com/azizAltaleb/goflow/backend/api/v1/go"
-	"github.com/azizAltaleb/goflow/backend/libs/id"
+	workflowapi "github.com/azizAltaleb/flowgo/backend/api/v1/go"
+	"github.com/azizAltaleb/flowgo/backend/libs/id"
 	"time"
 
 	"github.com/segmentio/kafka-go"

@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package goflow.api.v1;
+package flowgo.api.v1;
 
-option go_package = "github.com/azizAltaleb/goflow/backend/api/v1/go;workflowapi";
+option go_package = "github.com/azizAltaleb/flowgo/backend/api/v1/go;workflowapi";
 
 import "google/protobuf/timestamp.proto";
 

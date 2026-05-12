@@ -17,16 +17,16 @@ ARG REVISION=unknown
 
 WORKDIR /app
 
-RUN addgroup -S goflow && adduser -S -G goflow goflow
+RUN addgroup -S flowgo && adduser -S -G flowgo flowgo
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /app/sync-worker .
-USER goflow
+USER flowgo
 
 EXPOSE 8092
 
-LABEL org.opencontainers.image.title="GoFlow Sync Worker" \
-      org.opencontainers.image.description="CQRS projection sync worker for GoFlow" \
-      org.opencontainers.image.source="https://github.com/azizAltaleb/GoFlow" \
+LABEL org.opencontainers.image.title="FlowGo Sync Worker" \
+      org.opencontainers.image.description="CQRS projection sync worker for FlowGo" \
+      org.opencontainers.image.source="https://github.com/azizAltaleb/FlowGo" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"

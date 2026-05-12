@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in GoFlow
+description: Report a reproducible problem in FlowGo
 title: "[Bug]: "
 labels:
   - bug

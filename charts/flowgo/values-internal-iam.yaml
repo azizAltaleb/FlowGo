@@ -3,7 +3,7 @@ iam:
   providerName: ZITADEL
   auth:
     issuerInternalUrl: ""
-    issuerPublicUrl: "https://iam.goflow.example.com"
+    issuerPublicUrl: "https://iam.flowgo.example.com"
     clientId: workflow-backend
     tokenMode: jwt
     introspectionUrl: ""
@@ -19,32 +19,32 @@ iam:
     enforceAudience: false
     allowInsecureIssuer: true
   frontend:
-    oidcAuthority: "https://iam.goflow.example.com"
+    oidcAuthority: "https://iam.flowgo.example.com"
     oidcClientId: ""
-    oidcClientIdFile: /goflow/bootstrap/goflow-frontend-client-id
+    oidcClientIdFile: /flowgo/bootstrap/flowgo-frontend-client-id
 
 zitadel:
   enabled: true
-  publicUrl: "https://iam.goflow.example.com"
-  externalDomain: iam.goflow.example.com
+  publicUrl: "https://iam.flowgo.example.com"
+  externalDomain: iam.flowgo.example.com
   externalPort: 443
   externalSecure: true
   masterkey: MasterkeyNeedsToHave32Characters
   bootstrap:
-    frontendUrl: "https://goflow.example.com"
+    frontendUrl: "https://flowgo.example.com"
     adminUsername: admin
     adminPassword: "change-me"
     adminEmail: admin@example.com
   ingress:
     enabled: true
-    host: iam.goflow.example.com
+    host: iam.flowgo.example.com
     tls:
       enabled: true
-      secretName: goflow-iam-tls
+      secretName: flowgo-iam-tls
 
 ingress:
   enabled: true
-  host: goflow.example.com
+  host: flowgo.example.com
   tls:
     enabled: true
-    secretName: goflow-tls
+    secretName: flowgo-tls

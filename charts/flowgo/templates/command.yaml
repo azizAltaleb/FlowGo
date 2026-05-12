@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "goflow.commandServiceName" . }}
+  name: {{ include "flowgo.commandServiceName" . }}
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: command
 spec:
   type: {{ .Values.command.service.type }}
@@ -12,33 +12,33 @@ spec:
       port: {{ .Values.command.service.port }}
       targetPort: http
   selector:
-    {{- include "goflow.selectorLabels" . | nindent 4 }}
+    {{- include "flowgo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: command
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "goflow.fullname" . }}-command
+  name: {{ include "flowgo.fullname" . }}-command
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: command
 spec:
   replicas: {{ .Values.replicaCount.command }}
   selector:
     matchLabels:
-      {{- include "goflow.selectorLabels" . | nindent 6 }}
+      {{- include "flowgo.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: command
   template:
     metadata:
       labels:
-        {{- include "goflow.selectorLabels" . | nindent 8 }}
+        {{- include "flowgo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: command
       {{- with .Values.global.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "goflow.serviceAccountName" . }}
+      serviceAccountName: {{ include "flowgo.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -52,17 +52,17 @@ spec:
               containerPort: 8080
           envFrom:
             - configMapRef:
-                name: {{ include "goflow.envConfigName" . }}
+                name: {{ include "flowgo.envConfigName" . }}
           env:
             - name: PG_DSN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "goflow.envSecretName" . }}
+                  name: {{ include "flowgo.envSecretName" . }}
                   key: {{ .Values.postgresql.existingSecretKey | default "PG_DSN" }}
             - name: AUTH_INTROSPECTION_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "goflow.envSecretName" . }}
+                  name: {{ include "flowgo.envSecretName" . }}
                   key: AUTH_INTROSPECTION_CLIENT_SECRET
                   optional: true
           livenessProbe:
@@ -83,18 +83,18 @@ spec:
           volumeMounts:
             - name: zitadel-bootstrap
               mountPath: /zitadel/bootstrap
-            - name: goflow-bootstrap
-              mountPath: /goflow/bootstrap
+            - name: flowgo-bootstrap
+              mountPath: /flowgo/bootstrap
               readOnly: true
           {{- end }}
       {{- if .Values.zitadel.enabled }}
       volumes:
         - name: zitadel-bootstrap
           persistentVolumeClaim:
-            claimName: {{ include "goflow.zitadelBootstrapPvc" . }}
-        - name: goflow-bootstrap
+            claimName: {{ include "flowgo.zitadelBootstrapPvc" . }}
+        - name: flowgo-bootstrap
           persistentVolumeClaim:
-            claimName: {{ include "goflow.goflowBootstrapPvc" . }}
+            claimName: {{ include "flowgo.flowgoBootstrapPvc" . }}
       {{- end }}
       {{- with .Values.global.nodeSelector }}
       nodeSelector:

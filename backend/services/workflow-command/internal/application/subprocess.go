@@ -2,7 +2,7 @@ package application
 
 import (
 	"context"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 )
 
 func (e *Engine) checkSubProcessCompletion(ctx context.Context, instance *model.WorkflowInstance, completedExecID string, wf *model.WorkflowDefinition) error {

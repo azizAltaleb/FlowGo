@@ -42,7 +42,7 @@ func NewJobWorkerServiceClient(cc grpc.ClientConnInterface) JobWorkerServiceClie
 
 func (c *jobWorkerServiceClient) ActivateJobs(ctx context.Context, in *ActivateJobsRequest, opts ...grpc.CallOption) (*ActivateJobsResponse, error) {
 	out := new(ActivateJobsResponse)
-	err := c.cc.Invoke(ctx, "/goflow.api.v1.JobWorkerService/ActivateJobs", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/flowgo.api.v1.JobWorkerService/ActivateJobs", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (c *jobWorkerServiceClient) ActivateJobs(ctx context.Context, in *ActivateJ
 
 func (c *jobWorkerServiceClient) CompleteJob(ctx context.Context, in *CompleteJobRequest, opts ...grpc.CallOption) (*CompleteJobResponse, error) {
 	out := new(CompleteJobResponse)
-	err := c.cc.Invoke(ctx, "/goflow.api.v1.JobWorkerService/CompleteJob", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/flowgo.api.v1.JobWorkerService/CompleteJob", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (c *jobWorkerServiceClient) CompleteJob(ctx context.Context, in *CompleteJo
 
 func (c *jobWorkerServiceClient) FailJob(ctx context.Context, in *FailJobRequest, opts ...grpc.CallOption) (*FailJobResponse, error) {
 	out := new(FailJobResponse)
-	err := c.cc.Invoke(ctx, "/goflow.api.v1.JobWorkerService/FailJob", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/flowgo.api.v1.JobWorkerService/FailJob", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func _JobWorkerService_ActivateJobs_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/goflow.api.v1.JobWorkerService/ActivateJobs",
+		FullMethod: "/flowgo.api.v1.JobWorkerService/ActivateJobs",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(JobWorkerServiceServer).ActivateJobs(ctx, req.(*ActivateJobsRequest))
@@ -136,7 +136,7 @@ func _JobWorkerService_CompleteJob_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/goflow.api.v1.JobWorkerService/CompleteJob",
+		FullMethod: "/flowgo.api.v1.JobWorkerService/CompleteJob",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(JobWorkerServiceServer).CompleteJob(ctx, req.(*CompleteJobRequest))
@@ -154,7 +154,7 @@ func _JobWorkerService_FailJob_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/goflow.api.v1.JobWorkerService/FailJob",
+		FullMethod: "/flowgo.api.v1.JobWorkerService/FailJob",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(JobWorkerServiceServer).FailJob(ctx, req.(*FailJobRequest))
@@ -166,7 +166,7 @@ func _JobWorkerService_FailJob_Handler(srv interface{}, ctx context.Context, dec
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var JobWorkerService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "goflow.api.v1.JobWorkerService",
+	ServiceName: "flowgo.api.v1.JobWorkerService",
 	HandlerType: (*JobWorkerServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

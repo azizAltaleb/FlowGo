@@ -7,8 +7,8 @@
 | External IAM Compose | `docker-compose.external-iam.yml` | Development/evaluation with an existing OIDC provider. |
 | Bundled ZITADEL Compose | `docker-compose.zitadel.yml` | Development/evaluation with solution-managed ZITADEL. |
 | Published images Compose override | `docker-compose.release.yml` | Runs release images from Docker Hub instead of local builds. |
-| External IAM Helm | `charts/goflow/values-external-iam.yaml` | Production Kubernetes with external OIDC and managed infrastructure. |
-| Bundled ZITADEL Helm | `charts/goflow/values-internal-iam.yaml` | Kubernetes deployment with bundled ZITADEL. |
+| External IAM Helm | `charts/flowgo/values-external-iam.yaml` | Production Kubernetes with external OIDC and managed infrastructure. |
+| Bundled ZITADEL Helm | `charts/flowgo/values-internal-iam.yaml` | Kubernetes deployment with bundled ZITADEL. |
 
 ## Docker Compose
 
@@ -23,7 +23,7 @@ make smoke-profiles
 Run published Docker Hub images instead of building locally:
 
 ```bash
-GOFLOW_IMAGE_TAG=0.1.0 make up-zitadel-release
+FLOWGO_IMAGE_TAG=0.1.0 make up-zitadel-release
 ```
 
 Validate the published-image compose override:
@@ -32,13 +32,13 @@ Validate the published-image compose override:
 make smoke-release-profiles
 ```
 
-The image registry defaults to `gofl0w`; override it with `GOFLOW_IMAGE_REGISTRY` when testing a fork or staging registry.
+The image registry defaults to `flowgo`; override it with `FLOWGO_IMAGE_REGISTRY` when testing a fork or staging registry.
 
 Published image names, tag policy, and verification guidance are documented in [DOCKER_IMAGES.md](DOCKER_IMAGES.md).
 
 ## Helm
 
-The Helm chart is in `charts/goflow`.
+The Helm chart is in `charts/flowgo`.
 
 Production Helm deployments should provide:
 
@@ -52,9 +52,9 @@ Production Helm deployments should provide:
 Example:
 
 ```bash
-helm upgrade --install goflow ./charts/goflow \
-  --namespace goflow --create-namespace \
-  -f ./charts/goflow/values-external-iam.yaml
+helm upgrade --install flowgo ./charts/flowgo \
+  --namespace flowgo --create-namespace \
+  -f ./charts/flowgo/values-external-iam.yaml
 ```
 
 ## Production Requirements

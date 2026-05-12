@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "goflow.frontendServiceName" . }}
+  name: {{ include "flowgo.frontendServiceName" . }}
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
 spec:
   type: {{ .Values.frontend.service.type }}
@@ -12,33 +12,33 @@ spec:
       port: {{ .Values.frontend.service.port }}
       targetPort: http
   selector:
-    {{- include "goflow.selectorLabels" . | nindent 4 }}
+    {{- include "flowgo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "goflow.fullname" . }}-frontend
+  name: {{ include "flowgo.fullname" . }}-frontend
   labels:
-    {{- include "goflow.labels" . | nindent 4 }}
+    {{- include "flowgo.labels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
 spec:
   replicas: {{ .Values.replicaCount.frontend }}
   selector:
     matchLabels:
-      {{- include "goflow.selectorLabels" . | nindent 6 }}
+      {{- include "flowgo.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: frontend
   template:
     metadata:
       labels:
-        {{- include "goflow.selectorLabels" . | nindent 8 }}
+        {{- include "flowgo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: frontend
       {{- with .Values.global.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "goflow.serviceAccountName" . }}
+      serviceAccountName: {{ include "flowgo.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -52,7 +52,7 @@ spec:
               containerPort: 80
           envFrom:
             - configMapRef:
-                name: {{ include "goflow.envConfigName" . }}
+                name: {{ include "flowgo.envConfigName" . }}
           livenessProbe:
             httpGet:
               path: /
@@ -69,15 +69,15 @@ spec:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
           {{- if .Values.zitadel.enabled }}
           volumeMounts:
-            - name: goflow-bootstrap
-              mountPath: /goflow/bootstrap
+            - name: flowgo-bootstrap
+              mountPath: /flowgo/bootstrap
               readOnly: true
           {{- end }}
       {{- if .Values.zitadel.enabled }}
       volumes:
-        - name: goflow-bootstrap
+        - name: flowgo-bootstrap
           persistentVolumeClaim:
-            claimName: {{ include "goflow.goflowBootstrapPvc" . }}
+            claimName: {{ include "flowgo.flowgoBootstrapPvc" . }}
       {{- end }}
       {{- with .Values.global.nodeSelector }}
       nodeSelector:

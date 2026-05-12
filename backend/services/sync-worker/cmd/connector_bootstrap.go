@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/goflow/backend/libs/logger"
+	"github.com/azizAltaleb/flowgo/backend/libs/logger"
 )
 
 //go:embed connector-register.default.json

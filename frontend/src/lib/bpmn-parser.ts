@@ -5,7 +5,7 @@ const BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL";
 const BPMNDI_NS = "http://www.omg.org/spec/BPMN/20100524/DI";
 const DC_NS = "http://www.omg.org/spec/DD/20100524/DC";
 const DI_NS = "http://www.omg.org/spec/DD/20100524/DI";
-const GOFLOW_NS = "http://goflow.com/schema/1.0/bpmn";
+const FLOWGO_NS = "http://flowgo.com/schema/1.0/bpmn";
 
 const DEFAULT_OPTIONS = {
   ignoreAttributes: false,
@@ -190,7 +190,7 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
               
               if (extensions) {
                   // Check for connector with or without namespace, and handle array
-                  const connectorRaw = extensions["goflow:connector"] || extensions["connector"];
+                  const connectorRaw = extensions["flowgo:connector"] || extensions["connector"];
                   
                   if (connectorRaw) {
                       const connector = Array.isArray(connectorRaw) ? connectorRaw[0] : connectorRaw;
@@ -201,8 +201,8 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
           }
 
           // Determine handles with immediate fallback
-          const sourceHandle = extSourceHandle || (flow["@_goflow:sourceHandle"] || flow["@_goflow_sourceHandle"] || flow["@_sourceHandle"]) as string || 'right';
-          const targetHandle = extTargetHandle || (flow["@_goflow:targetHandle"] || flow["@_goflow_targetHandle"] || flow["@_targetHandle"]) as string || 'left';
+          const sourceHandle = extSourceHandle || (flow["@_flowgo:sourceHandle"] || flow["@_flowgo_sourceHandle"] || flow["@_sourceHandle"]) as string || 'right';
+          const targetHandle = extTargetHandle || (flow["@_flowgo:targetHandle"] || flow["@_flowgo_targetHandle"] || flow["@_targetHandle"]) as string || 'left';
 
           edges.push({
             id: String(flow["@_id"]),
@@ -475,7 +475,7 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       
       if (edge.sourceHandle || edge.targetHandle) {
           flow["bpmn:extensionElements"] = {
-              "goflow:connector": {
+              "flowgo:connector": {
                   "@_sourceHandle": edge.sourceHandle,
                   "@_targetHandle": edge.targetHandle
               }
@@ -483,12 +483,12 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       }
       
       if (edge.sourceHandle) {
-          flow["@_goflow:sourceHandle"] = edge.sourceHandle;
-          flow["@_goflow_sourceHandle"] = edge.sourceHandle;
+          flow["@_flowgo:sourceHandle"] = edge.sourceHandle;
+          flow["@_flowgo_sourceHandle"] = edge.sourceHandle;
       }
       if (edge.targetHandle) {
-          flow["@_goflow:targetHandle"] = edge.targetHandle;
-          flow["@_goflow_targetHandle"] = edge.targetHandle;
+          flow["@_flowgo:targetHandle"] = edge.targetHandle;
+          flow["@_flowgo_targetHandle"] = edge.targetHandle;
       }
 
       if (edge.data) {
@@ -498,8 +498,8 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
             if ([
                 '@_id', '@_name', '@_sourceRef', '@_targetRef', 'label',
                 'bpmn:extensionElements',
-                '@_goflow:sourceHandle', '@_goflow_sourceHandle', '@_sourceHandle',
-                '@_goflow:targetHandle', '@_goflow_targetHandle', '@_targetHandle'
+                '@_flowgo:sourceHandle', '@_flowgo_sourceHandle', '@_sourceHandle',
+                '@_flowgo:targetHandle', '@_flowgo_targetHandle', '@_targetHandle'
             ].includes(key)) return;
             
             const value = data[key];
@@ -566,7 +566,7 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       "@_xmlns:bpmndi": BPMNDI_NS,
       "@_xmlns:dc": DC_NS,
       "@_xmlns:di": DI_NS,
-      "@_xmlns:goflow": GOFLOW_NS,
+      "@_xmlns:flowgo": FLOWGO_NS,
       "@_xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
       "@_id": "Definitions_1",
       "@_targetNamespace": "http://bpmn.org/schema/bpmn",

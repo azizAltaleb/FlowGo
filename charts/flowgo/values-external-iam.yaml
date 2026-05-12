@@ -28,7 +28,7 @@ zitadel:
 
 ingress:
   enabled: true
-  host: goflow.example.com
+  host: flowgo.example.com
   tls:
     enabled: true
-    secretName: goflow-tls
+    secretName: flowgo-tls

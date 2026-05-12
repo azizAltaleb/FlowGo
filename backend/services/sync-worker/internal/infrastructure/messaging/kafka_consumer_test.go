@@ -3,7 +3,7 @@ package messaging
 import (
 	"context"
 	"errors"
-	"github.com/azizAltaleb/goflow/backend/services/sync-worker/internal/application"
+	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/application"
 	"testing"
 	"time"
 
@@ -34,7 +34,7 @@ func TestSnapshotIncludesCountersAndTopicStats(t *testing.T) {
 	consumer.retryCount.Store(3)
 	consumer.dlqCount.Store(1)
 	consumer.lastProcessed.Store(now.UnixNano())
-	consumer.recordTopicOutcome("goflow.public.variable", 42, nil)
+	consumer.recordTopicOutcome("flowgo.public.variable", 42, nil)
 
 	snapshot := consumer.Snapshot()
 	if snapshot.Processed != 10 || snapshot.Succeeded != 8 || snapshot.Failed != 2 {
@@ -47,7 +47,7 @@ func TestSnapshotIncludesCountersAndTopicStats(t *testing.T) {
 		t.Fatalf("expected last processed timestamp to be set")
 	}
 
-	topicStats, ok := snapshot.Topics["goflow.public.variable"]
+	topicStats, ok := snapshot.Topics["flowgo.public.variable"]
 	if !ok {
 		t.Fatalf("expected topic stats entry")
 	}
@@ -58,11 +58,11 @@ func TestSnapshotIncludesCountersAndTopicStats(t *testing.T) {
 
 func TestProcessMessageWithRetry_SucceedsAfterRetry(t *testing.T) {
 	repo := &flakyRepo{failUpsertAttempts: 1}
-	service := application.NewSyncService(repo, "goflow")
+	service := application.NewSyncService(repo, "flowgo")
 	consumer := NewKafkaConsumer(Config{MaxProcessRetries: 2, RetryBackoff: time.Millisecond}, service)
 
 	err := consumer.processMessageWithRetry(context.Background(), kafka.Message{
-		Topic:     "goflow.public.process_instance",
+		Topic:     "flowgo.public.process_instance",
 		Partition: 0,
 		Offset:    9,
 		Value:     []byte(`{"before":null,"after":{"key":1},"op":"c"}`),
@@ -80,11 +80,11 @@ func TestProcessMessageWithRetry_SucceedsAfterRetry(t *testing.T) {
 
 func TestProcessMessageWithRetry_FailsAfterMaxAttempts(t *testing.T) {
 	repo := &flakyRepo{failUpsertAttempts: 5}
-	service := application.NewSyncService(repo, "goflow")
+	service := application.NewSyncService(repo, "flowgo")
 	consumer := NewKafkaConsumer(Config{MaxProcessRetries: 1, RetryBackoff: time.Millisecond}, service)
 
 	err := consumer.processMessageWithRetry(context.Background(), kafka.Message{
-		Topic:     "goflow.public.process_instance",
+		Topic:     "flowgo.public.process_instance",
 		Partition: 0,
 		Offset:    10,
 		Value:     []byte(`{"before":null,"after":{"key":1},"op":"c"}`),

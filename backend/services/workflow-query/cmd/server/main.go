@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/azizAltaleb/goflow/backend/libs/auth"
-	esadapter "github.com/azizAltaleb/goflow/backend/libs/elasticsearch"
-	"github.com/azizAltaleb/goflow/backend/libs/logger"
-	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/application"
-	"github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/infrastructure/persistence"
-	api "github.com/azizAltaleb/goflow/backend/services/workflow-query/internal/interfaces/http"
+	"github.com/azizAltaleb/flowgo/backend/libs/auth"
+	esadapter "github.com/azizAltaleb/flowgo/backend/libs/elasticsearch"
+	"github.com/azizAltaleb/flowgo/backend/libs/logger"
+	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/application"
+	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/infrastructure/persistence"
+	api "github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/interfaces/http"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"

@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/azizAltaleb/goflow/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/libs/model"
 	"io"
 	"net/http"
 	"strings"

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/goflow/backend/libs/auth"
+	"github.com/azizAltaleb/flowgo/backend/libs/auth"
 )
 
 var ErrZITADELManagementNotConfigured = errors.New("zitadel management is not configured")
@@ -173,9 +173,9 @@ func ResolveZITADELManagementConfigFromEnv(authConfig auth.Config, frontendConfi
 	if ownerPATFile == "" {
 		ownerPATFile = "/zitadel/bootstrap/owner.pat"
 	}
-	bootstrapStateFile := strings.TrimSpace(os.Getenv("GOFLOW_ZITADEL_BOOTSTRAP_STATE_FILE"))
+	bootstrapStateFile := strings.TrimSpace(os.Getenv("FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE"))
 	if bootstrapStateFile == "" {
-		bootstrapStateFile = "/goflow/bootstrap/goflow-zitadel.json"
+		bootstrapStateFile = "/flowgo/bootstrap/flowgo-zitadel.json"
 	}
 	return ZITADELManagementConfig{
 		BaseURL:            strings.TrimRight(baseURL, "/"),
