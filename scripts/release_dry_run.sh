@@ -52,11 +52,11 @@ if [[ "${RUN_NPM_CHECKS}" == "true" ]]; then
 fi
 
 if [[ "${RUN_DOCKER_BUILDS}" == "true" ]]; then
-  run docker build -f backend/Dockerfile --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t flowgo/workflow-command:dry-run .
-  run docker build -f backend/Dockerfile.runtime --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t flowgo/workflow-runtime:dry-run .
-  run docker build -f backend/Dockerfile.workflow-query --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t flowgo/workflow-query:dry-run .
-  run docker build -f backend/Dockerfile.sync-worker --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t flowgo/sync-worker:dry-run .
-  run docker build -f frontend/Dockerfile --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t flowgo/frontend:dry-run frontend
+  run docker build -f backend/Dockerfile --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t azizaltaleb/workflow-command:dry-run .
+  run docker build -f backend/Dockerfile.runtime --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t azizaltaleb/workflow-runtime:dry-run .
+  run docker build -f backend/Dockerfile.workflow-query --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t azizaltaleb/workflow-query:dry-run .
+  run docker build -f backend/Dockerfile.sync-worker --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t azizaltaleb/sync-worker:dry-run .
+  run docker build -f frontend/Dockerfile --build-arg "VERSION=${VERSION}" --build-arg "REVISION=${REVISION}" -t azizaltaleb/frontend:dry-run frontend
 fi
 
 echo "Release dry run passed"

@@ -1,16 +1,16 @@
 # Docker Images
 
-FlowGo publishes first-party images under the `flowgo` Docker Hub namespace.
+FlowGo publishes first-party images under the `azizaltaleb` Docker Hub namespace.
 
 ## Image Repositories
 
 | Compose service | Image | Description |
 | :--- | :--- | :--- |
-| `app` | `flowgo/workflow-command` | Command API, workflow deployment, runtime-facing command endpoints, and worker API. |
-| `workflow-runtime` | `flowgo/workflow-runtime` | Runtime loops for timers, SLA checks, and background workflow execution. |
-| `workflow-query` | `flowgo/workflow-query` | CQRS read/query API backed by Elasticsearch or OpenSearch. |
-| `sync-worker` | `flowgo/sync-worker` | Debezium/Kafka projection worker for query read models. |
-| `frontend` | `flowgo/frontend` | React admin/modeler UI served by NGINX. |
+| `app` | `azizaltaleb/workflow-command` | Command API, workflow deployment, runtime-facing command endpoints, and worker API. |
+| `workflow-runtime` | `azizaltaleb/workflow-runtime` | Runtime loops for timers, SLA checks, and background workflow execution. |
+| `workflow-query` | `azizaltaleb/workflow-query` | CQRS read/query API backed by Elasticsearch or OpenSearch. |
+| `sync-worker` | `azizaltaleb/sync-worker` | Debezium/Kafka projection worker for query read models. |
+| `frontend` | `azizaltaleb/frontend` | React admin/modeler UI served by NGINX. |
 
 ## Tags
 
