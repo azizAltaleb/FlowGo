@@ -2,7 +2,7 @@
 
 This chart deploys FlowGo for production Kubernetes environments.
 
-Default FlowGo image repositories point to Docker Hub under `flowgo/*` and use a pinned release tag. Pin image tags explicitly for production rollouts.
+Default FlowGo image repositories point to Docker Hub under `azizaltaleb/*` and use a pinned release tag. Pin image tags explicitly for production rollouts.
 
 ## Deployment models
 

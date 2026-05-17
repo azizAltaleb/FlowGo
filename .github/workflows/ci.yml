@@ -122,12 +122,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build image
-        run: docker build -f ${{ matrix.image.dockerfile }} --build-arg VERSION=ci --build-arg REVISION=${{ github.sha }} -t flowgo/${{ matrix.image.name }}:ci ${{ matrix.image.context }}
+        run: docker build -f ${{ matrix.image.dockerfile }} --build-arg VERSION=ci --build-arg REVISION=${{ github.sha }} -t azizaltaleb/${{ matrix.image.name }}:ci ${{ matrix.image.context }}
 
       - name: Scan image
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: flowgo/${{ matrix.image.name }}:ci
+          image-ref: azizaltaleb/${{ matrix.image.name }}:ci
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"

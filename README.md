@@ -86,8 +86,8 @@ We provide a `Makefile` to simplify common development tasks:
 | :--- | :--- |
 | `make up` | Start the external IAM deployment |
 | `make up-zitadel` | Start the bundled ZITADEL deployment |
-| `make up-external-iam-release` | Start the external IAM deployment using published `flowgo/*` images |
-| `make up-zitadel-release` | Start the bundled ZITADEL deployment using published `flowgo/*` images |
+| `make up-external-iam-release` | Start the external IAM deployment using published `azizaltaleb/*` images |
+| `make up-zitadel-release` | Start the bundled ZITADEL deployment using published `azizaltaleb/*` images |
 | `docker compose -f docker-compose.external-iam.yml up -d --build` | Start the external IAM deployment |
 | `docker compose -f docker-compose.zitadel.yml up -d --build` | Start the bundled ZITADEL deployment |
 | `docker compose -f docker-compose.external-iam.yml config` | Validate the external IAM compose file |
