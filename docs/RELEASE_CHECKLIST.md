@@ -54,11 +54,11 @@ helm template flowgo ./charts/flowgo -f ./charts/flowgo/values-internal-iam.yaml
 
 Create or verify these Docker Hub repositories:
 
-- `flowgo/workflow-command`
-- `flowgo/workflow-runtime`
-- `flowgo/workflow-query`
-- `flowgo/sync-worker`
-- `flowgo/frontend`
+- `azizaltaleb/workflow-command`
+- `azizaltaleb/workflow-runtime`
+- `azizaltaleb/workflow-query`
+- `azizaltaleb/sync-worker`
+- `azizaltaleb/frontend`
 
 Add GitHub Actions secrets:
 

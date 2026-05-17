@@ -18,23 +18,23 @@ replicaCount:
 
 images:
   command:
-    repository: flowgo/workflow-command
+    repository: azizaltaleb/workflow-command
     tag: "0.1.1"
     pullPolicy: IfNotPresent
   query:
-    repository: flowgo/workflow-query
+    repository: azizaltaleb/workflow-query
     tag: "0.1.1"
     pullPolicy: IfNotPresent
   runtime:
-    repository: flowgo/workflow-runtime
+    repository: azizaltaleb/workflow-runtime
     tag: "0.1.1"
     pullPolicy: IfNotPresent
   syncWorker:
-    repository: flowgo/sync-worker
+    repository: azizaltaleb/sync-worker
     tag: "0.1.1"
     pullPolicy: IfNotPresent
   frontend:
-    repository: flowgo/frontend
+    repository: azizaltaleb/frontend
     tag: "0.1.1"
     pullPolicy: IfNotPresent
   gateway:

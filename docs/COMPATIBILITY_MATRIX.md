@@ -11,7 +11,7 @@ FlowGo is pre-1.0 software. Compatibility guarantees are conservative until the 
 | Query API | `v1` HTTP responses | Response fields may be added. Existing field meaning should remain stable. |
 | Worker API | Protocol headers and `/jobs/*` endpoints | Wire compatibility is protected by conformance checks. |
 | Node.js SDK | `@flowgo/nodejs-sdk@0.1.x` | Patch releases should preserve public method signatures where practical. |
-| Docker images | `flowgo/*:v0.1.x` | Image environment variables and exposed ports should stay stable within a minor line. |
+| Docker images | `azizaltaleb/*:v0.1.x` | Image environment variables and exposed ports should stay stable within a minor line. |
 | Helm chart | `charts/flowgo` `0.1.x` | Values may be added. Renames/removals require migration notes. |
 
 ## Supported Deployment Combinations
@@ -20,7 +20,7 @@ FlowGo is pre-1.0 software. Compatibility guarantees are conservative until the 
 | :--- | :--- | :--- | :--- |
 | Docker Compose external IAM | Existing OIDC provider | Postgres, Kafka, Debezium Connect, Elasticsearch | Development/evaluation supported. |
 | Docker Compose bundled ZITADEL | Bundled ZITADEL | Postgres, Kafka, Debezium Connect, Elasticsearch | Development/evaluation supported. |
-| Docker Compose release override | External IAM or bundled ZITADEL | Published `flowgo/*` images | Release smoke validation path. |
+| Docker Compose release override | External IAM or bundled ZITADEL | Published `azizaltaleb/*` images | Release smoke validation path. |
 | Helm external IAM | Existing OIDC provider | Managed or chart-provided dependencies | Production-oriented path. |
 | Helm bundled ZITADEL | Bundled ZITADEL | Managed or chart-provided dependencies | Production-oriented path for solution-managed IAM. |
 
