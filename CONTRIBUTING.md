@@ -62,6 +62,34 @@ CI/Security workflows:
 - Main CI pipeline: `.github/workflows/ci.yml`
 - Security/dependency scan pipeline: `.github/workflows/security.yml`
 
+Contributor-facing quality gate docs:
+
+- Agentic SDLC operating model: `docs/AGENTIC_SDLC.md`
+- Agentic QA matrix: `docs/AGENTIC_QA.md`
+- Quality gate policy: `docs/QUALITY_GATES.md`
+- Labels and triage taxonomy: `docs/LABELS.md`
+
+For most PRs, start with the fastest relevant checks and include the commands/results in the PR description:
+
+```bash
+make test-unit
+make test-frontend
+make smoke-profiles
+make validate-helm
+```
+
+Run deeper checks when the changed surface requires them:
+
+- Backend/runtime behavior: `make test-bpmn-matrix`
+- Worker API behavior: `make worker-conformance`
+- CQRS/query/sync behavior: `make cqrs-e2e-smoke` and `make cqrs-parity-check`
+- Integration/E2E behavior: `make test-integration` and `make test-e2e`
+- Performance-sensitive changes: `make test-perf`
+- Security-sensitive changes: `make test-security`
+- Release-sensitive changes: `make smoke-release-profiles` and `make release-dry-run`
+
+If a heavy check is not run, explain why and describe the residual risk.
+
 ## Pull Request Process
 
 1.  Create a feature branch (`git checkout -b feature/amazing-feature`).

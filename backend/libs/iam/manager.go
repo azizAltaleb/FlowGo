@@ -29,7 +29,7 @@ func readFrontendClientIDFile(path string) string {
 	if trimmedPath == "" {
 		return ""
 	}
-	content, err := os.ReadFile(trimmedPath)
+	content, err := readTrustedConfigFile(trimmedPath)
 	if err != nil {
 		return ""
 	}

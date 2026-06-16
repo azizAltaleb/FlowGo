@@ -67,8 +67,10 @@ GOSEC_EXIT=$?
 set -e
 
 cat "${REPORTS}/gosec.txt" >> "${REPORTS}/security.md" 2>/dev/null || true
-HIGH_ISSUES=$(grep -c "Severity: HIGH" "${REPORTS}/gosec.txt" 2>/dev/null || echo 0)
-MED_ISSUES=$(grep -c "Severity: MEDIUM" "${REPORTS}/gosec.txt" 2>/dev/null || echo 0)
+HIGH_ISSUES=$(grep -c "Severity: HIGH" "${REPORTS}/gosec.txt" 2>/dev/null || true)
+MED_ISSUES=$(grep -c "Severity: MEDIUM" "${REPORTS}/gosec.txt" 2>/dev/null || true)
+HIGH_ISSUES=${HIGH_ISSUES:-0}
+MED_ISSUES=${MED_ISSUES:-0}
 
 {
   echo '```'

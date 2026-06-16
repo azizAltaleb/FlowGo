@@ -204,7 +204,7 @@ func (c *ZITADELManagementClient) readOwnerToken() (string, error) {
 	if path == "" {
 		return "", ErrZITADELManagementNotConfigured
 	}
-	content, err := os.ReadFile(path)
+	content, err := readTrustedConfigFile(path)
 	if err != nil {
 		return "", fmt.Errorf("read ZITADEL owner PAT: %w", err)
 	}
@@ -220,7 +220,7 @@ func (c *ZITADELManagementClient) readBootstrapState() (ZITADELBootstrapState, e
 	if path == "" {
 		return ZITADELBootstrapState{}, ErrZITADELManagementNotConfigured
 	}
-	content, err := os.ReadFile(path)
+	content, err := readTrustedConfigFile(path)
 	if err != nil {
 		return ZITADELBootstrapState{}, fmt.Errorf("read ZITADEL bootstrap state: %w", err)
 	}

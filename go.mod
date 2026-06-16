@@ -2,7 +2,7 @@ module github.com/azizAltaleb/flowgo
 
 go 1.25.0
 
-toolchain go1.25.10
+toolchain go1.25.11
 
 require (
 	github.com/elastic/go-elasticsearch/v8 v8.19.0

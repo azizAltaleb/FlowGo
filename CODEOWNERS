@@ -1,0 +1,5 @@
+# CODEOWNERS for FlowGo.
+# Right now all code ownership routes to the project maintainer.
+# Add area teams here later as the maintainer group grows.
+
+* @azizAltaleb

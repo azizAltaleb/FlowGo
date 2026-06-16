@@ -12,8 +12,9 @@ import (
 )
 
 type introspectionVerifier struct {
-	client *http.Client
-	config Config
+	client           *http.Client
+	config           Config
+	introspectionURL string
 }
 
 func newIntrospectionVerifier(cfg Config) (TokenVerifier, error) {
@@ -27,8 +28,9 @@ func newIntrospectionVerifier(cfg Config) (TokenVerifier, error) {
 	}
 	cfg.IntrospectionURL = normalizedURL
 	return &introspectionVerifier{
-		client: &http.Client{Timeout: 10 * time.Second},
-		config: cfg,
+		client:           &http.Client{Timeout: 10 * time.Second},
+		config:           cfg,
+		introspectionURL: normalizedURL,
 	}, nil
 }
 
@@ -61,7 +63,8 @@ func (v *introspectionVerifier) Verify(ctx context.Context, rawToken string) (*P
 		}
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, v.config.IntrospectionURL, strings.NewReader(body.Encode()))
+	// #nosec G107 G704 -- AUTH_INTROSPECTION_URL is normalized by validateIntrospectionURL when the verifier is constructed.
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, v.introspectionURL, strings.NewReader(body.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("build introspection request: %w", err)
 	}
@@ -71,6 +74,7 @@ func (v *introspectionVerifier) Verify(ctx context.Context, rawToken string) (*P
 		request.SetBasicAuth(v.config.IntrospectionClientID, v.config.IntrospectionClientSecret)
 	}
 
+	// #nosec G704 -- request URL is the validated OIDC introspection endpoint configured by the deployer.
 	response, err := v.client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("token introspection request failed: %w", err)

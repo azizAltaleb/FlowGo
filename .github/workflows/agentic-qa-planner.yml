@@ -1,0 +1,60 @@
+name: Agentic QA Planner
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Base ref to compare against
+        required: false
+        default: origin/main
+      head_ref:
+        description: Head ref to compare
+        required: false
+        default: HEAD
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  qa-plan:
+    name: Advisory QA Plan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect changed-path quality evidence
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || inputs.base_ref }}
+          HEAD_REF: ${{ github.event_name == 'pull_request' && 'HEAD' || inputs.head_ref }}
+        run: bash scripts/agentic/collect_quality_evidence.sh "${BASE_REF}" "${HEAD_REF}"
+
+      - name: Summarize available reports
+        run: python3 scripts/agentic/summarize_test_reports.py
+
+      - name: Add advisory summary
+        run: |
+          {
+            echo "## Agentic QA Planner"
+            echo ""
+            echo "This workflow is advisory. It does not post comments, label PRs, run privileged agents, or approve merges."
+            echo ""
+            cat reports/agentic/quality-evidence.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload agentic QA artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentic-qa-plan
+          path: reports/agentic/

@@ -1,0 +1,99 @@
+name: Agentic Quality Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Base ref to compare against
+        required: false
+        default: origin/main
+      head_ref:
+        description: Head ref to compare
+        required: false
+        default: HEAD
+  workflow_run:
+    workflows:
+      - CI
+      - Security
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  pull-requests: read
+
+jobs:
+  quality-gate:
+    name: Advisory Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout policy and scripts
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect quality evidence for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BASE_REF: ${{ inputs.base_ref }}
+          HEAD_REF: ${{ inputs.head_ref }}
+        run: bash scripts/agentic/collect_quality_evidence.sh "${BASE_REF}" "${HEAD_REF}"
+
+      - name: Summarize workflow-run result
+        if: github.event_name == 'workflow_run'
+        env:
+          EVENT_PATH: ${{ github.event_path }}
+        run: |
+          mkdir -p reports/agentic
+          python3 - "$EVENT_PATH" > reports/agentic/quality-gate.md <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              event = json.load(handle)
+
+          run = event.get("workflow_run", {})
+          print("# Agentic Quality Gate")
+          print()
+          print("This workflow is advisory. It does not change required checks, post comments, label PRs, or push fixes.")
+          print()
+          print(f"- Workflow: {run.get('name', 'unknown')}")
+          print(f"- Conclusion: {run.get('conclusion', 'unknown')}")
+          print(f"- Head branch: {run.get('head_branch', 'unknown')}")
+          print(f"- Head SHA: {run.get('head_sha', 'unknown')}")
+          print(f"- Run URL: {run.get('html_url', 'unknown')}")
+          print()
+          print("## Maintainer Checklist")
+          print()
+          print("- Inspect failed jobs and uploaded artifacts.")
+          print("- Map failures to docs/QUALITY_GATES.md.")
+          print("- Decide whether the failure is product regression, test regression, dependency/tooling issue, infrastructure flake, or unknown.")
+          print("- Use .agents/ci-failure-investigator-agent.md for a focused investigation prompt.")
+          print("- Do not weaken gates or make steps warn-only without maintainer approval.")
+          PY
+
+      - name: Summarize available reports
+        run: python3 scripts/agentic/summarize_test_reports.py
+
+      - name: Add advisory summary
+        run: |
+          {
+            echo "## Agentic Quality Gate"
+            echo ""
+            echo "This check is advisory. Required CI and Security checks remain the source of merge-blocking status."
+            echo ""
+            if [ -f reports/agentic/quality-gate.md ]; then
+              cat reports/agentic/quality-gate.md
+            fi
+            if [ -f reports/agentic/quality-evidence.md ]; then
+              cat reports/agentic/quality-evidence.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload quality gate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentic-quality-gate
+          path: reports/agentic/

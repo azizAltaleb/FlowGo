@@ -2,6 +2,7 @@ package iam
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -38,5 +39,27 @@ func TestResolveFrontendAuthConfigEnvClientIDWinsOverFile(t *testing.T) {
 	cfg := ResolveFrontendAuthConfigFromEnv()
 	if cfg.OIDCClientID != "explicit-client-id" {
 		t.Fatalf("expected explicit client id, got %q", cfg.OIDCClientID)
+	}
+}
+
+func TestReadTrustedConfigFileRejectsRelativePath(t *testing.T) {
+	if _, err := readTrustedConfigFile("relative/client-id"); err == nil {
+		t.Fatal("expected relative trusted config path to be rejected")
+	}
+}
+
+func TestReadTrustedConfigFileCleansAbsolutePath(t *testing.T) {
+	dir := t.TempDir()
+	clientIDFile := filepath.Join(dir, "nested", "..", "client-id")
+	if err := os.WriteFile(filepath.Clean(clientIDFile), []byte("client-id"), 0o600); err != nil {
+		t.Fatalf("write trusted config file: %v", err)
+	}
+
+	content, err := readTrustedConfigFile(clientIDFile)
+	if err != nil {
+		t.Fatalf("read trusted config file: %v", err)
+	}
+	if string(content) != "client-id" {
+		t.Fatalf("expected trusted config content, got %q", string(content))
 	}
 }
