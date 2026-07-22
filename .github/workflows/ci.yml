@@ -187,7 +187,6 @@ jobs:
   cqrs-e2e-smoke:
     name: CQRS E2E Smoke
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     timeout-minutes: 25
     steps:
       - name: Checkout

@@ -1,4 +1,4 @@
-.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-base smoke-core smoke-full smoke-release-base smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles validate-helm release-dry-run cqrs-parity-check cqrs-e2e-smoke worker-conformance test-bpmn-matrix test-bpmn-exhaustive test-deployment-matrix test-unit test-integration test-e2e test-frontend test-perf test-security test-report test-all test-all-functionality
+.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-base smoke-core smoke-full smoke-release-base smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles validate-helm release-dry-run cqrs-parity-check cqrs-e2e-smoke worker-conformance test-bpmn-matrix test-bpmn-exhaustive test-deployment-matrix test-uat-videos test-unit test-integration test-e2e test-frontend test-perf test-security test-report test-all test-all-functionality
 
 
 # Docker Compose Commands
@@ -128,6 +128,9 @@ test-bpmn-exhaustive:
 test-deployment-matrix:
 	@mkdir -p reports
 	bash scripts/test-all-functionality.sh --skip-ui --skip-sdk-live --skip-perf --skip-security
+
+test-uat-videos:
+	bash scripts/qa/run_uat_video_suite.sh both
 
 # -----------------------------------------------------------------------
 # Test Targets

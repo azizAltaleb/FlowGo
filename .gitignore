@@ -51,6 +51,9 @@ reports/**
 !reports/.gitkeep
 tests/e2e/playwright/reports/
 tests/e2e/playwright/test-results/
+*.webm
+*.mp4
+*.mov
 
 # Logs
 *.log
