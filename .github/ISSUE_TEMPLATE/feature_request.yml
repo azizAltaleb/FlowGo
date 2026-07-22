@@ -2,7 +2,8 @@ name: Feature request
 description: Suggest an improvement for FlowGo
 title: "[Feature]: "
 labels:
-  - enhancement
+  - kind/feature
+  - status/needs-triage
 body:
   - type: textarea
     id: problem
@@ -36,3 +37,21 @@ body:
         - Documentation
     validations:
       required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What should be true when this is complete?
+      placeholder: |
+        - ...
+        - ...
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility impact
+      description: Note any expected effect on worker API, SDK API, Docker env vars, Helm values, IAM roles/claims, BPMN semantics, or existing workflows.
+  - type: textarea
+    id: qa
+    attributes:
+      label: Suggested validation
+      description: Mention tests, smoke checks, or manual QA that would prove the feature works.

@@ -1,0 +1,95 @@
+# Label sync scaffold. Maintainers can apply this with a label-sync action or script.
+# Confirm names/colors before enabling automated label writes.
+
+- name: kind/bug
+  color: d73a4a
+  description: Reproducible defect or regression
+- name: kind/feature
+  color: a2eeef
+  description: New behavior or enhancement request
+- name: kind/docs
+  color: 0075ca
+  description: Documentation improvement
+- name: kind/security
+  color: b60205
+  description: Non-sensitive security hardening or dependency item
+- name: kind/qa
+  color: c5def5
+  description: Test coverage, reproduction, QA plan, or validation issue
+- name: kind/dependency
+  color: 0366d6
+  description: Dependency, Docker image, GitHub Actions, or package update
+- name: kind/release
+  color: 5319e7
+  description: Release candidate, changelog, publishing, or artifact readiness
+
+- name: area/backend
+  color: 1d76db
+  description: Go backend services, APIs, persistence, CQRS, or sync worker
+- name: area/frontend
+  color: 1d76db
+  description: React/Vite UI, modeler, dashboard, or frontend API client
+- name: area/sdk
+  color: 1d76db
+  description: Node.js SDK, package metadata, examples, or SDK docs
+- name: area/docs
+  color: 1d76db
+  description: README, docs, community files, or examples
+- name: area/deployment
+  color: 1d76db
+  description: Docker Compose, Helm, Dockerfiles, release images, or scripts
+- name: area/security
+  color: 1d76db
+  description: Auth, IAM, scanners, hardening, or disclosure process
+- name: area/qa
+  color: 1d76db
+  description: Tests, Playwright, k6, worker conformance, CQRS smoke, or gates
+- name: area/community
+  color: 1d76db
+  description: Discussions, support routing, onboarding, labels, templates, or governance
+
+- name: priority/p0
+  color: b60205
+  description: Critical release blocker, security emergency, or data-loss risk
+- name: priority/p1
+  color: d93f0b
+  description: High-impact regression or important release risk
+- name: priority/p2
+  color: fbca04
+  description: Normal bug, enhancement, or quality improvement
+- name: priority/p3
+  color: cfd3d7
+  description: Low-risk cleanup, docs polish, or backlog item
+
+- name: status/needs-triage
+  color: fef2c0
+  description: Needs initial maintainer or agent classification
+- name: status/needs-repro
+  color: fef2c0
+  description: Needs reproduction steps, environment, logs, BPMN, payload, or screenshot
+- name: status/blocked
+  color: fef2c0
+  description: Blocked on maintainer/contributor input or external dependency
+- name: status/ready
+  color: c2e0c6
+  description: Ready for implementation, review, or validation
+- name: status/accepted-risk
+  color: e4e669
+  description: Maintainer accepted a known risk or skipped gate with rationale
+
+- name: good first issue
+  color: 7057ff
+  description: Small, well-scoped work with clear acceptance criteria
+- name: help wanted
+  color: 008672
+  description: Useful contribution that does not require maintainer-only context
+
+- name: agent/advisory
+  color: bfdadc
+  description: Agent produced a non-blocking summary or recommendation
+- name: agent/needs-human
+  color: f9d0c4
+  description: Agent found a decision requiring maintainer review
+- name: agent/approved
+  color: 0e8a16
+  description: Maintainer approved a privileged agent run, if configured

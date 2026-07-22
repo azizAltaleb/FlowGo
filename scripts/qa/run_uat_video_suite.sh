@@ -1,0 +1,306 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DEPLOYMENT="${1:-both}"
+RUN_ID="${UAT_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+REPORT_DIR="${UAT_REPORT_DIR:-${ROOT_DIR}/reports/uat-video-suite/${RUN_ID}}"
+PLAYWRIGHT_DIR="${ROOT_DIR}/tests/e2e/playwright"
+FRONTEND_URL="${FRONTEND_URL:-http://localhost:9100}"
+UAT_COMPOSE_BUILD="${UAT_COMPOSE_BUILD:-false}"
+RESTORE_BUNDLED_ON_EXIT=false
+
+cleanup_on_exit() {
+  local status=$?
+  if [[ "${RESTORE_BUNDLED_ON_EXIT}" == "true" ]]; then
+    restore_bundled_zitadel || true
+  fi
+  exit "${status}"
+}
+
+trap cleanup_on_exit EXIT
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/qa/run_uat_video_suite.sh [bundled-zitadel|external-keycloak|both]
+
+Environment:
+  UAT_RUN_ID       Optional deterministic run id.
+  UAT_REPORT_DIR   Optional output directory. Defaults to reports/uat-video-suite/<run-id>.
+  UAT_CASE_FILTER  Optional comma-separated case IDs.
+  UAT_KEEP_EVIDENCE Preserve created workflows, instances, users, roles, and clients after the run.
+  UAT_USERNAME     IAM test username, default admin.
+  UAT_PASSWORD     IAM test password, default admin.
+USAGE
+}
+
+case "${DEPLOYMENT}" in
+  bundled-zitadel|external-keycloak|both) ;;
+  -h|--help) usage; exit 0 ;;
+  *) usage >&2; exit 2 ;;
+esac
+
+mkdir -p "${REPORT_DIR}"
+
+wait_for_http_200() {
+  local url="$1"
+  local deadline=$((SECONDS + 300))
+  until curl -fsS "${url}" >/dev/null 2>&1; do
+    if (( SECONDS > deadline )); then
+      echo "Timed out waiting for ${url}" >&2
+      return 1
+    fi
+    sleep 2
+  done
+}
+
+ensure_playwright() {
+  cd "${PLAYWRIGHT_DIR}"
+  npm install --silent
+  npx playwright install chromium >/dev/null
+}
+
+run_playwright() {
+  local mode="$1"
+  echo "[uat] Running ${mode} UAT video suite"
+  cd "${PLAYWRIGHT_DIR}"
+  UAT_DEPLOYMENT="${mode}" \
+  UAT_RUN_ID="${RUN_ID}" \
+  UAT_REPORT_DIR="${REPORT_DIR}" \
+  UAT_KEEP_EVIDENCE="${UAT_KEEP_EVIDENCE:-false}" \
+  FRONTEND_URL="${FRONTEND_URL}" \
+  npx playwright test specs/uat-functional-video.spec.ts --project=chromium --workers=1 --retries=0 --reporter=list
+}
+
+start_bundled_zitadel() {
+  echo "[uat] Starting bundled ZITADEL stack"
+  cd "${ROOT_DIR}"
+  local build_args=()
+  if [[ "${UAT_COMPOSE_BUILD}" == "true" ]]; then
+    build_args=(--build)
+  fi
+  docker compose -f docker-compose.zitadel.yml up -d ${build_args[@]+"${build_args[@]}"}
+  wait_for_http_200 "http://localhost:9180/.well-known/openid-configuration"
+  wait_for_http_200 "http://localhost:8080/health"
+  wait_for_http_200 "http://localhost:8081/health"
+  wait_for_http_200 "http://localhost:8092/health"
+  wait_for_http_200 "${FRONTEND_URL}"
+  bash scripts/init_connector.sh
+  docker compose -f docker-compose.zitadel.yml restart sync-worker
+  wait_for_http_200 "http://localhost:8092/health"
+}
+
+start_external_keycloak() {
+  echo "[uat] Starting external IAM stack with generated local Keycloak"
+  cd "${ROOT_DIR}"
+  prepare_keycloak_override
+  docker compose -f docker-compose.zitadel.yml down --remove-orphans
+  local build_args=()
+  if [[ "${UAT_COMPOSE_BUILD}" == "true" ]]; then
+    build_args=(--build)
+  fi
+  docker compose -f docker-compose.external-iam.yml -f "${REPORT_DIR}/keycloak/docker-compose.keycloak.override.yml" up -d ${build_args[@]+"${build_args[@]}"}
+  wait_for_http_200 "http://localhost:9181/realms/flowgo/.well-known/openid-configuration"
+  wait_for_http_200 "http://localhost:8080/health"
+  wait_for_http_200 "http://localhost:8081/health"
+  wait_for_http_200 "http://localhost:8092/health"
+  wait_for_http_200 "${FRONTEND_URL}"
+  bash scripts/init_connector.sh
+  docker compose -f docker-compose.external-iam.yml -f "${REPORT_DIR}/keycloak/docker-compose.keycloak.override.yml" restart sync-worker
+  wait_for_http_200 "http://localhost:8092/health"
+}
+
+restore_bundled_zitadel() {
+  echo "[uat] Restoring bundled ZITADEL stack"
+  cd "${ROOT_DIR}"
+  if [[ -f "${REPORT_DIR}/keycloak/docker-compose.keycloak.override.yml" ]]; then
+    docker compose -f docker-compose.external-iam.yml -f "${REPORT_DIR}/keycloak/docker-compose.keycloak.override.yml" down --remove-orphans || true
+  fi
+  docker compose -f docker-compose.zitadel.yml up -d
+  wait_for_http_200 "http://localhost:9180/.well-known/openid-configuration"
+  wait_for_http_200 "http://localhost:8080/health"
+  wait_for_http_200 "http://localhost:8081/health"
+  wait_for_http_200 "http://localhost:8092/health"
+  wait_for_http_200 "${FRONTEND_URL}"
+}
+
+prepare_keycloak_override() {
+  mkdir -p "${REPORT_DIR}/keycloak"
+  cat >"${REPORT_DIR}/keycloak/keycloak-realm.json" <<'JSON'
+{
+  "realm": "flowgo",
+  "enabled": true,
+  "displayName": "FlowGo External IAM",
+  "roles": {
+    "realm": [
+      { "name": "flowgo admin" },
+      { "name": "flowgo modeler" },
+      { "name": "flowgo client" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "flowgo-frontend",
+      "name": "FlowGo Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:9100/*"],
+      "webOrigins": ["http://localhost:9100"],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@flowgo.local",
+      "firstName": "FlowGo",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["flowgo admin"]
+    },
+    {
+      "username": "modeler",
+      "email": "modeler@flowgo.local",
+      "firstName": "FlowGo",
+      "lastName": "Modeler",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "UatPass123!", "temporary": false }],
+      "realmRoles": ["flowgo modeler"]
+    },
+    {
+      "username": "sdk-client",
+      "email": "sdk-client@flowgo.local",
+      "firstName": "FlowGo",
+      "lastName": "SDK Client",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "UatPass123!", "temporary": false }],
+      "realmRoles": ["flowgo client"]
+    },
+    {
+      "username": "accountant",
+      "email": "accountant@flowgo.local",
+      "firstName": "UAT",
+      "lastName": "Accountant",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "UatPass123!", "temporary": false }],
+      "realmRoles": []
+    },
+    {
+      "username": "reviewer",
+      "email": "reviewer@flowgo.local",
+      "firstName": "UAT",
+      "lastName": "Reviewer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "UatPass123!", "temporary": false }],
+      "realmRoles": []
+    }
+  ]
+}
+JSON
+  cat >"${REPORT_DIR}/keycloak/docker-compose.keycloak.override.yml" <<YAML
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.5
+    container_name: workflow-keycloak
+    command:
+      - start-dev
+      - --import-realm
+      - --hostname=http://localhost:9181
+      - --hostname-strict=false
+      - --hostname-backchannel-dynamic=true
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+    ports:
+      - "9181:8080"
+    volumes:
+      - ${REPORT_DIR}/keycloak/keycloak-realm.json:/opt/keycloak/data/import/flowgo-realm.json:ro
+
+  app:
+    environment:
+      IAM_DEPLOYMENT_MODE: external
+      IAM_PROVIDER_NAME: Keycloak
+      AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/flowgo
+      AUTH_ISSUER_PUBLIC_URL: http://localhost:9181/realms/flowgo
+      AUTH_CLIENT_ID: flowgo-frontend
+      AUTH_TOKEN_MODE: jwt
+      AUTH_CLAIM_ROLES_PATH: roles,realm_access.roles,groups
+      AUTH_ENFORCE_AUDIENCE: "false"
+      AUTH_ALLOW_INSECURE_ISSUER: "true"
+      FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9181/realms/flowgo
+      FRONTEND_AUTH_OIDC_CLIENT_ID: flowgo-frontend
+    depends_on:
+      keycloak:
+        condition: service_started
+
+  workflow-query:
+    environment:
+      IAM_DEPLOYMENT_MODE: external
+      IAM_PROVIDER_NAME: Keycloak
+      AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/flowgo
+      AUTH_ISSUER_PUBLIC_URL: http://localhost:9181/realms/flowgo
+      AUTH_CLIENT_ID: flowgo-frontend
+      AUTH_TOKEN_MODE: jwt
+      AUTH_CLAIM_ROLES_PATH: roles,realm_access.roles,groups
+      AUTH_ENFORCE_AUDIENCE: "false"
+      AUTH_ALLOW_INSECURE_ISSUER: "true"
+      FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9181/realms/flowgo
+      FRONTEND_AUTH_OIDC_CLIENT_ID: flowgo-frontend
+    depends_on:
+      keycloak:
+        condition: service_started
+
+  frontend:
+    build:
+      args:
+        VITE_OIDC_AUTHORITY: http://localhost:9181/realms/flowgo
+        VITE_OIDC_CLIENT_ID: flowgo-frontend
+    environment:
+      IAM_DEPLOYMENT_MODE: external
+      FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9181/realms/flowgo
+      FRONTEND_AUTH_OIDC_CLIENT_ID: flowgo-frontend
+    depends_on:
+      keycloak:
+        condition: service_started
+YAML
+}
+
+ensure_playwright
+
+case "${DEPLOYMENT}" in
+  bundled-zitadel)
+    start_bundled_zitadel
+    run_playwright bundled-zitadel
+    ;;
+  external-keycloak)
+    RESTORE_BUNDLED_ON_EXIT=true
+    start_external_keycloak
+    run_playwright external-keycloak
+    restore_bundled_zitadel
+    RESTORE_BUNDLED_ON_EXIT=false
+    ;;
+  both)
+    start_bundled_zitadel
+    run_playwright bundled-zitadel
+    RESTORE_BUNDLED_ON_EXIT=true
+    start_external_keycloak
+    run_playwright external-keycloak
+    restore_bundled_zitadel
+    RESTORE_BUNDLED_ON_EXIT=false
+    ;;
+esac
+
+echo "[uat] Report directory: ${REPORT_DIR}"
+echo "[uat] Manifest: ${REPORT_DIR}/manifest.json"
+echo "[uat] Summary: ${REPORT_DIR}/summary.md"

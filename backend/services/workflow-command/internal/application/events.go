@@ -93,10 +93,6 @@ func (e *Engine) processTimer(ctx context.Context, timer model.Timer) error {
 					}
 					e.repo.UpdateProcessInstance(ctx, pi)
 				}
-				// Engine: Persist Variables
-				if err := e.persistVariables(ctx, instance.ID, piKey, instance.Context); err != nil {
-					return err
-				}
 			}
 		}
 	} else if step.Type == model.StepTypeBoundaryEvent {
@@ -191,10 +187,6 @@ func (e *Engine) processTimer(ctx context.Context, timer model.Timer) error {
 				e.repo.UpdateProcessInstance(ctx, pi)
 			}
 
-			// Engine: Persist Variables
-			if err := e.persistVariables(ctx, instance.ID, piKey, instance.Context); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
@@ -238,24 +230,25 @@ func (e *Engine) CheckSLAs(ctx context.Context) error {
 // PublishSignal triggers a signal event across all active instances waiting for it.
 func (e *Engine) PublishSignal(ctx context.Context, signalName string, payload map[string]any) error {
 	// Signal events don't have persistent subscriptions in this implementation (unlike Messages).
-	activeElements, err := e.repo.ListActiveElementInstances(ctx, 0) // 0 means all instances
+	activeElements, err := e.repo.ListActiveElementInstancesByTypes(ctx, 0, signalCandidateElementTypes()) // 0 means all instances
 	if err != nil {
 		return err
 	}
 
-	triggeredCount := 0
+	definitions := make(map[int64]*model.WorkflowDefinition)
 	var errs []error
 
 	for _, el := range activeElements {
+		if !e.signalElementCanMatch(ctx, el, signalName, definitions) {
+			continue
+		}
 		if err := e.withTx(ctx, func(txEngine *Engine) error {
-			return txEngine.processSignalForElement(ctx, el, signalName, payload)
+			return txEngine.processSignalForElement(ctx, el, signalName, payload, definitions)
 		}); err != nil {
 			// We only care if it failed *after* matching.
 			// The processSignalForElement function should return nil if no match or not relevant.
 			// If it returns error, it means a real failure during processing.
 			errs = append(errs, fmt.Errorf("failed signal for element %d: %w", el.Key, err))
-		} else {
-			triggeredCount++
 		}
 	}
 
@@ -265,93 +258,174 @@ func (e *Engine) PublishSignal(ctx context.Context, signalName string, payload m
 	return nil
 }
 
-func (e *Engine) processSignalForElement(ctx context.Context, el model.ElementInstance, signalName string, payload map[string]any) error {
-	// Load Process Instance to get Context and WorkflowID
-	// We need the full instance to proceedToken.
-	instance, err := e.GetInstance(ctx, fmt.Sprintf("%d", el.ProcessInstanceKey))
-	if err != nil {
-		return nil // Skip if instance not found
+func (e *Engine) processSignalForElement(ctx context.Context, el model.ElementInstance, signalName string, payload map[string]any, definitions map[int64]*model.WorkflowDefinition) error {
+	if !isSignalCandidateElementType(el.BpmnElementType) {
+		return nil
 	}
 
-	// Load Workflow Definition
-	wfID, _ := strconv.ParseInt(instance.WorkflowID, 10, 64)
-	wf, err := e.getWorkflowDefinition(ctx, wfID)
-	if err != nil {
-		return nil // Skip
-	}
+	var instance *model.WorkflowInstance
+	wf, step, matched := e.matchSignalStep(ctx, el, signalName, definitions)
+	if !matched {
+		if el.ProcessDefinitionKey != 0 {
+			return nil
+		}
 
-	// Find Step Definition
-	step := findStep(wf.Steps, el.ElementID)
-	if step == nil {
-		return nil // Skip
-	}
+		var err error
+		instance, err = e.GetInstance(ctx, fmt.Sprintf("%d", el.ProcessInstanceKey))
+		if err != nil {
+			return nil // Skip if instance not found
+		}
 
-	// Check if it's a Signal Catch Event (Intermediate, Boundary, or Start - though Start is handled differently)
-	// We focus on Intermediate and Boundary for now.
-	if step.Type == model.StepTypeIntermediateCatchEvent || step.Type == model.StepTypeBoundaryEvent {
-		if ref, ok := step.Properties["signal_ref"].(string); ok && ref == signalName {
-			// Merge payload into context
-			if payload != nil {
-				if instance.Context == nil {
-					instance.Context = make(map[string]any)
-				}
-				for k, v := range payload {
-					instance.Context[k] = v
-				}
-			}
-
-			// Find the execution corresponding to this element
-			// The instance loaded via GetInstance has populated executions.
-			var execID string
-			for _, ex := range instance.Executions {
-				if ex.ElementInstanceKey == el.Key && ex.Status == "ACTIVE" {
-					execID = ex.ID
-					break
-				}
-			}
-
-			if execID != "" {
-				// Proceed
-				if err := e.proceedToken(ctx, instance, execID, wf); err != nil {
-					return err
-				}
-
-				// Cancel siblings if this was an Event-Based Gateway (handled in checkEventGateway? No, proceedToken advances)
-				// If it was attached to an Event Gateway, the gateway logic should handle it?
-				// Wait, IntermediateCatchEvent following an EventGateway is just a normal catch.
-				// But proceedToken creates NEW tokens for outgoing.
-				var exec *model.Execution
-				for i := range instance.Executions {
-					if instance.Executions[i].ID == execID {
-						exec = &instance.Executions[i]
-						break
-					}
-				}
-				if exec != nil {
-					e.cancelEventGatewaySiblings(ctx, instance, step, exec.ParentID, wf)
-				}
-
-				// Engine: Check Completion
-				piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
-				if instance.Status == model.StatusCompleted {
-					pi := &model.ProcessInstance{
-						Key:     piKey,
-						State:   "COMPLETED",
-						EndTime: time.Now(),
-					}
-					e.repo.UpdateProcessInstance(ctx, pi)
-				}
-
-				// Engine: Persist Variables
-				if err := e.persistVariables(ctx, instance.ID, piKey, instance.Context); err != nil {
-					return err
-				}
-
-				return nil // Triggered
-			}
+		wfID, err := strconv.ParseInt(instance.WorkflowID, 10, 64)
+		if err != nil {
+			return nil
+		}
+		wf, step, matched = e.matchSignalStepForProcess(ctx, wfID, el.ElementID, signalName, definitions)
+		if !matched {
+			return nil
 		}
 	}
+
+	if instance == nil {
+		var err error
+		instance, err = e.GetInstance(ctx, fmt.Sprintf("%d", el.ProcessInstanceKey))
+		if err != nil {
+			return nil // Skip if instance not found
+		}
+	}
+
+	// Merge payload into context
+	if payload != nil {
+		if instance.Context == nil {
+			instance.Context = make(map[string]any)
+		}
+		for k, v := range payload {
+			instance.Context[k] = v
+		}
+	}
+
+	// Find the execution corresponding to this element
+	// The instance loaded via GetInstance has populated executions.
+	var execID string
+	for _, ex := range instance.Executions {
+		if ex.ElementInstanceKey == el.Key && ex.Status == "ACTIVE" {
+			execID = ex.ID
+			break
+		}
+	}
+
+	if execID != "" {
+		// Proceed
+		if err := e.proceedToken(ctx, instance, execID, wf); err != nil {
+			return err
+		}
+
+		// Cancel siblings if this was an Event-Based Gateway (handled in checkEventGateway? No, proceedToken advances)
+		// If it was attached to an Event Gateway, the gateway logic should handle it?
+		// Wait, IntermediateCatchEvent following an EventGateway is just a normal catch.
+		// But proceedToken creates NEW tokens for outgoing.
+		var exec *model.Execution
+		for i := range instance.Executions {
+			if instance.Executions[i].ID == execID {
+				exec = &instance.Executions[i]
+				break
+			}
+		}
+		if exec != nil {
+			e.cancelEventGatewaySiblings(ctx, instance, step, exec.ParentID, wf)
+		}
+
+		// Engine: Check Completion
+		piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
+		if instance.Status == model.StatusCompleted {
+			pi := &model.ProcessInstance{
+				Key:     piKey,
+				State:   "COMPLETED",
+				EndTime: time.Now(),
+			}
+			e.repo.UpdateProcessInstance(ctx, pi)
+		}
+
+		// Engine: Persist only the correlated signal payload.
+		if len(payload) > 0 {
+			if err := e.persistVariables(ctx, instance.ID, piKey, payload); err != nil {
+				return err
+			}
+		}
+
+		return nil // Triggered
+	}
 	return nil // Not triggered / Not matching
+}
+
+func signalCandidateElementTypes() []string {
+	return []string{
+		string(model.StepTypeIntermediateCatchEvent),
+		string(model.StepTypeBoundaryEvent),
+		"", // Preserve older rows created before element type was consistently populated.
+	}
+}
+
+func isSignalCandidateElementType(elementType string) bool {
+	if elementType == "" {
+		return true
+	}
+	return elementType == string(model.StepTypeIntermediateCatchEvent) || elementType == string(model.StepTypeBoundaryEvent)
+}
+
+func (e *Engine) signalElementCanMatch(ctx context.Context, el model.ElementInstance, signalName string, definitions map[int64]*model.WorkflowDefinition) bool {
+	if !isSignalCandidateElementType(el.BpmnElementType) {
+		return false
+	}
+	if el.ProcessDefinitionKey == 0 {
+		return true
+	}
+	_, _, matched := e.matchSignalStep(ctx, el, signalName, definitions)
+	return matched
+}
+
+func (e *Engine) matchSignalStep(ctx context.Context, el model.ElementInstance, signalName string, definitions map[int64]*model.WorkflowDefinition) (*model.WorkflowDefinition, *model.StepDefinition, bool) {
+	if el.ProcessDefinitionKey == 0 {
+		return nil, nil, false
+	}
+	return e.matchSignalStepForProcess(ctx, el.ProcessDefinitionKey, el.ElementID, signalName, definitions)
+}
+
+func (e *Engine) matchSignalStepForProcess(ctx context.Context, processDefinitionKey int64, elementID, signalName string, definitions map[int64]*model.WorkflowDefinition) (*model.WorkflowDefinition, *model.StepDefinition, bool) {
+	wf, err := e.getWorkflowDefinitionFromMemo(ctx, processDefinitionKey, definitions)
+	if err != nil {
+		return nil, nil, false
+	}
+
+	step := findStep(wf.Steps, elementID)
+	if step == nil {
+		return nil, nil, false
+	}
+	if step.Type != model.StepTypeIntermediateCatchEvent && step.Type != model.StepTypeBoundaryEvent {
+		return nil, nil, false
+	}
+	ref, ok := step.Properties["signal_ref"].(string)
+	if !ok || ref != signalName {
+		return nil, nil, false
+	}
+	return wf, step, true
+}
+
+func (e *Engine) getWorkflowDefinitionFromMemo(ctx context.Context, processDefinitionKey int64, definitions map[int64]*model.WorkflowDefinition) (*model.WorkflowDefinition, error) {
+	if definitions != nil {
+		if wf, ok := definitions[processDefinitionKey]; ok {
+			return wf, nil
+		}
+	}
+
+	wf, err := e.getWorkflowDefinition(ctx, processDefinitionKey)
+	if err != nil {
+		return nil, err
+	}
+	if definitions != nil {
+		definitions[processDefinitionKey] = wf
+	}
+	return wf, nil
 }
 
 // PublishMessage triggers a message event.
@@ -378,12 +452,13 @@ func (e *Engine) PublishMessage(ctx context.Context, messageName, correlationKey
 
 // publishSignal is the internal helper for StepExecutors (uses current transaction)
 func (e *Engine) publishSignal(ctx context.Context, signalName string, payload map[string]any) error {
-	activeElements, err := e.repo.ListActiveElementInstances(ctx, 0)
+	activeElements, err := e.repo.ListActiveElementInstancesByTypes(ctx, 0, signalCandidateElementTypes())
 	if err != nil {
 		return err
 	}
+	definitions := make(map[int64]*model.WorkflowDefinition)
 	for _, el := range activeElements {
-		if err := e.processSignalForElement(ctx, el, signalName, payload); err != nil {
+		if err := e.processSignalForElement(ctx, el, signalName, payload, definitions); err != nil {
 			return err
 		}
 	}
@@ -457,9 +532,11 @@ func (e *Engine) processMessageSubscription(ctx context.Context, sub model.Messa
 					}
 					e.repo.UpdateProcessInstance(ctx, pi)
 				}
-				// Engine: Persist Variables
-				if err := e.persistVariables(ctx, instance.ID, piKey, instance.Context); err != nil {
-					return err
+				// Engine: Persist only the correlated message payload.
+				if len(payload) > 0 {
+					if err := e.persistVariables(ctx, instance.ID, piKey, payload); err != nil {
+						return err
+					}
 				}
 			} else {
 				return err
@@ -559,9 +636,11 @@ func (e *Engine) processMessageSubscription(ctx context.Context, sub model.Messa
 				e.repo.UpdateProcessInstance(ctx, pi)
 			}
 
-			// Engine: Persist Variables
-			if err := e.persistVariables(ctx, instance.ID, piKey, instance.Context); err != nil {
-				return err
+			// Engine: Persist only the correlated message payload.
+			if len(payload) > 0 {
+				if err := e.persistVariables(ctx, instance.ID, piKey, payload); err != nil {
+					return err
+				}
 			}
 		}
 	}

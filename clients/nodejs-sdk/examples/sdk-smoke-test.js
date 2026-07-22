@@ -1,8 +1,10 @@
+const fs = require('node:fs');
 const { FlowGoClient } = require('../dist');
 
 const config = {
   baseUrl: process.env.FLOWGO_BASE_URL || 'http://localhost:9100/api',
-  token: process.env.FLOWGO_TOKEN || '<PASTE_FLOWGO_CLIENT_ACCESS_TOKEN_HERE>',
+  token: process.env.FLOWGO_TOKEN || '',
+  zitadelProfileFile: process.env.FLOWGO_ZITADEL_PROFILE_FILE || '',
   workflowKey: process.env.FLOWGO_WORKFLOW_KEY || '<WORKFLOW_DEFINITION_KEY_OR_ID_TO_START>',
   businessKey: process.env.FLOWGO_BUSINESS_KEY || `sdk-smoke-${Date.now()}`,
   messageName: process.env.FLOWGO_MESSAGE_NAME || '<OPTIONAL_BPMN_MESSAGE_NAME>',
@@ -10,22 +12,33 @@ const config = {
   workerJobType: process.env.FLOWGO_WORKER_JOB_TYPE || '<OPTIONAL_SERVICE_TASK_JOB_TYPE>',
 };
 
-function requireValue(name, value) {
-  if (!value || value.startsWith('<')) {
-    throw new Error(`Missing ${name}. Set it in this file or export ${name} in your shell.`);
-  }
-}
-
 function optionalValue(value) {
   return value && !value.startsWith('<') ? value : '';
 }
 
+function loadZitadelProfile(filename) {
+  try {
+    return JSON.parse(fs.readFileSync(filename, 'utf8'));
+  } catch {
+    throw new Error('Unable to load FLOWGO_ZITADEL_PROFILE_FILE.');
+  }
+}
+
 async function main() {
-  requireValue('FLOWGO_TOKEN', config.token);
+  if (Boolean(config.token) === Boolean(config.zitadelProfileFile)) {
+    throw new Error('Set exactly one of FLOWGO_TOKEN or FLOWGO_ZITADEL_PROFILE_FILE.');
+  }
+
+  const auth = config.zitadelProfileFile
+    ? {
+      type: 'zitadel-jwt-profile',
+      profile: loadZitadelProfile(config.zitadelProfileFile),
+    }
+    : undefined;
 
   const client = new FlowGoClient({
     baseUrl: config.baseUrl,
-    token: config.token,
+    ...(auth ? { auth } : { token: config.token }),
   });
 
   console.log('1. Checking current authenticated principal...');
@@ -82,6 +95,6 @@ async function main() {
 
 main().catch((error) => {
   console.error('SDK smoke test failed:');
-  console.error(error);
+  console.error(error instanceof Error ? error.message : 'Unknown error');
   process.exitCode = 1;
 });

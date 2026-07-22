@@ -6,11 +6,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/azizAltaleb/flowgo/backend/libs/model"
 	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/domain/bpmn"
 	"time"
 )
+
+var ErrBPMNValidation = errors.New("bpmn validation failed")
 
 func (e *Engine) DeployWorkflow(ctx context.Context, name string, steps []model.StepDefinition) (*model.WorkflowDefinition, error) {
 	var wf *model.WorkflowDefinition
@@ -86,7 +89,7 @@ func (e *Engine) DeployWorkflowFromBPMN(ctx context.Context, xmlData []byte) (*m
 func (e *Engine) deployWorkflowFromBPMN(ctx context.Context, xmlData []byte) (*model.WorkflowDefinition, error) {
 	wf, err := bpmn.Parse(bytes.NewReader(xmlData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse bpmn: %v", err)
+		return nil, fmt.Errorf("%w: %v", ErrBPMNValidation, err)
 	}
 
 	// Determine Version

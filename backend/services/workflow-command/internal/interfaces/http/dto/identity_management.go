@@ -45,6 +45,15 @@ type IdentityManagementClientTokenSummaryResponse struct {
 	Status         string `json:"status"`
 }
 
+type IdentityManagementClientCredentialResponse struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	CreatedAt string `json:"created_at"`
+	ChangedAt string `json:"changed_at,omitempty"`
+	ExpiresAt string `json:"expires_at"`
+	Status    string `json:"status"`
+}
+
 type IdentityManagementClientResponse struct {
 	ClientID    string                                         `json:"client_id"`
 	Username    string                                         `json:"username"`
@@ -58,6 +67,7 @@ type IdentityManagementClientResponse struct {
 	CreatedAt   string                                         `json:"created_at"`
 	ChangedAt   string                                         `json:"changed_at"`
 	Tokens      []IdentityManagementClientTokenSummaryResponse `json:"tokens"`
+	Credentials []IdentityManagementClientCredentialResponse   `json:"credentials"`
 }
 
 type ListIdentityManagementUsersResponse struct {
@@ -90,6 +100,13 @@ type CreateIdentityManagementClientTokenRequest struct {
 	OwnerEmail     string `json:"owner_email"`
 	Purpose        string `json:"purpose"`
 	TokenExpiresAt string `json:"token_expires_at"`
+	PublicKey      string `json:"public_key"`
+	KeyExpiresAt   string `json:"key_expires_at"`
+}
+
+type AddIdentityManagementClientKeyRequest struct {
+	PublicKey    string `json:"public_key"`
+	KeyExpiresAt string `json:"key_expires_at"`
 }
 
 type RotateIdentityManagementClientTokenRequest struct {

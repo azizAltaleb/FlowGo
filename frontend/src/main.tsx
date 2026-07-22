@@ -14,7 +14,11 @@ function bootstrap() {
     authority,
     client_id: clientID,
     redirect_uri: window.location.origin,
+    silent_redirect_uri: window.location.origin,
     post_logout_redirect_uri: window.location.origin,
+    automaticSilentRenew: true,
+    includeIdTokenInSilentRenew: true,
+    monitorSession: true,
     onSigninCallback: () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }

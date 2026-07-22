@@ -11,6 +11,34 @@ permissions:
   contents: read
 
 jobs:
+  workflow-validation:
+    name: Workflow and Agentic Script Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go for actionlint
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.12"
+
+      - name: Install actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@latest
+
+      - name: Validate GitHub workflows
+        run: actionlint -color=false
+
+      - name: Validate agentic helper scripts
+        run: |
+          bash -n scripts/agentic/collect_quality_evidence.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/agentic/summarize_test_reports.py")
+          compile(path.read_text(encoding="utf-8"), str(path), "exec")
+          print("python syntax ok")
+          PY
+
   go-tests:
     name: Go Tests
     runs-on: ubuntu-latest
@@ -21,7 +49,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.10"
+          go-version: "1.25.12"
 
       - name: Run service tests
         run: go test ./backend/... -count=1
@@ -159,7 +187,6 @@ jobs:
   cqrs-e2e-smoke:
     name: CQRS E2E Smoke
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     timeout-minutes: 25
     steps:
       - name: Checkout

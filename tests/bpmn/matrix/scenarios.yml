@@ -1,0 +1,127 @@
+schema_version: "1.0"
+scenarios:
+  - id: parser-element-type-matrix
+    name: Parser maps supported BPMN element types
+    category: parser
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/internal/domain/bpmn -run TestParse_ElementTypeMatrix -count=1 -v
+    elements: startEvent,endEvent,serviceTask,userTask,scriptTask,receiveTask,manualTask,businessRuleTask,callActivity,subProcess,exclusiveGateway,parallelGateway,inclusiveGateway,eventBasedGateway,boundaryEvent,intermediateCatchEvent,intermediateThrowEvent
+    behavior: Parse BPMN XML into FlowGo step definitions with expected step types.
+
+  - id: parser-extension-properties
+    name: Parser maps FlowGo extension properties and aliases
+    category: parser
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/internal/domain/bpmn -run 'TestParse_(MapsExtendedElementsAndProperties|MapsPlainAttributeAliasesForCompatibility|MergesExtensionPropertiesWithoutOverridingMappedKeys|CanonicalizesExtensionPropertyAliases)' -count=1 -v
+    elements: extensionElements,serviceTask,userTask,sequenceFlow
+    behavior: Preserve FlowGo extension properties, plain aliases, and canonical names.
+
+  - id: parser-gateway-joins
+    name: Parser populates gateway incoming edges
+    category: parser
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/internal/domain/bpmn -run TestParse_PopulatesIncomingForGatewayJoin -count=1 -v
+    elements: parallelGateway,inclusiveGateway,sequenceFlow
+    behavior: Join gateways retain incoming edge metadata needed by runtime navigation.
+
+  - id: xml-call-activity-business-rule-manual
+    name: XML runtime covers call activity, business rule, and manual tasks
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run TestDeployWorkflowFromBPMN_CallActivityBusinessRuleAndManualTask -count=1 -v
+    elements: callActivity,businessRuleTask,manualTask
+    behavior: Deploy BPMN XML and execute supported auto/runtime elements.
+
+  - id: xml-event-based-gateway
+    name: XML runtime covers event-based gateway receive and timer branches
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run TestDeployWorkflowFromBPMN_EventBasedGatewayReceiveAndTimer -count=1 -v
+    elements: eventBasedGateway,receiveTask,timerEventDefinition
+    behavior: Event-based gateway waits for a receive/message path or timer branch.
+
+  - id: xml-boundary-timer
+    name: XML runtime covers interrupting and non-interrupting boundary timers
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(BoundaryTimerInterruptsTask|BoundaryTimerNonInterruptingKeepsTaskActive)' -count=1 -v
+    elements: boundaryEvent,timerEventDefinition,userTask
+    behavior: Boundary timers create timer behavior and honor cancelActivity.
+
+  - id: xml-message-signal-throw-catch
+    name: XML runtime covers message and signal throw/catch behavior
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(ThrowSignalTriggersCatch|ThrowMessageUsesCorrelationKey|ThrowMessageUsesPlainCorrelationKeyAlias)' -count=1 -v
+    elements: intermediateThrowEvent,intermediateCatchEvent,messageEventDefinition,signalEventDefinition
+    behavior: Throw events correlate to catch subscriptions through message/signal semantics.
+
+  - id: xml-service-user-assignment
+    name: XML runtime covers service task implementation and user assignment mapping
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(ServiceTaskPlainTaskTypeAliasMapsImplementation|ServiceTaskExtensionPropertyMapsImplementation|UserTaskAssignmentFromExtensionProperties)' -count=1 -v
+    elements: serviceTask,userTask,extensionElements
+    behavior: Service task implementation and user assignment metadata are mapped and executed.
+
+  - id: unsupported-send-task
+    name: Parser rejects unsupported send task references
+    category: negative
+    support_status: unsupported
+    required: true
+    command: go test ./backend/services/workflow-command/internal/domain/bpmn ./backend/services/workflow-command/tests -run 'Test(Parse|DeployWorkflowFromBPMN)_FailsForUnsupportedSendTaskReferences' -count=1 -v
+    elements: sendTask
+    behavior: Unsupported send task references fail clearly at parse/deploy time.
+
+  - id: unsupported-element-reference
+    name: Parser rejects unsupported element references
+    category: negative
+    support_status: unsupported
+    required: true
+    command: go test ./backend/services/workflow-command/internal/domain/bpmn ./backend/services/workflow-command/tests -run 'Test(Parse|DeployWorkflowFromBPMN)_FailsForUnsupportedElementReferences' -count=1 -v
+    elements: adHocSubProcess,unsupported
+    behavior: Unsupported BPMN references fail clearly rather than silently deploying.
+
+  - id: xml-multi-instance
+    name: XML multi-instance parsing and execution
+    category: gap
+    support_status: unknown
+    required: false
+    command:
+    elements: multiInstanceLoopCharacteristics,userTask,serviceTask
+    behavior: Needs dedicated XML parser/runtime coverage for sequential and parallel multi-instance.
+
+  - id: xml-boundary-error-compensation
+    name: XML boundary error and compensation execution
+    category: gap
+    support_status: partial
+    required: false
+    command:
+    elements: boundaryEvent,errorEventDefinition,compensateEventDefinition
+    behavior: Direct model tests exist; XML-deployed runtime coverage should be added.
+
+  - id: xml-start-event-variants
+    name: XML message, signal, and timer start events
+    category: gap
+    support_status: unknown
+    required: false
+    command:
+    elements: startEvent,messageEventDefinition,signalEventDefinition,timerEventDefinition
+    behavior: Typed start-event semantics should be specified and tested.
+
+  - id: xml-gateway-defaults-and-joins
+    name: XML gateway defaults and multi-path joins
+    category: gap
+    support_status: partial
+    required: false
+    command:
+    elements: exclusiveGateway,inclusiveGateway,parallelGateway,sequenceFlow
+    behavior: Parser coverage exists; XML runtime defaults and joins need expanded scenario assertions.

@@ -10,6 +10,7 @@ const Modeler = lazy(() => import("@/pages/Modeler"));
 const Processes = lazy(() => import("@/pages/Processes"));
 const Instances = lazy(() => import("@/pages/Instances"));
 const InstanceDetails = lazy(() => import("@/pages/InstanceDetails"));
+const History = lazy(() => import("@/pages/History"));
 const IdentityManagement = lazy(() => import("@/pages/IdentityManagement"));
 const FlowGoClients = lazy(() => import("@/pages/FlowGoClients"));
 
@@ -40,6 +41,7 @@ function AppRoutes({ onLogout }: AppRoutesProps) {
             <Route path="processes" element={<Processes />} />
             <Route path="instances" element={<Instances />} />
             <Route path="instances/:id" element={<InstanceDetails />} />
+            <Route path="history" element={<History />} />
             <Route path="identity" element={<IdentityManagement />} />
             <Route path="sdk-clients" element={<FlowGoClients />} />
           </Route>

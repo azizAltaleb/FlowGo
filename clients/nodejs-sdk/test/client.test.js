@@ -161,6 +161,79 @@ async function testAllInstanceOperations() {
   assert.strictEqual(calls[9].init.method, 'DELETE');
 }
 
+async function testInboxOperations() {
+  const task = {
+    key: '501',
+    elementId: 'approve',
+    executionId: '601',
+    state: 'CREATED',
+    assignee: 'accountant',
+    candidateUsers: ['accountant'],
+    candidateGroups: ['finance'],
+    canClaim: true,
+    canComplete: false,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+  const instance = { id: '99', workflow_id: '1', status: 'RUNNING', context: { orderId: 'A1' }, executions: [{ id: '601', task }], created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' };
+  const completed = { ...instance, status: 'COMPLETED' };
+  const actingUser = {
+    subject: 'user-123',
+    username: 'accountant',
+    email: 'accountant@flowgo.local',
+    name: 'Accounting User',
+    roles: ['accountant'],
+  };
+  const { client, calls } = createClient([
+    jsonResponse(200, [instance]),
+    jsonResponse(200, [instance]),
+    jsonResponse(200, instance),
+    jsonResponse(200, { tasks: [task] }),
+    jsonResponse(200, { ...task, state: 'ACTIVATED', claimedBy: 'accountant@flowgo.local', canClaim: false, canComplete: true }),
+    textResponse(200, 'Task completed'),
+    jsonResponse(200, [completed]),
+  ]);
+
+  await client.listInboxItems({ actingUser });
+  assert.strictEqual(calls[0].url, 'http://flowgo.local/api/inbox');
+  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Subject'], 'user-123');
+  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Username'], 'accountant');
+  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Email'], 'accountant@flowgo.local');
+  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Name'], 'Accounting User');
+  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Roles'], 'accountant');
+
+  await client.listVisibleActiveInstances({ actingUser });
+  assert.strictEqual(calls[1].url, 'http://flowgo.local/api/inbox');
+
+  await client.getInboxInstance('99', { actingUser, includeCompleted: true });
+  assert.strictEqual(calls[2].url, 'http://flowgo.local/api/inbox/instances/99?includeCompleted=true');
+
+  const tasks = await client.listUserTasks('99', { actingUser, includeCompleted: true });
+  assert.strictEqual(calls[3].url, 'http://flowgo.local/api/inbox/instances/99/tasks?includeCompleted=true');
+  assert.deepStrictEqual(tasks, [task]);
+
+  await client.claimUserTask('99', '601', { actingUser });
+  assert.strictEqual(calls[4].url, 'http://flowgo.local/api/inbox/instances/99/tasks/601/claim');
+  assert.strictEqual(calls[4].init.method, 'POST');
+
+  await client.completeUserTask('99', '601', { actingUser });
+  assert.strictEqual(calls[5].url, 'http://flowgo.local/api/inbox/instances/99/tasks/601/complete');
+  assert.strictEqual(calls[5].init.method, 'POST');
+
+  await client.listMyCompletedTransactions({ actingUser, limit: 25 });
+  assert.strictEqual(calls[6].url, 'http://flowgo.local/api/inbox/history?limit=25');
+}
+
+async function testInboxRequiresActingUser() {
+  const { client, calls } = createClient([]);
+
+  await assert.rejects(
+    () => client.listInboxItems({}),
+    /actingUser\.subject, actingUser\.username, or actingUser\.email is required/,
+  );
+  assert.strictEqual(calls.length, 0);
+}
+
 async function testMessagingAndWorkerRequests() {
   const { client, calls } = createClient([
     jsonResponse(204),
@@ -187,6 +260,7 @@ async function testMessagingAndWorkerRequests() {
 
   await client.activateJobs({ type: 'payment', worker: 'worker-1', maxJobs: 2, timeoutMs: 500, lockDurationMs: 30000 });
   assert.strictEqual(calls[3].url, 'http://flowgo.local/api/jobs/activate');
+  assert.strictEqual(calls[3].init.headers.Authorization, 'Bearer token-1');
   assert.strictEqual(calls[3].init.headers[HeaderWorkerProtocolVersion], WorkerProtocolVersion);
   assert.deepStrictEqual(body(calls[3]), { type: 'payment', worker: 'worker-1', maxJobs: 2, timeoutMs: 500, lockDurationMs: 30000 });
 
@@ -221,7 +295,7 @@ async function testPlatformReadOperations() {
   const { client, calls } = createClient([
     jsonResponse(200, { outboxPending: 0, outboxPublishSuccess: 1, outboxPublishFailure: 0, outboxPublishLagSec: 0, outboxMaxAttempts: 5, idempotencyHit: 0, idempotencyMiss: 1 }),
     jsonResponse(200, { authenticated: true, principal: { subject: 'admin', roles: ['flowgo admin'] } }),
-    jsonResponse(200, { deployment_mode: 'zitadel', configuration_source: 'env', provider_name: 'ZITADEL', auth_enabled: true, frontend_auth_enabled: true, frontend_oidc_authority: 'http://localhost:9180', frontend_oidc_client_id: '123', token_validation_mode: 'jwt', internal_issuer_url: 'http://zitadel-proxy', external_issuer_url: 'http://localhost:9180', client_id: '', introspection_url: '', introspection_client_id: '', introspection_auth_method: '', enforce_audience: false, allow_insecure_issuer: true, claim_subject_path: 'sub', claim_roles_path: 'roles', claim_scopes_path: 'scope', claim_tenant_path: 'tenant', claim_email_path: 'email', claim_name_path: 'name', standard_roles: ['flowgo admin'] }),
+    jsonResponse(200, { deployment_mode: 'zitadel', configuration_source: 'env', provider_name: 'ZITADEL', auth_enabled: true, frontend_auth_enabled: true, frontend_oidc_authority: 'http://localhost:9180', frontend_oidc_client_id: '123', token_validation_mode: 'introspection', internal_issuer_url: 'http://zitadel-proxy', external_issuer_url: 'http://localhost:9180', client_id: '', introspection_url: 'http://zitadel-proxy/oauth/v2/introspect', introspection_client_id: 'flowgo-api', introspection_auth_method: 'basic', enforce_audience: false, allow_insecure_issuer: true, claim_subject_path: 'sub', claim_roles_path: 'roles', claim_scopes_path: 'scope', claim_tenant_path: 'tenant', claim_email_path: 'email', claim_name_path: 'name', standard_roles: ['flowgo admin'] }),
   ]);
 
   await client.getEngineMetrics();
@@ -229,6 +303,7 @@ async function testPlatformReadOperations() {
 
   await client.getIdentity();
   assert.strictEqual(calls[1].url, 'http://flowgo.local/api/identity/me');
+  assert.strictEqual(calls[1].init.headers.Authorization, 'Bearer token-1');
 
   await client.getIdentityConfig();
   assert.strictEqual(calls[2].url, 'http://flowgo.local/api/identity/config');
@@ -283,8 +358,8 @@ async function testIdentityManagementRequests() {
   await client.createIdentityUser({ given_name: 'User', family_name: 'One', email: 'user@example.com', password: 'secret' });
   assert.deepStrictEqual(body(calls[2]), { given_name: 'User', family_name: 'One', email: 'user@example.com', password: 'secret', username: '', password_change_required: false, roles: [] });
 
-  await client.createIdentityManagementUser({ username: 'user', given_name: 'User', family_name: 'One', email: 'user@example.com', password: 'secret', password_change_required: true, roles: ['flowgo viewer'] });
-  assert.deepStrictEqual(body(calls[3]), { username: 'user', given_name: 'User', family_name: 'One', email: 'user@example.com', password: 'secret', password_change_required: true, roles: ['flowgo viewer'] });
+  await client.createIdentityManagementUser({ username: 'user', given_name: 'User', family_name: 'One', email: 'user@example.com', password: 'secret', password_change_required: true, roles: ['accountant'] });
+  assert.deepStrictEqual(body(calls[3]), { username: 'user', given_name: 'User', family_name: 'One', email: 'user@example.com', password: 'secret', password_change_required: true, roles: ['accountant'] });
 
   await client.createIdentityClientToken({ name: 'Orders SDK', username: 'sdk-orders', description: 'Order service', environment: 'production', owner_email: 'platform@example.com', purpose: 'Order worker', token_expires_at: '2027-01-01T00:00:00Z' });
   assert.strictEqual(calls[4].url, 'http://flowgo.local/api/identity/management/clients');
@@ -437,6 +512,8 @@ async function main() {
   await testHealthAuthHeaders();
   await testAllWorkflowOperations();
   await testAllInstanceOperations();
+  await testInboxOperations();
+  await testInboxRequiresActingUser();
   await testMessagingAndWorkerRequests();
   await testMessageObjectOverload();
   await testPlatformReadOperations();

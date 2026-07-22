@@ -12,6 +12,7 @@ import (
 	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/messaging"
 	"hash/fnv"
 	"math"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -354,13 +355,6 @@ func (e *Engine) completeTask(ctx context.Context, instanceID string, stepID str
 		return err
 	}
 
-	// Persist Variables (if changed in memory, though StepExecutors should handle this)
-	// But proceedToken modifies instance.Context?
-	piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
-	if err := e.persistVariables(ctx, instance.ID, piKey, instance.Context); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -419,12 +413,6 @@ func (e *Engine) completeExecution(ctx context.Context, instanceID string, execu
 
 	// Advance this token
 	if err := e.proceedToken(ctx, instance, targetExec.ID, wf); err != nil {
-		return err
-	}
-
-	// Persist Variables
-	piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
-	if err := e.persistVariables(ctx, instance.ID, piKey, instance.Context); err != nil {
 		return err
 	}
 
@@ -678,6 +666,8 @@ func unmarshalOutboxEvent(eventType string, payload []byte) (proto.Message, erro
 	return event, nil
 }
 
+// persistVariables upserts and publishes exactly the keys present in vars.
+// Callers that mutate a full execution context must pass only their delta.
 func (e *Engine) persistVariables(ctx context.Context, instanceID string, scopeKey int64, vars map[string]any) error {
 	if vars == nil {
 		return nil
@@ -750,6 +740,33 @@ func (e *Engine) persistVariables(ctx context.Context, instanceID string, scopeK
 	return nil
 }
 
+func snapshotVariables(vars map[string]any) map[string]any {
+	if len(vars) == 0 {
+		return nil
+	}
+	snapshot := make(map[string]any, len(vars))
+	for k, v := range vars {
+		snapshot[k] = v
+	}
+	return snapshot
+}
+
+func changedVariables(before, after map[string]any) map[string]any {
+	if len(after) == 0 {
+		return nil
+	}
+	changed := make(map[string]any)
+	for k, v := range after {
+		if !reflect.DeepEqual(before[k], v) {
+			changed[k] = v
+		}
+	}
+	if len(changed) == 0 {
+		return nil
+	}
+	return changed
+}
+
 func (e *Engine) GetInstance(ctx context.Context, id string) (*model.WorkflowInstance, error) {
 	key, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
@@ -778,6 +795,32 @@ func (e *Engine) ListActiveInstances(ctx context.Context) ([]*model.WorkflowInst
 		// Full details are fetched via GetInstance when clicking on a specific item.
 		wi := e.mapToWorkflowInstance(pi, nil, nil)
 		instances = append(instances, wi)
+	}
+	return instances, nil
+}
+
+func (e *Engine) ListCompletedInstances(ctx context.Context, limit int) ([]*model.WorkflowInstance, error) {
+	pis, err := e.repo.ListProcessInstancesByState(ctx, "COMPLETED", limit)
+	if err != nil {
+		return nil, err
+	}
+
+	instances := make([]*model.WorkflowInstance, 0, len(pis))
+	for _, pi := range pis {
+		instances = append(instances, e.mapToWorkflowInstance(pi, nil, nil))
+	}
+	return instances, nil
+}
+
+func (e *Engine) ListCompletedInstancesWithCompletedUserTaskWorkers(ctx context.Context, workers []string, limit int) ([]*model.WorkflowInstance, error) {
+	pis, err := e.repo.ListCompletedProcessInstancesWithCompletedJobsByWorkers(ctx, UserTaskJobType, workers, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	instances := make([]*model.WorkflowInstance, 0, len(pis))
+	for _, pi := range pis {
+		instances = append(instances, e.mapToWorkflowInstance(pi, nil, nil))
 	}
 	return instances, nil
 }

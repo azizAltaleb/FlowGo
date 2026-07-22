@@ -5,14 +5,69 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 
 const BASE = __ENV.COMMAND_URL || "http://localhost:8080";
+const JOB_TYPE = "worker-perf-task";
+const WORKER_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn"
+  id="Definitions_worker_perf" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="worker-perf-workflow" name="Worker Perf Test" isExecutable="true">
+    <bpmn:startEvent id="start1">
+      <bpmn:outgoing>flow1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="task1" name="Worker Work" flowgo:taskType="${JOB_TYPE}">
+      <bpmn:incoming>flow1</bpmn:incoming>
+      <bpmn:outgoing>flow2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="end1">
+      <bpmn:incoming>flow2</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow1" sourceRef="start1" targetRef="task1"/>
+    <bpmn:sequenceFlow id="flow2" sourceRef="task1" targetRef="end1"/>
+  </bpmn:process>
+</bpmn:definitions>`;
+
+let workerWorkflowId = null;
+
+function ensureWorkerWorkflow() {
+  if (workerWorkflowId) {
+    return workerWorkflowId;
+  }
+  const deployRes = http.post(
+    `${BASE}/workflows`,
+    WORKER_BPMN,
+    { headers: { "Content-Type": "text/xml; charset=utf-8" } }
+  );
+  if (deployRes.status !== 200) {
+    return null;
+  }
+  try {
+    workerWorkflowId = JSON.parse(deployRes.body).id;
+  } catch (_) {
+    workerWorkflowId = null;
+  }
+  return workerWorkflowId;
+}
 
 export function workerActivateJobs() {
+  const workflowId = ensureWorkerWorkflow();
+  if (workflowId) {
+    http.post(
+      `${BASE}/instances`,
+      JSON.stringify({
+        workflow_id: workflowId,
+        context: { worker_load_test: true, vu: __VU, iter: __ITER },
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   // Poll for jobs (realistic worker behaviour)
+  const worker = `k6-worker-poll-${__VU}`;
   const activateRes = http.post(
     `${BASE}/jobs/activate`,
     JSON.stringify({
-      type: "perf-task",
-      worker: `k6-worker-${__VU}`,
+      type: JOB_TYPE,
+      worker,
       maxJobs: 5,
       lockDurationMs: 30000,
     }),
@@ -39,7 +94,7 @@ export function workerActivateJobs() {
 
       const completeRes = http.post(
         `${BASE}/jobs/${jobKey}/complete`,
-        JSON.stringify({ worker: `k6-worker-${__VU}`, variables: { done: true } }),
+        JSON.stringify({ worker, variables: { done: true } }),
         {
           headers: { "Content-Type": "application/json" },
           tags: { name: "complete_job" },

@@ -122,6 +122,50 @@ func TestEnsureConnectorBootstrap_SkipsCreateWhenAlreadyExists(t *testing.T) {
 	}
 }
 
+func TestEnsureConnectorBootstrap_AllowsRecoveringConnectorWithRunningTask(t *testing.T) {
+	var postCalls atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/connectors":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("[]"))
+			return
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/") && strings.HasSuffix(r.URL.Path, "/status"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"connector":{"state":"UNASSIGNED"},"tasks":[{"state":"RUNNING"}]}`))
+			return
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector"}`))
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/connectors":
+			postCalls.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector"}`))
+			return
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
+		Enabled:       true,
+		ConnectURL:    server.URL,
+		ConnectorName: "flowgo-postgres-connector",
+		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
+		WaitTimeout:   2 * time.Second,
+		PollInterval:  10 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("expected bootstrap success while connector is recovering, got %v", err)
+	}
+	if postCalls.Load() != 0 {
+		t.Fatalf("expected no connector create call when exists, got %d", postCalls.Load())
+	}
+}
+
 func TestEnsureConnectorBootstrap_HandlesConflictAsSuccess(t *testing.T) {
 	var postCalls atomic.Int32
 

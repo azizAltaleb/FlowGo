@@ -25,6 +25,7 @@ type Repository interface {
 	GetJob(ctx context.Context, key int64) (*model.Job, error)
 	UpdateJob(ctx context.Context, job *model.Job) error
 	ListActivatableJobs(ctx context.Context, jobType string, maxJobs int) ([]model.Job, error)
+	ListJobsByProcessInstanceAndType(ctx context.Context, processInstanceKey int64, jobType string) ([]model.Job, error)
 	CreateIncident(ctx context.Context, incident *model.Incident) error
 	UpdateIncident(ctx context.Context, incident *model.Incident) error
 	CreateTimer(ctx context.Context, timer *model.Timer) error
@@ -52,6 +53,9 @@ type Repository interface {
 	GetProcessInstanceWithState(ctx context.Context, key int64) (*model.ProcessInstance, []model.ElementInstance, []model.Variable, error) // For re-hydrating state
 	GetElementInstance(ctx context.Context, key int64) (*model.ElementInstance, error)
 	ListActiveElementInstances(ctx context.Context, processInstanceKey int64) ([]model.ElementInstance, error)
+	ListActiveElementInstancesByTypes(ctx context.Context, processInstanceKey int64, elementTypes []string) ([]model.ElementInstance, error)
 	ListActiveProcessInstances(ctx context.Context) ([]*model.ProcessInstance, error)
+	ListProcessInstancesByState(ctx context.Context, state string, limit int) ([]*model.ProcessInstance, error)
+	ListCompletedProcessInstancesWithCompletedJobsByWorkers(ctx context.Context, jobType string, workers []string, limit int) ([]*model.ProcessInstance, error)
 	ListProcesses(ctx context.Context) ([]*model.Process, error)
 }

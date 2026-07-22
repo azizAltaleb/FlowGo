@@ -6,7 +6,8 @@ import { check, sleep } from "k6";
 
 const BASE = __ENV.COMMAND_URL || "http://localhost:8080";
 
-const MINIMAL_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
+function minimalBpmn(jobType) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
   xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn"
   id="Definitions_perf" targetNamespace="http://bpmn.io/schema/bpmn">
@@ -14,7 +15,7 @@ const MINIMAL_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
     <bpmn:startEvent id="start1">
       <bpmn:outgoing>flow1</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:serviceTask id="task1" name="Do Work" flowgo:taskType="perf-task">
+    <bpmn:serviceTask id="task1" name="Do Work" flowgo:taskType="${jobType}">
       <bpmn:incoming>flow1</bpmn:incoming>
       <bpmn:outgoing>flow2</bpmn:outgoing>
     </bpmn:serviceTask>
@@ -25,35 +26,40 @@ const MINIMAL_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
     <bpmn:sequenceFlow id="flow2" sourceRef="task1" targetRef="end1"/>
   </bpmn:process>
 </bpmn:definitions>`;
+}
 
 let deployedWorkflowId = null;
+let deployedJobType = null;
 
 export function setup() {
+  const jobType = "perf-task-setup";
   const res = http.post(
     `${BASE}/workflows`,
-    MINIMAL_BPMN,
+    minimalBpmn(jobType),
     { headers: { "Content-Type": "text/xml; charset=utf-8" } }
   );
   if (res.status === 200) {
     const body = JSON.parse(res.body);
-    return { workflowId: body.id };
+    return { workflowId: body.id, jobType };
   }
-  return { workflowId: null };
+  return { workflowId: null, jobType: null };
 }
 
 export function workflowThroughput(data) {
   const workflowId = (data && data.workflowId) || deployedWorkflowId;
+  const jobType = (data && data.jobType) || deployedJobType || `perf-task-vu-${__VU}`;
 
   if (!workflowId) {
     const deployRes = http.post(
       `${BASE}/workflows`,
-      MINIMAL_BPMN,
+      minimalBpmn(jobType),
       { headers: { "Content-Type": "text/xml; charset=utf-8" } }
     );
     if (deployRes.status !== 200) {
       return;
     }
     deployedWorkflowId = JSON.parse(deployRes.body).id;
+    deployedJobType = jobType;
     return;
   }
 
@@ -85,7 +91,7 @@ export function workflowThroughput(data) {
     const activateRes = http.post(
       `${BASE}/jobs/activate`,
       JSON.stringify({
-        type: "perf-task",
+        type: jobType,
         worker: `k6-worker-${__VU}`,
         maxJobs: 1,
         lockDurationMs: 30000,
@@ -98,10 +104,11 @@ export function workflowThroughput(data) {
       const jobList = Array.isArray(jobs) ? jobs : (jobs.jobs || []);
       if (jobList.length > 0) {
         const jobKey = jobList[0].key || jobList[0].id;
+        const worker = jobList[0].worker || `k6-worker-${__VU}`;
         if (jobKey) {
           const completeRes = http.post(
             `${BASE}/jobs/${jobKey}/complete`,
-            JSON.stringify({ variables: { result: "ok" } }),
+            JSON.stringify({ worker, variables: { result: "ok" } }),
             { headers: { "Content-Type": "application/json" } }
           );
           check(completeRes, {

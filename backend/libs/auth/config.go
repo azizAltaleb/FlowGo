@@ -2,7 +2,10 @@ package auth
 
 import (
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -14,12 +17,15 @@ type Config struct {
 	InternalIssuerURL string
 	ExternalIssuerURL string
 	ClientID          string
+	ClientIDFile      string
 
 	TokenValidationMode       string
 	IntrospectionURL          string
 	IntrospectionClientID     string
 	IntrospectionClientSecret string
 	IntrospectionAuthMethod   string
+	IntrospectionClientIDFile string
+	IntrospectionSecretFile   string
 
 	EnforceAudience     bool
 	AllowInsecureIssuer bool
@@ -42,8 +48,11 @@ func (c Config) Enabled() bool {
 }
 
 func ResolveConfigFromEnv() Config {
+	clientID := strings.TrimSpace(os.Getenv("AUTH_CLIENT_ID"))
+	clientIDFile := strings.TrimSpace(os.Getenv("AUTH_CLIENT_ID_FILE"))
 	cfg := Config{
-		ClientID:                  strings.TrimSpace(firstNonEmpty(os.Getenv("AUTH_CLIENT_ID"), "workflow-backend")),
+		ClientID:                  clientID,
+		ClientIDFile:              clientIDFile,
 		TokenValidationMode:       normalizeTokenMode(firstNonEmpty(os.Getenv("AUTH_TOKEN_MODE"), TokenModeJWT)),
 		IntrospectionAuthMethod:   normalizeIntrospectionAuthMethod(firstNonEmpty(os.Getenv("AUTH_INTROSPECTION_AUTH_METHOD"), "basic")),
 		EnforceAudience:           envBoolOrDefault("AUTH_ENFORCE_AUDIENCE", true),
@@ -57,6 +66,26 @@ func ResolveConfigFromEnv() Config {
 		IntrospectionURL:          strings.TrimSpace(os.Getenv("AUTH_INTROSPECTION_URL")),
 		IntrospectionClientID:     strings.TrimSpace(os.Getenv("AUTH_INTROSPECTION_CLIENT_ID")),
 		IntrospectionClientSecret: strings.TrimSpace(os.Getenv("AUTH_INTROSPECTION_CLIENT_SECRET")),
+		IntrospectionClientIDFile: strings.TrimSpace(os.Getenv("AUTH_INTROSPECTION_CLIENT_ID_FILE")),
+		IntrospectionSecretFile:   strings.TrimSpace(os.Getenv("AUTH_INTROSPECTION_CLIENT_SECRET_FILE")),
+	}
+
+	fileTimeout := envDurationSeconds("AUTH_INTROSPECTION_CREDENTIAL_FILE_TIMEOUT_SECONDS")
+	clientIDFileTimeout := envDurationSeconds("AUTH_CLIENT_ID_FILE_TIMEOUT_SECONDS")
+	if clientIDFileTimeout == 0 {
+		clientIDFileTimeout = fileTimeout
+	}
+	if cfg.ClientID == "" && cfg.ClientIDFile != "" {
+		cfg.ClientID = readDeploymentCredentialFile(cfg.ClientIDFile, clientIDFileTimeout)
+	}
+	if cfg.ClientID == "" && cfg.ClientIDFile == "" {
+		cfg.ClientID = "workflow-backend"
+	}
+	if cfg.IntrospectionClientID == "" && cfg.IntrospectionClientIDFile != "" {
+		cfg.IntrospectionClientID = readDeploymentCredentialFile(cfg.IntrospectionClientIDFile, fileTimeout)
+	}
+	if cfg.IntrospectionClientSecret == "" && cfg.IntrospectionSecretFile != "" {
+		cfg.IntrospectionClientSecret = readDeploymentCredentialFile(cfg.IntrospectionSecretFile, fileTimeout)
 	}
 
 	cfg.InternalIssuerURL = strings.TrimSpace(os.Getenv("AUTH_ISSUER_INTERNAL_URL"))
@@ -69,7 +98,7 @@ func ResolveConfigFromEnv() Config {
 		cfg.ExternalIssuerURL = cfg.InternalIssuerURL
 	}
 
-	if cfg.IntrospectionClientID == "" {
+	if cfg.IntrospectionClientID == "" && cfg.IntrospectionClientIDFile == "" {
 		cfg.IntrospectionClientID = cfg.ClientID
 	}
 
@@ -113,5 +142,39 @@ func envBoolOrDefault(key string, defaultValue bool) bool {
 		return false
 	default:
 		return defaultValue
+	}
+}
+
+func envDurationSeconds(key string) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return 0
+	}
+	seconds, err := strconv.Atoi(raw)
+	if err != nil || seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func readDeploymentCredentialFile(rawPath string, timeout time.Duration) string {
+	path := strings.TrimSpace(rawPath)
+	if path == "" || !filepath.IsAbs(path) {
+		return ""
+	}
+	path = filepath.Clean(path)
+	deadline := time.Now().Add(timeout)
+	for {
+		// #nosec G304 G703 -- path is deployment-controlled and constrained to a cleaned absolute path.
+		content, err := os.ReadFile(path)
+		if err == nil {
+			if value := strings.TrimSpace(string(content)); value != "" {
+				return value
+			}
+		}
+		if timeout <= 0 || !time.Now().Before(deadline) {
+			return ""
+		}
+		time.Sleep(250 * time.Millisecond)
 	}
 }

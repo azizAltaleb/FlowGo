@@ -37,7 +37,7 @@ type WorkflowInstanceResponse struct {
 	// Executions might be detailed or distinct DTOs too, but let's decouple top level first.
 	// For deep structures, we might still use model types if we don't want to duplicate everything yet.
 	// ADR goal is boundaries.
-	Executions []model.Execution `json:"executions"`
+	Executions []ExecutionResponse `json:"executions"`
 }
 
 // --- Requests (Moved from handler.go) ---
@@ -53,6 +53,36 @@ type UpdateVariablesRequest struct {
 
 type CompleteTaskRequest struct {
 	StepID string `json:"step_id"`
+}
+
+type ExecutionResponse struct {
+	ID                 string            `json:"id"`
+	StepID             string            `json:"step_id"`
+	Status             string            `json:"status"`
+	ParentID           string            `json:"parent_id,omitempty"`
+	StartTime          time.Time         `json:"start_time"`
+	ElementInstanceKey string            `json:"element_instance_key,omitempty"`
+	Task               *UserTaskResponse `json:"task,omitempty"`
+}
+
+type UserTaskResponse struct {
+	Key             string    `json:"key"`
+	ElementID       string    `json:"elementId"`
+	ExecutionID     string    `json:"executionId"`
+	State           string    `json:"state"`
+	Assignee        string    `json:"assignee,omitempty"`
+	CandidateUsers  []string  `json:"candidateUsers,omitempty"`
+	CandidateGroups []string  `json:"candidateGroups,omitempty"`
+	ClaimedBy       string    `json:"claimedBy,omitempty"`
+	CanClaim        bool      `json:"canClaim"`
+	CanComplete     bool      `json:"canComplete"`
+	DueDate         time.Time `json:"dueDate,omitempty"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+}
+
+type ListUserTasksResponse struct {
+	Tasks []UserTaskResponse `json:"tasks"`
 }
 
 type ActivateJobsRequest struct {
@@ -121,7 +151,11 @@ type JobResponse struct {
 	Worker               string     `json:"worker"`
 	Retries              int        `json:"retries"`
 	State                string     `json:"state"`
+	Assignee             string     `json:"assignee,omitempty"`
+	CandidateUsers       string     `json:"candidateUsers,omitempty"`
+	CandidateGroups      string     `json:"candidateGroups,omitempty"`
 	LockExpirationTime   *time.Time `json:"lockExpirationTime,omitempty"`
+	DueDate              time.Time  `json:"dueDate,omitempty"`
 	CreatedAt            time.Time  `json:"createdAt"`
 	UpdatedAt            time.Time  `json:"updatedAt"`
 }

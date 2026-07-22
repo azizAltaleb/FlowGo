@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +33,13 @@ type Handler struct {
 const idempotencyKeyHeader = "Idempotency-Key"
 
 const maxIdempotencyKeyLength = 128
+const maxBPMNDeployBodyBytes int64 = 20 << 20
+
+const actingSubjectHeader = "X-FlowGo-Acting-Subject"
+const actingUsernameHeader = "X-FlowGo-Acting-Username"
+const actingEmailHeader = "X-FlowGo-Acting-Email"
+const actingNameHeader = "X-FlowGo-Acting-Name"
+const actingRolesHeader = "X-FlowGo-Acting-Roles"
 
 func NewHandler(e *application.Engine, identityConfig iam.DeploymentConfig) *Handler {
 	return &Handler{
@@ -42,34 +51,81 @@ func NewHandler(e *application.Engine, identityConfig iam.DeploymentConfig) *Han
 }
 
 func (h *Handler) RegisterRoutes(r *mux.Router) {
-	readOnly := func(fn http.HandlerFunc) http.Handler {
-		return auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient, auth.RoleFlowGoViewer)(http.HandlerFunc(fn))
-	}
 	adminOnly := func(fn http.HandlerFunc) http.Handler {
 		return auth.RequireAnyRole(auth.RoleFlowGoAdmin)(http.HandlerFunc(fn))
 	}
 	adminOrClient := func(fn http.HandlerFunc) http.Handler {
 		return auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)(http.HandlerFunc(fn))
 	}
+	processDesigner := func(fn http.HandlerFunc) http.Handler {
+		return auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoModeler, auth.RoleFlowGoClient)(http.HandlerFunc(fn))
+	}
+	scopedInstanceRead := func(fn http.HandlerFunc) http.Handler {
+		return auth.RequireAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			principal, ok := auth.PrincipalFromContext(r.Context())
+			if !ok {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			if principal.HasRole(auth.RoleFlowGoModeler) && !principal.HasAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient) {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			fn(w, r)
+		}))
+	}
+	sdkInboxOnly := func(fn http.HandlerFunc) http.Handler {
+		return auth.RequireAnyRole(auth.RoleFlowGoClient)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			integrationPrincipal, ok := auth.PrincipalFromContext(r.Context())
+			if !ok {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			if integrationPrincipal.HasRole(auth.RoleFlowGoAdmin) {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			actingPrincipal, err := actingPrincipalFromRequest(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if actingPrincipal.HasAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient) {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			fn(w, r.WithContext(auth.WithPrincipal(r.Context(), actingPrincipal)))
+		}))
+	}
 
 	r.HandleFunc("/identity/config", h.getIdentityConfig).Methods("GET")
 	if h.identityConfig.Mode == iam.DeploymentModeZITADEL {
 		h.registerIdentityManagementRoutes(r)
 	}
-	r.Handle("/workflows", adminOrClient(h.deployWorkflow)).Methods("POST")
-	r.Handle("/workflows", readOnly(h.listWorkflows)).Methods("GET")
-	r.Handle("/workflows/{id}", readOnly(h.getWorkflow)).Methods("GET")
+	r.Handle("/inbox", sdkInboxOnly(h.listInboxInstances)).Methods("GET")
+	r.Handle("/inbox/history", sdkInboxOnly(h.listInboxCompletedHistory)).Methods("GET")
+	r.Handle("/inbox/instances/{id}", sdkInboxOnly(h.getInboxInstance)).Methods("GET")
+	r.Handle("/inbox/instances/{id}/tasks", sdkInboxOnly(h.listUserTasks)).Methods("GET")
+	r.Handle("/inbox/instances/{id}/tasks/{executionId}/claim", sdkInboxOnly(h.claimUserTask)).Methods("POST")
+	r.Handle("/inbox/instances/{id}/tasks/{executionId}/complete", sdkInboxOnly(h.completeUserTask)).Methods("POST")
+	r.Handle("/workflows", processDesigner(h.deployWorkflow)).Methods("POST")
+	r.Handle("/workflows", processDesigner(h.listWorkflows)).Methods("GET")
+	r.Handle("/workflows/{id}", processDesigner(h.getWorkflow)).Methods("GET")
 	r.Handle("/workflows/{id}", adminOnly(h.deleteWorkflow)).Methods("DELETE")
 	r.Handle("/instances", adminOrClient(h.startInstance)).Methods("POST")
-	r.Handle("/instances", readOnly(h.listInstances)).Methods("GET")
+	r.Handle("/instances", scopedInstanceRead(h.listInstances)).Methods("GET")
+	r.Handle("/instances/history/completed", scopedInstanceRead(h.listCompletedInstanceHistory)).Methods("GET")
 	r.Handle("/instances/{id}/variables", adminOrClient(h.updateVariables)).Methods("POST")
 	r.Handle("/instances/{id}/complete", adminOrClient(h.completeTask)).Methods("POST")
-	r.Handle("/instances/{id}", readOnly(h.getInstance)).Methods("GET")
+	r.Handle("/instances/{id}/tasks", scopedInstanceRead(h.listUserTasks)).Methods("GET")
+	r.Handle("/instances/{id}/tasks/{executionId}/claim", adminOnly(h.claimUserTask)).Methods("POST")
+	r.Handle("/instances/{id}/tasks/{executionId}/complete", adminOnly(h.completeUserTask)).Methods("POST")
+	r.Handle("/instances/{id}", scopedInstanceRead(h.getInstance)).Methods("GET")
 	r.Handle("/instances/{id}", adminOnly(h.deleteInstance)).Methods("DELETE")
 	r.Handle("/signals", adminOrClient(h.publishSignal)).Methods("POST")
 	r.Handle("/messages", adminOrClient(h.publishMessage)).Methods("POST")
 	r.Handle("/jobs/activate", adminOrClient(h.activateJobs)).Methods("POST")
-	r.Handle("/jobs/capabilities", readOnly(h.jobsCapabilities)).Methods("GET")
+	r.Handle("/jobs/capabilities", adminOrClient(h.jobsCapabilities)).Methods("GET")
 	r.Handle("/jobs/{key}/complete", adminOrClient(h.completeJob)).Methods("POST")
 	r.Handle("/jobs/{key}/fail", adminOrClient(h.failJob)).Methods("POST")
 	r.Handle("/jobs/{key}/extend-lock", adminOrClient(h.extendJobLock)).Methods("POST")
@@ -86,6 +142,7 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 // @Param file body string true "BPMN XML File"
 // @Success 200 {object} dto.WorkflowDefinitionResponse
 // @Failure 400 {string} string "Bad Request"
+// @Failure 413 {string} string "Request Entity Too Large"
 // @Failure 500 {string} string "Internal Server Error"
 // @Router /workflows [post]
 func (h *Handler) deployWorkflow(w http.ResponseWriter, r *http.Request) {
@@ -94,8 +151,18 @@ func (h *Handler) deployWorkflow(w http.ResponseWriter, r *http.Request) {
 
 	h.log.Info(ctx, "deploying workflow", nil)
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBPMNDeployBodyBytes)
 	body, readErr := io.ReadAll(r.Body)
 	if readErr != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(readErr, &maxBytesErr) {
+			h.log.Error(ctx, "BPMN payload exceeds maximum size", map[string]any{
+				"error":     readErr.Error(),
+				"max_bytes": maxBPMNDeployBodyBytes,
+			})
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		h.log.Error(ctx, "failed to read request body", map[string]any{"error": readErr.Error()})
 		http.Error(w, readErr.Error(), http.StatusBadRequest)
 		return
@@ -106,6 +173,10 @@ func (h *Handler) deployWorkflow(w http.ResponseWriter, r *http.Request) {
 	wf, err := h.engine.DeployWorkflowFromBPMN(ctx, body)
 	if err != nil {
 		h.log.Error(ctx, "workflow deployment failed", map[string]any{"error": err.Error()})
+		if errors.Is(err, application.ErrBPMNValidation) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -247,6 +318,326 @@ func (h *Handler) startInstance(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dto.ToWorkflowInstanceResponse(instance))
 }
 
+func (h *Handler) listUserTasks(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceID := vars["id"]
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	visible, err := h.canViewInstance(r.Context(), instanceID, principal)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !visible {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	includeCompleted, _ := strconv.ParseBool(r.URL.Query().Get("includeCompleted"))
+	tasks, err := h.userTaskResponsesForRequest(r, instanceID, includeCompleted)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(dto.ListUserTasksResponse{Tasks: tasks})
+}
+
+func (h *Handler) claimUserTask(w http.ResponseWriter, r *http.Request) {
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	instanceID := vars["id"]
+	executionID := vars["executionId"]
+	job, err := h.userTaskJobForPrincipal(r.Context(), instanceID, executionID, principal)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if !principal.HasRole(auth.RoleFlowGoAdmin) && !userTaskEligible(job, principal) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	owner := taskOwner(principal)
+	claimed, err := h.engine.ClaimUserTask(r.Context(), instanceID, executionID, owner, principal.HasRole(auth.RoleFlowGoAdmin))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+
+	response := h.userTaskResponseForPrincipal(*claimed, principal)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (h *Handler) completeUserTask(w http.ResponseWriter, r *http.Request) {
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	instanceID := vars["id"]
+	executionID := vars["executionId"]
+	job, err := h.userTaskJobForPrincipal(r.Context(), instanceID, executionID, principal)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	admin := principal.HasRole(auth.RoleFlowGoAdmin)
+	if !admin {
+		if !userTaskEligible(job, principal) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		owner := taskOwner(principal)
+		if strings.TrimSpace(job.Worker) != owner {
+			http.Error(w, "Task must be claimed by the current user before completion", http.StatusForbidden)
+			return
+		}
+	}
+
+	if err := h.engine.CompleteUserTask(r.Context(), instanceID, executionID, taskOwner(principal), admin); err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("Task completed"))
+}
+
+func (h *Handler) userTaskResponsesForRequest(r *http.Request, instanceID string, includeCompleted bool) ([]dto.UserTaskResponse, error) {
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		return nil, fmt.Errorf("unauthorized")
+	}
+	jobs, err := h.engine.ListUserTaskJobs(r.Context(), instanceID)
+	if err != nil {
+		return nil, err
+	}
+	responses := make([]dto.UserTaskResponse, 0, len(jobs))
+	for _, job := range jobs {
+		if job.State == "COMPLETED" && !includeCompleted {
+			continue
+		}
+		if !principalHasFullInstanceVisibility(principal) && !userTaskAssignedToPrincipal(&job, principal) {
+			continue
+		}
+		responses = append(responses, h.userTaskResponseForPrincipal(job, principal))
+	}
+	return responses, nil
+}
+
+func (h *Handler) userTaskJobForPrincipal(ctx context.Context, instanceID, executionID string, _ auth.Principal) (*model.Job, error) {
+	jobs, err := h.engine.ListUserTaskJobs(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	for idx := range jobs {
+		if fmt.Sprintf("%d", jobs[idx].ElementInstanceKey) == executionID {
+			return &jobs[idx], nil
+		}
+	}
+	return nil, fmt.Errorf("user task %s was not found", executionID)
+}
+
+func (h *Handler) userTaskResponseForPrincipal(job model.Job, principal auth.Principal) dto.UserTaskResponse {
+	admin := principal.HasRole(auth.RoleFlowGoAdmin)
+	eligible := admin || userTaskEligible(&job, principal)
+	ownsClaim := strings.TrimSpace(job.Worker) != "" && strings.EqualFold(strings.TrimSpace(job.Worker), taskOwner(principal))
+	return dto.ToUserTaskResponse(job, eligible, ownsClaim, admin)
+}
+
+func (h *Handler) filterInstancesForPrincipal(ctx context.Context, instances []*model.WorkflowInstance, principal auth.Principal) []*model.WorkflowInstance {
+	if principalHasFullInstanceVisibility(principal) {
+		return instances
+	}
+	filtered := make([]*model.WorkflowInstance, 0, len(instances))
+	for _, instance := range instances {
+		if instance == nil {
+			continue
+		}
+		visible, err := h.canViewInstance(ctx, instance.ID, principal)
+		if err != nil {
+			h.log.Warn(ctx, "failed to evaluate instance visibility", map[string]any{
+				"instance_id": instance.ID,
+				"error":       err.Error(),
+			})
+			continue
+		}
+		if visible {
+			filtered = append(filtered, instance)
+		}
+	}
+	return filtered
+}
+
+func (h *Handler) canViewInstance(ctx context.Context, instanceID string, principal auth.Principal) (bool, error) {
+	if principalHasFullInstanceVisibility(principal) {
+		return true, nil
+	}
+	jobs, err := h.engine.ListUserTaskJobs(ctx, instanceID)
+	if err != nil {
+		return false, err
+	}
+	for idx := range jobs {
+		if userTaskAssignedToPrincipal(&jobs[idx], principal) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func principalHasFullInstanceVisibility(principal auth.Principal) bool {
+	return principal.HasAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)
+}
+
+func userTaskEligible(job *model.Job, principal auth.Principal) bool {
+	assignee := strings.TrimSpace(job.Assignee)
+	candidateUsers := splitAssignment(job.CandidateUsers)
+	candidateGroups := splitAssignment(job.CandidateGroups)
+	if assignee == "" && len(candidateUsers) == 0 && len(candidateGroups) == 0 {
+		return true
+	}
+
+	identities := principalIdentifiers(principal)
+	if assignee != "" && containsFold(identities, assignee) {
+		return true
+	}
+	for _, candidate := range candidateUsers {
+		if containsFold(identities, candidate) {
+			return true
+		}
+	}
+	for _, group := range candidateGroups {
+		if principal.HasRole(group) {
+			return true
+		}
+	}
+	return false
+}
+
+func userTaskAssignedToPrincipal(job *model.Job, principal auth.Principal) bool {
+	identities := principalIdentifiers(principal)
+	claimed := strings.TrimSpace(job.Worker)
+	if claimed != "" && containsFold(identities, claimed) {
+		return true
+	}
+	assignee := strings.TrimSpace(job.Assignee)
+	if assignee != "" && containsFold(identities, assignee) {
+		return true
+	}
+	for _, candidate := range splitAssignment(job.CandidateUsers) {
+		if containsFold(identities, candidate) {
+			return true
+		}
+	}
+	for _, group := range splitAssignment(job.CandidateGroups) {
+		if principal.HasRole(group) {
+			return true
+		}
+	}
+	return false
+}
+
+func userTaskCompletedByPrincipal(job *model.Job, principal auth.Principal) bool {
+	if !strings.EqualFold(strings.TrimSpace(job.State), "COMPLETED") {
+		return false
+	}
+	claimed := strings.TrimSpace(job.Worker)
+	return claimed != "" && containsFold(principalIdentifiers(principal), claimed)
+}
+
+func actingPrincipalFromRequest(r *http.Request) (auth.Principal, error) {
+	subject := strings.TrimSpace(r.Header.Get(actingSubjectHeader))
+	username := strings.TrimSpace(r.Header.Get(actingUsernameHeader))
+	email := strings.TrimSpace(r.Header.Get(actingEmailHeader))
+	name := strings.TrimSpace(r.Header.Get(actingNameHeader))
+	if subject == "" {
+		subject = username
+	}
+	if subject == "" && email == "" {
+		return auth.Principal{}, fmt.Errorf("acting user identity is required")
+	}
+
+	claims := map[string]any{}
+	if username != "" {
+		claims["username"] = username
+		claims["preferred_username"] = username
+	}
+	return auth.Principal{
+		Subject: subject,
+		Email:   email,
+		Name:    name,
+		Roles:   splitAssignment(r.Header.Get(actingRolesHeader)),
+		Claims:  claims,
+	}, nil
+}
+
+func principalIdentifiers(principal auth.Principal) []string {
+	values := []string{principal.Subject, principal.Email, principal.Name}
+	if principal.Email != "" {
+		if local, _, ok := strings.Cut(principal.Email, "@"); ok {
+			values = append(values, local)
+		}
+	}
+	for _, key := range []string{"preferred_username", "login_name", "username"} {
+		if value, ok := principal.Claims[key].(string); ok {
+			values = append(values, value)
+		}
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func taskOwner(principal auth.Principal) string {
+	for _, candidate := range []string{principal.Email, principal.Subject, principal.Name} {
+		trimmed := strings.TrimSpace(candidate)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return "unknown-user"
+}
+
+func splitAssignment(value string) []string {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func containsFold(values []string, target string) bool {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return false
+	}
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), target) {
+			return true
+		}
+	}
+	return false
+}
+
 // @Summary List active workflow instances
 // @Description Get a list of all currently active workflow instances
 // @Tags instances
@@ -256,6 +647,11 @@ func (h *Handler) startInstance(w http.ResponseWriter, r *http.Request) {
 // @Router /instances [get]
 func (h *Handler) listInstances(w http.ResponseWriter, r *http.Request) {
 	ctx := logger.ContextFromRequest(r)
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	instances, err := h.engine.ListActiveInstances(ctx)
 	if err != nil {
@@ -267,6 +663,7 @@ func (h *Handler) listInstances(w http.ResponseWriter, r *http.Request) {
 	if instances == nil {
 		instances = []*model.WorkflowInstance{}
 	}
+	instances = h.filterInstancesForPrincipal(ctx, instances, principal)
 
 	h.log.Debug(ctx, "listed instances", map[string]any{"count": len(instances)})
 
@@ -277,6 +674,126 @@ func (h *Handler) listInstances(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(responseInstances)
+}
+
+func (h *Handler) listCompletedInstanceHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := logger.ContextFromRequest(r)
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	limit := 100
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed < 1 {
+			http.Error(w, "invalid limit", http.StatusBadRequest)
+			return
+		}
+		if parsed < limit {
+			limit = parsed
+		}
+	}
+
+	fetchLimit := limit
+	if !principalHasFullInstanceVisibility(principal) {
+		fetchLimit = max(limit*5, 100)
+	}
+	instances, err := h.engine.ListCompletedInstances(ctx, fetchLimit)
+	if err != nil {
+		h.log.Error(ctx, "failed to list completed instance history", map[string]any{"error": err.Error()})
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	instances = h.filterInstancesForPrincipal(ctx, instances, principal)
+	if len(instances) > limit {
+		instances = instances[:limit]
+	}
+
+	responseInstances := make([]dto.WorkflowInstanceResponse, len(instances))
+	for i, instance := range instances {
+		responseInstances[i] = dto.ToWorkflowInstanceResponse(instance)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(responseInstances)
+}
+
+func (h *Handler) listInboxInstances(w http.ResponseWriter, r *http.Request) {
+	ctx := logger.ContextFromRequest(r)
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	instances, err := h.engine.ListActiveInstances(ctx)
+	if err != nil {
+		h.log.Error(ctx, "failed to list inbox instances", map[string]any{"error": err.Error()})
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if instances == nil {
+		instances = []*model.WorkflowInstance{}
+	}
+	instances = h.filterInstancesForPrincipal(ctx, instances, principal)
+
+	responseInstances := make([]dto.WorkflowInstanceResponse, len(instances))
+	for i, instance := range instances {
+		responseInstances[i] = dto.ToWorkflowInstanceResponse(instance)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(responseInstances)
+}
+
+func (h *Handler) listInboxCompletedHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := logger.ContextFromRequest(r)
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	limit := 100
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed < 1 {
+			http.Error(w, "invalid limit", http.StatusBadRequest)
+			return
+		}
+		if parsed < limit {
+			limit = parsed
+		}
+	}
+
+	instances, err := h.engine.ListCompletedInstancesWithCompletedUserTaskWorkers(ctx, principalIdentifiers(principal), limit)
+	if err != nil {
+		h.log.Error(ctx, "failed to list inbox completed history", map[string]any{"error": err.Error()})
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	responseInstances := make([]dto.WorkflowInstanceResponse, len(instances))
+	for i, instance := range instances {
+		responseInstances[i] = dto.ToWorkflowInstanceResponse(instance)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(responseInstances)
+}
+
+func (h *Handler) instanceHasCompletedTaskByPrincipal(ctx context.Context, instanceID string, principal auth.Principal) (bool, error) {
+	jobs, err := h.engine.ListUserTaskJobs(ctx, instanceID)
+	if err != nil {
+		return false, err
+	}
+	for idx := range jobs {
+		if userTaskCompletedByPrincipal(&jobs[idx], principal) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // @Summary Update instance variables
@@ -681,6 +1198,11 @@ func (h *Handler) getInstance(w http.ResponseWriter, r *http.Request) {
 	ctx := logger.ContextFromRequest(r)
 	vars := mux.Vars(r)
 	id := vars["id"]
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	h.log.Debug(ctx, "getting instance", map[string]any{"instance_id": id})
 
@@ -690,9 +1212,63 @@ func (h *Handler) getInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+	visible, err := h.canViewInstance(ctx, id, principal)
+	if err != nil {
+		h.log.Warn(ctx, "failed to evaluate instance visibility", map[string]any{"instance_id": id, "error": err.Error()})
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !visible {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	taskResponses, err := h.userTaskResponsesForRequest(r, id, false)
+	if err != nil {
+		h.log.Warn(ctx, "failed to load user task metadata", map[string]any{"instance_id": id, "error": err.Error()})
+		taskResponses = nil
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(dto.ToWorkflowInstanceResponse(instance))
+	json.NewEncoder(w).Encode(dto.ToWorkflowInstanceResponseWithTasks(instance, taskResponses))
+}
+
+func (h *Handler) getInboxInstance(w http.ResponseWriter, r *http.Request) {
+	ctx := logger.ContextFromRequest(r)
+	vars := mux.Vars(r)
+	id := vars["id"]
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	instance, err := h.engine.GetInstance(ctx, id)
+	if err != nil {
+		h.log.Warn(ctx, "inbox instance not found", map[string]any{"instance_id": id, "error": err.Error()})
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	visible, err := h.canViewInstance(ctx, id, principal)
+	if err != nil {
+		h.log.Warn(ctx, "failed to evaluate inbox instance visibility", map[string]any{"instance_id": id, "error": err.Error()})
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !visible {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	includeCompleted, _ := strconv.ParseBool(r.URL.Query().Get("includeCompleted"))
+	taskResponses, err := h.userTaskResponsesForRequest(r, id, includeCompleted)
+	if err != nil {
+		h.log.Warn(ctx, "failed to load inbox user task metadata", map[string]any{"instance_id": id, "error": err.Error()})
+		taskResponses = nil
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(dto.ToWorkflowInstanceResponseWithTasks(instance, taskResponses))
 }
 
 func (h *Handler) engineMetrics(w http.ResponseWriter, r *http.Request) {

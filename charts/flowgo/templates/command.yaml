@@ -83,8 +83,12 @@ spec:
           volumeMounts:
             - name: zitadel-bootstrap
               mountPath: /zitadel/bootstrap
+              readOnly: true
             - name: flowgo-bootstrap
               mountPath: /flowgo/bootstrap
+              readOnly: true
+            - name: flowgo-auth
+              mountPath: /flowgo/auth
               readOnly: true
           {{- end }}
       {{- if .Values.zitadel.enabled }}
@@ -95,6 +99,9 @@ spec:
         - name: flowgo-bootstrap
           persistentVolumeClaim:
             claimName: {{ include "flowgo.flowgoBootstrapPvc" . }}
+        - name: flowgo-auth
+          persistentVolumeClaim:
+            claimName: {{ include "flowgo.flowgoAuthPvc" . }}
       {{- end }}
       {{- with .Values.global.nodeSelector }}
       nodeSelector:

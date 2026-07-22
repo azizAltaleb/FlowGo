@@ -140,6 +140,9 @@ services:
       - CORS_ALLOW_CREDENTIALS=false
       - AUTH_ENFORCE_AUDIENCE=false
       - AUTH_ALLOW_INSECURE_ISSUER=true
+      - EVENT_BUS_TYPE=kafka
+      - KAFKA_BROKERS=kafka:29092
+      - KAFKA_TOPIC_EVENTS=workflow.events.v1
       - RUNTIME_ENABLED=false
     depends_on:
       postgres:
@@ -157,6 +160,9 @@ services:
       - RUNTIME_TICK_INTERVAL=1s
       - RUNTIME_TASK_TIMEOUT=5s
       - METRICS_ADDR=:9091
+      - EVENT_BUS_TYPE=kafka
+      - KAFKA_BROKERS=kafka:29092
+      - KAFKA_TOPIC_EVENTS=workflow.events.v1
     depends_on:
       postgres:
         condition: service_healthy

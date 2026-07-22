@@ -40,7 +40,9 @@ FlowGo is pre-1.0 software. Compatibility guarantees are conservative until the 
 | :--- | :--- | :--- |
 | `@flowgo/nodejs-sdk@0.1.x` | FlowGo `v0.1.x` | Use Node.js 20 or newer. |
 
-The SDK can target local Compose through `FLOWGO_BASE_URL=http://localhost:9100/api` and a token with the `flowgo client` role.
+The SDK can target local Compose through `FLOWGO_BASE_URL=http://localhost:9100/api`. New bundled-ZITADEL clients use a service-account JSON profile and automatic JWT Profile exchange. The raw `token` option remains compatible with external IAM and staged legacy PAT migration.
+
+Key revocation prevents new exchanges but does not retroactively invalidate already-minted short-lived access tokens. Existing bundled PATs remain accepted and revocable during the migration window; new PAT creation and rotation are disabled by default.
 
 ## Release Validation
 

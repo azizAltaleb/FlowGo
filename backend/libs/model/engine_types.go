@@ -166,15 +166,16 @@ func (IdempotencyRecord) TableName() string {
 // OutboxMessage stores domain events produced inside transactions.
 // Messages are inserted during commit and marked published after dispatch.
 type OutboxMessage struct {
-	ID          string     `json:"id" gorm:"primaryKey;size:64"`
-	EventType   string     `json:"eventType" gorm:"index;size:128"`
-	Payload     []byte     `json:"payload" gorm:"type:bytea"`
-	Status      string     `json:"status" gorm:"index;size:16"`
-	Attempts    int        `json:"attempts"`
-	LastError   string     `json:"lastError" gorm:"type:text"`
-	NextAttempt *time.Time `json:"nextAttempt,omitempty" gorm:"index"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	PublishedAt *time.Time `json:"publishedAt,omitempty"`
+	ID                  string     `json:"id" gorm:"primaryKey;size:64"`
+	EventType           string     `json:"eventType" gorm:"index;size:128"`
+	Payload             []byte     `json:"payload" gorm:"type:bytea"`
+	Status              string     `json:"status" gorm:"index;size:16"`
+	Attempts            int        `json:"attempts"`
+	LastError           string     `json:"lastError" gorm:"type:text"`
+	NextAttempt         *time.Time `json:"nextAttempt,omitempty" gorm:"index"`
+	ProcessingStartedAt *time.Time `json:"processingStartedAt,omitempty" gorm:"index"`
+	CreatedAt           time.Time  `json:"createdAt"`
+	PublishedAt         *time.Time `json:"publishedAt,omitempty"`
 }
 
 func (OutboxMessage) TableName() string {
