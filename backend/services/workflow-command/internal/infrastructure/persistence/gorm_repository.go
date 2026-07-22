@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/azizAltaleb/flowgo/backend/libs/logger"
@@ -18,6 +19,8 @@ import (
 type GormRepository struct {
 	DB *gorm.DB
 }
+
+const outboxProcessingLease = 5 * time.Minute
 
 // Ensure GormRepository implements repository.Repository
 var _ repository.Repository = &GormRepository{}
@@ -249,6 +252,20 @@ func (s *GormRepository) ListActivatableJobs(ctx context.Context, jobType string
 	return jobs, nil
 }
 
+func (s *GormRepository) ListJobsByProcessInstanceAndType(ctx context.Context, processInstanceKey int64, jobType string) ([]model.Job, error) {
+	query := s.DB.WithContext(ctx).
+		Where("process_instance_key = ?", processInstanceKey)
+	if jobType != "" {
+		query = query.Where("type = ?", jobType)
+	}
+
+	var jobs []model.Job
+	if err := query.Order("created_at asc").Find(&jobs).Error; err != nil {
+		return nil, err
+	}
+	return jobs, nil
+}
+
 func (s *GormRepository) CreateIncident(ctx context.Context, incident *model.Incident) error {
 	return s.DB.WithContext(ctx).Create(incident).Error
 }
@@ -358,7 +375,7 @@ func (s *GormRepository) ListPendingOutboxMessages(ctx context.Context, now time
 
 	var messages []model.OutboxMessage
 	if err := s.DB.WithContext(ctx).
-		Where("status = ? AND (next_attempt IS NULL OR next_attempt <= ?)", "PENDING", now).
+		Scopes(claimableOutboxMessages(now)).
 		Order("created_at asc").
 		Limit(limit).
 		Find(&messages).Error; err != nil {
@@ -370,16 +387,17 @@ func (s *GormRepository) ListPendingOutboxMessages(ctx context.Context, now time
 
 func (s *GormRepository) ClaimOutboxMessage(ctx context.Context, id string, claimedAt time.Time) (bool, error) {
 	updates := map[string]any{
-		"status":       "PROCESSING",
-		"attempts":     gorm.Expr("attempts + ?", 1),
-		"last_error":   "",
-		"next_attempt": nil,
+		"status":                "PROCESSING",
+		"attempts":              gorm.Expr("attempts + ?", 1),
+		"last_error":            "",
+		"next_attempt":          nil,
+		"processing_started_at": claimedAt,
 	}
 
 	result := s.DB.WithContext(ctx).
 		Model(&model.OutboxMessage{}).
-		Where("id = ? AND status = ?", id, "PENDING").
-		Where("next_attempt IS NULL OR next_attempt <= ?", claimedAt).
+		Where("id = ?", id).
+		Scopes(claimableOutboxMessages(claimedAt)).
 		Updates(updates)
 
 	if result.Error != nil {
@@ -394,9 +412,10 @@ func (s *GormRepository) MarkOutboxMessagePublishFailed(ctx context.Context, id,
 		Model(&model.OutboxMessage{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"status":       "PENDING",
-			"last_error":   lastError,
-			"next_attempt": nextAttempt,
+			"status":                "PENDING",
+			"last_error":            lastError,
+			"next_attempt":          nextAttempt,
+			"processing_started_at": nil,
 		}).Error
 }
 
@@ -405,10 +424,11 @@ func (s *GormRepository) MarkOutboxMessageTerminalFailed(ctx context.Context, id
 		Model(&model.OutboxMessage{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"status":       "FAILED",
-			"last_error":   lastError,
-			"next_attempt": nil,
-			"published_at": failedAt,
+			"status":                "FAILED",
+			"last_error":            lastError,
+			"next_attempt":          nil,
+			"processing_started_at": nil,
+			"published_at":          failedAt,
 		}).Error
 }
 
@@ -417,10 +437,11 @@ func (s *GormRepository) MarkOutboxMessagePublished(ctx context.Context, id stri
 		Model(&model.OutboxMessage{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"status":       "PUBLISHED",
-			"last_error":   "",
-			"next_attempt": nil,
-			"published_at": publishedAt,
+			"status":                "PUBLISHED",
+			"last_error":            "",
+			"next_attempt":          nil,
+			"processing_started_at": nil,
+			"published_at":          publishedAt,
 		}).Error
 }
 
@@ -428,13 +449,25 @@ func (s *GormRepository) CountPendingOutboxMessages(ctx context.Context, now tim
 	var count int64
 	err := s.DB.WithContext(ctx).
 		Model(&model.OutboxMessage{}).
-		Where("status = ? AND (next_attempt IS NULL OR next_attempt <= ?)", "PENDING", now).
+		Scopes(claimableOutboxMessages(now)).
 		Count(&count).Error
 	if err != nil {
 		return 0, err
 	}
 
 	return count, nil
+}
+
+func claimableOutboxMessages(now time.Time) func(*gorm.DB) *gorm.DB {
+	staleBefore := now.Add(-outboxProcessingLease)
+	return func(db *gorm.DB) *gorm.DB {
+		return db.Where(
+			"(status = ? AND (next_attempt IS NULL OR next_attempt <= ?)) OR "+
+				"(status = ? AND ((processing_started_at IS NOT NULL AND processing_started_at <= ?) OR (processing_started_at IS NULL AND created_at <= ?)))",
+			"PENDING", now,
+			"PROCESSING", staleBefore, staleBefore,
+		)
+	}
 }
 
 func (s *GormRepository) ListDueTimers(ctx context.Context, now time.Time) ([]model.Timer, error) {
@@ -505,10 +538,21 @@ func (s *GormRepository) GetElementInstance(ctx context.Context, key int64) (*mo
 }
 
 func (s *GormRepository) ListActiveElementInstances(ctx context.Context, processInstanceKey int64) ([]model.ElementInstance, error) {
+	return s.listActiveElementInstances(ctx, processInstanceKey, nil)
+}
+
+func (s *GormRepository) ListActiveElementInstancesByTypes(ctx context.Context, processInstanceKey int64, elementTypes []string) ([]model.ElementInstance, error) {
+	return s.listActiveElementInstances(ctx, processInstanceKey, elementTypes)
+}
+
+func (s *GormRepository) listActiveElementInstances(ctx context.Context, processInstanceKey int64, elementTypes []string) ([]model.ElementInstance, error) {
 	var elements []model.ElementInstance
 	query := s.DB.WithContext(ctx).Where("state IN ?", []string{"ACTIVATED", "ACTIVATING", "COMPLETING"})
 	if processInstanceKey != 0 {
 		query = query.Where("process_instance_key = ?", processInstanceKey)
+	}
+	if len(elementTypes) > 0 {
+		query = query.Where("bpmn_element_type IN ?", elementTypes)
 	}
 	if err := query.Find(&elements).Error; err != nil {
 		return nil, err
@@ -522,6 +566,65 @@ func (s *GormRepository) ListActiveProcessInstances(ctx context.Context) ([]*mod
 		return nil, err
 	}
 	return instances, nil
+}
+
+func (s *GormRepository) ListProcessInstancesByState(ctx context.Context, state string, limit int) ([]*model.ProcessInstance, error) {
+	var instances []*model.ProcessInstance
+	query := s.DB.WithContext(ctx)
+	if state != "" {
+		query = query.Where("state = ?", state)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if err := query.Order("end_time desc, created_at desc").Find(&instances).Error; err != nil {
+		return nil, err
+	}
+	return instances, nil
+}
+
+func (s *GormRepository) ListCompletedProcessInstancesWithCompletedJobsByWorkers(ctx context.Context, jobType string, workers []string, limit int) ([]*model.ProcessInstance, error) {
+	normalizedWorkers := normalizeQueryValues(workers)
+	if len(normalizedWorkers) == 0 {
+		return []*model.ProcessInstance{}, nil
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+
+	var instances []*model.ProcessInstance
+	err := s.DB.WithContext(ctx).
+		Model(&model.ProcessInstance{}).
+		Distinct("process_instance.*").
+		Joins("JOIN job ON job.process_instance_key = process_instance.key").
+		Where("process_instance.state = ?", "COMPLETED").
+		Where("job.type = ?", jobType).
+		Where("job.state = ?", "COMPLETED").
+		Where("LOWER(TRIM(job.worker)) IN ?", normalizedWorkers).
+		Order("process_instance.end_time desc, process_instance.created_at desc").
+		Limit(limit).
+		Find(&instances).Error
+	if err != nil {
+		return nil, err
+	}
+	return instances, nil
+}
+
+func normalizeQueryValues(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		normalized := strings.ToLower(strings.TrimSpace(value))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
 }
 
 func (s *GormRepository) ListProcesses(ctx context.Context) ([]*model.Process, error) {

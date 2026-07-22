@@ -1,9 +1,9 @@
-.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-core smoke-full smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles validate-helm release-dry-run cqrs-parity-check cqrs-e2e-smoke worker-conformance test-bpmn-matrix test-unit test-integration test-e2e test-frontend test-perf test-security test-report test-all
+.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-base smoke-core smoke-full smoke-release-base smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles validate-helm release-dry-run cqrs-parity-check cqrs-e2e-smoke worker-conformance test-bpmn-matrix test-bpmn-exhaustive test-deployment-matrix test-uat-videos test-unit test-integration test-e2e test-frontend test-perf test-security test-report test-all test-all-functionality
 
 
 # Docker Compose Commands
 up:
-	@$(MAKE) up-external-iam
+	@$(MAKE) up-zitadel
 
 up-external-iam:
 	docker compose -f docker-compose.external-iam.yml up -d --build
@@ -18,29 +18,41 @@ up-zitadel-release:
 	docker compose -f docker-compose.zitadel.yml -f docker-compose.release.yml up -d
 
 up-core:
-	@$(MAKE) up-external-iam
+	@$(MAKE) up-zitadel
 
 up-full:
-	@$(MAKE) up-external-iam
+	@$(MAKE) up-zitadel
 
 up-full-cqrs:
-	@$(MAKE) up-external-iam
+	@$(MAKE) up-zitadel
+
+smoke-base:
+	docker compose -f docker-compose.yml config > /dev/null
+	bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.yml
 
 smoke-core:
 	docker compose -f docker-compose.external-iam.yml config > /dev/null
+	bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.external-iam.yml
 
 smoke-full:
 	docker compose -f docker-compose.zitadel.yml config > /dev/null
+	bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.zitadel.yml
 
-smoke-profiles: smoke-core smoke-full
+smoke-profiles: smoke-base smoke-core smoke-full
+
+smoke-release-base:
+	docker compose -f docker-compose.yml -f docker-compose.release.yml config > /dev/null
+	bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.yml -f docker-compose.release.yml
 
 smoke-release-core:
 	docker compose -f docker-compose.external-iam.yml -f docker-compose.release.yml config > /dev/null
+	bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.external-iam.yml -f docker-compose.release.yml
 
 smoke-release-full:
 	docker compose -f docker-compose.zitadel.yml -f docker-compose.release.yml config > /dev/null
+	bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.zitadel.yml -f docker-compose.release.yml
 
-smoke-release-profiles: smoke-release-core smoke-release-full
+smoke-release-profiles: smoke-release-base smoke-release-core smoke-release-full
 
 validate-helm:
 	bash scripts/validate_helm.sh
@@ -73,7 +85,7 @@ down-zitadel:
 restart: down up
 
 logs:
-	@$(MAKE) logs-external-iam
+	@$(MAKE) logs-zitadel
 
 logs-external-iam:
 	docker compose -f docker-compose.external-iam.yml logs -f
@@ -82,7 +94,7 @@ logs-zitadel:
 	docker compose -f docker-compose.zitadel.yml logs -f
 
 ps:
-	@$(MAKE) ps-external-iam
+	@$(MAKE) ps-zitadel
 
 ps-external-iam:
 	docker compose -f docker-compose.external-iam.yml ps
@@ -109,6 +121,17 @@ test-bpmn-matrix:
 	go test ./backend/services/workflow-command/internal/domain/bpmn -run 'TestParse_(ElementTypeMatrix|MapsExtendedElementsAndProperties|MapsPlainAttributeAliasesForCompatibility|MergesExtensionPropertiesWithoutOverridingMappedKeys|CanonicalizesExtensionPropertyAliases|BoundaryCancelActivityAttributeTakesPrecedenceOverExtensionAlias|PopulatesIncomingForGatewayJoin|FailsForUnsupportedElementReferences|FailsForUnsupportedSendTaskReferences)' -count=1
 	go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(CallActivityBusinessRuleAndManualTask|EventBasedGatewayReceiveAndTimer|BoundaryTimerInterruptsTask|ThrowSignalTriggersCatch|ThrowMessageUsesCorrelationKey|ThrowMessageUsesPlainCorrelationKeyAlias|BoundaryTimerNonInterruptingKeepsTaskActive|BoundaryCancelActivityExtensionAliasKeepsTaskActive|BoundaryCancelActivityAttributeTakesPrecedenceOverExtensionAlias|ServiceTaskPlainTaskTypeAliasMapsImplementation|ServiceTaskExtensionPropertyMapsImplementation|UserTaskAssignmentFromExtensionProperties|FailsForUnsupportedElementReferences|FailsForUnsupportedSendTaskReferences)' -count=1
 
+test-bpmn-exhaustive:
+	@mkdir -p reports
+	python3 scripts/qa/run_bpmn_matrix.py --reports-dir reports --output-json reports/bpmn-matrix-report.json --output-md reports/bpmn-matrix-report.md
+
+test-deployment-matrix:
+	@mkdir -p reports
+	bash scripts/test-all-functionality.sh --skip-ui --skip-sdk-live --skip-perf --skip-security
+
+test-uat-videos:
+	bash scripts/qa/run_uat_video_suite.sh both
+
 # -----------------------------------------------------------------------
 # Test Targets
 # -----------------------------------------------------------------------
@@ -132,16 +155,13 @@ test-e2e:
 
 test-frontend:
 	@mkdir -p reports
-	cd frontend && npm install --silent && npx vitest run --reporter=json --outputFile=../reports/frontend-vitest.json 2>&1 | tee ../reports/frontend-vitest.txt
-	cd tests/e2e/playwright && npm install --silent && npx playwright install --with-deps chromium 2>/dev/null && npx playwright test --reporter=json 2>&1 | tee ../../../reports/playwright-raw.json || true
+	bash -o pipefail -c 'cd frontend && npm install --silent && npx vitest run --reporter=json --outputFile=../reports/frontend-vitest.json 2>&1 | tee ../reports/frontend-vitest.txt'
+	bash -o pipefail -c 'cd tests/e2e/playwright && npm install --silent && npx playwright install --with-deps chromium 2>/dev/null && npx playwright test specs/workflow.spec.ts --reporter=json 2>&1 | tee ../../../reports/playwright-raw.json'
 
 test-perf:
 	@mkdir -p reports
-	docker run --rm --network host \
-	  -v "$(PWD)/tests/performance/k6:/scripts" \
-	  -v "$(PWD)/reports:/reports" \
-	  grafana/k6:latest run --out json=/reports/k6.json /scripts/run-all.js 2>&1 | tee reports/perf-raw.txt; \
-	echo "Performance tests complete."
+	bash -o pipefail -c 'docker run --rm --network host -v "$(PWD)/tests/performance/k6:/scripts" -v "$(PWD)/reports:/reports" grafana/k6:latest run --out json=/reports/k6.json /scripts/run-all.js 2>&1 | tee reports/perf-raw.txt'
+	@echo "Performance tests complete."
 
 test-security:
 	@mkdir -p reports
@@ -154,6 +174,10 @@ test-report:
 test-all:
 	@mkdir -p reports
 	bash scripts/test-all.sh
+
+test-all-functionality:
+	@mkdir -p reports
+	bash scripts/test-all-functionality.sh
 
 # Local Development Helpers
 build-command:

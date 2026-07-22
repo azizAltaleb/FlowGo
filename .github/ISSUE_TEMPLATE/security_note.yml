@@ -2,11 +2,13 @@ name: Security question
 description: Ask a non-sensitive security hardening question
 title: "[Security]: "
 labels:
-  - security
+  - kind/security
+  - area/security
+  - status/needs-triage
 body:
   - type: markdown
     attributes:
-      value: Do not disclose vulnerabilities here. Use SECURITY.md for private vulnerability reporting.
+      value: Do not disclose vulnerabilities here. Use SECURITY.md for private vulnerability reporting. Public issues are only for non-sensitive hardening, configuration, and dependency-policy questions.
   - type: textarea
     id: question
     attributes:
@@ -14,3 +16,15 @@ body:
       description: Ask about hardening, IAM setup, image verification, or production configuration.
     validations:
       required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Security area
+      options:
+        - IAM/authentication
+        - Authorization/roles
+        - Secrets/configuration
+        - Dependency or container scanning
+        - Docker/Helm hardening
+        - GitHub Actions/supply chain
+        - Other hardening question

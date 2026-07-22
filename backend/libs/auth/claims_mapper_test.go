@@ -40,7 +40,7 @@ func TestPrincipalFromClaims_MapsNestedRolesAndScopes(t *testing.T) {
 func TestPrincipalFromClaims_PreservesRoleNamesWithSpaces(t *testing.T) {
 	claims := map[string]any{
 		"sub":   "user-123",
-		"roles": "flowgo admin,flowgo viewer",
+		"roles": "flowgo admin,finance reviewer",
 	}
 
 	principal := principalFromClaims(claims, "", Config{ClaimRolesPath: "roles"}, TokenModeJWT)
@@ -50,8 +50,8 @@ func TestPrincipalFromClaims_PreservesRoleNamesWithSpaces(t *testing.T) {
 	if principal.Roles[0] != RoleFlowGoAdmin {
 		t.Fatalf("expected first role %q, got %q", RoleFlowGoAdmin, principal.Roles[0])
 	}
-	if principal.Roles[1] != RoleFlowGoViewer {
-		t.Fatalf("expected second role %q, got %q", RoleFlowGoViewer, principal.Roles[1])
+	if principal.Roles[1] != "finance reviewer" {
+		t.Fatalf("expected second role %q, got %q", "finance reviewer", principal.Roles[1])
 	}
 }
 
@@ -67,4 +67,36 @@ func TestPrincipalFromClaims_MapsZitadelProjectRolesObject(t *testing.T) {
 	if len(principal.Roles) != 1 || principal.Roles[0] != RoleFlowGoAdmin {
 		t.Fatalf("expected ZITADEL role %q, got %#v", RoleFlowGoAdmin, principal.Roles)
 	}
+}
+
+func TestPrincipalFromClaims_MapsZitadelProjectIDRolesObject(t *testing.T) {
+	claims := map[string]any{
+		"sub": "user-123",
+		"urn:zitadel:iam:org:project:project-1:roles": map[string]any{
+			RoleFlowGoClient: map[string]any{},
+		},
+		"urn:zitadel:iam:org:project:project-2:roles": map[string]any{
+			"finance reviewer": map[string]any{},
+		},
+	}
+
+	principal := principalFromClaims(claims, "", Config{ClaimRolesPath: "urn:zitadel:iam:org:project:roles"}, TokenModeJWT)
+	if len(principal.Roles) != 2 {
+		t.Fatalf("expected ZITADEL project roles, got %#v", principal.Roles)
+	}
+	if !containsString(principal.Roles, RoleFlowGoClient) {
+		t.Fatalf("expected ZITADEL role %q, got %#v", RoleFlowGoClient, principal.Roles)
+	}
+	if !containsString(principal.Roles, "finance reviewer") {
+		t.Fatalf("expected finance reviewer role, got %#v", principal.Roles)
+	}
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }

@@ -28,15 +28,20 @@ func NewHandler(service *application.QueryService) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r *mux.Router) {
-	readOnly := auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient, auth.RoleFlowGoViewer)
+	instanceRead := auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)
+	workflowRead := auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoModeler, auth.RoleFlowGoClient)
 
-	r.Handle("/instances", readOnly(http.HandlerFunc(h.searchInstances))).Methods("GET")
-	r.Handle("/instances/{id}", readOnly(http.HandlerFunc(h.getInstance))).Methods("GET")
-	r.Handle("/workflows", readOnly(http.HandlerFunc(h.searchWorkflows))).Methods("GET")
+	r.Handle("/instances", instanceRead(http.HandlerFunc(h.searchInstances))).Methods("GET")
+	r.Handle("/instances/{id}", instanceRead(http.HandlerFunc(h.getInstance))).Methods("GET")
+	r.Handle("/workflows", workflowRead(http.HandlerFunc(h.searchWorkflows))).Methods("GET")
 }
 
 func (h *Handler) getInstance(w http.ResponseWriter, r *http.Request) {
 	ctx := logger.ContextFromRequest(r)
+	if !canReadProjectedInstances(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 	vars := mux.Vars(r)
 	id := vars["id"]
 	if _, err := strconv.ParseInt(id, 10, 64); err != nil {
@@ -65,6 +70,10 @@ func (h *Handler) getInstance(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) searchInstances(w http.ResponseWriter, r *http.Request) {
 	ctx := logger.ContextFromRequest(r)
+	if !canReadProjectedInstances(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 	start := time.Now()
 
 	// Parse Query Params
@@ -126,6 +135,11 @@ func (h *Handler) searchInstances(w http.ResponseWriter, r *http.Request) {
 		h.log.Error(ctx, "failed to encode response", map[string]any{"error": err.Error()})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func canReadProjectedInstances(r *http.Request) bool {
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	return ok && principal.HasAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)
 }
 
 func normalizeInstanceStateFilter(state string) string {

@@ -3,6 +3,8 @@ package persistence
 import (
 	"context"
 	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/application"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,12 +15,13 @@ import (
 func setupGormRepositoryTest(t *testing.T) *GormRepository {
 	t.Helper()
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	dbName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	db, err := gorm.Open(sqlite.Open("file:"+dbName+"?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open sqlite db: %v", err)
 	}
 
-	if err := db.AutoMigrate(&model.IdempotencyRecord{}, &model.OutboxMessage{}); err != nil {
+	if err := db.AutoMigrate(&model.ProcessInstance{}, &model.Job{}, &model.IdempotencyRecord{}, &model.OutboxMessage{}); err != nil {
 		t.Fatalf("failed to migrate schema: %v", err)
 	}
 
@@ -91,5 +94,158 @@ func TestMarkOutboxMessageTerminalFailed(t *testing.T) {
 	}
 	if stored.NextAttempt != nil {
 		t.Fatalf("expected next_attempt to be nil for terminal failure")
+	}
+}
+
+func TestListCompletedProcessInstancesWithCompletedJobsByWorkers(t *testing.T) {
+	repo := setupGormRepositoryTest(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	instances := []model.ProcessInstance{
+		{Key: 1, ID: "old-match", ProcessDefinitionKey: 100, Version: 1, State: "COMPLETED", CreatedAt: now.Add(-4 * time.Hour), EndTime: now.Add(-3 * time.Hour)},
+		{Key: 2, ID: "new-other-worker", ProcessDefinitionKey: 100, Version: 1, State: "COMPLETED", CreatedAt: now.Add(-3 * time.Hour), EndTime: now.Add(-2 * time.Hour)},
+		{Key: 3, ID: "new-match", ProcessDefinitionKey: 100, Version: 1, State: "COMPLETED", CreatedAt: now.Add(-2 * time.Hour), EndTime: now.Add(-time.Hour)},
+		{Key: 4, ID: "active-match", ProcessDefinitionKey: 100, Version: 1, State: "ACTIVE", CreatedAt: now.Add(-time.Hour), EndTime: now},
+		{Key: 5, ID: "created-job", ProcessDefinitionKey: 100, Version: 1, State: "COMPLETED", CreatedAt: now.Add(-time.Hour), EndTime: now.Add(-30 * time.Minute)},
+		{Key: 6, ID: "wrong-type", ProcessDefinitionKey: 100, Version: 1, State: "COMPLETED", CreatedAt: now.Add(-time.Hour), EndTime: now.Add(-15 * time.Minute)},
+	}
+	for i := range instances {
+		if err := repo.CreateProcessInstance(ctx, &instances[i]); err != nil {
+			t.Fatalf("failed to seed process instance %d: %v", instances[i].Key, err)
+		}
+	}
+
+	jobs := []model.Job{
+		{Key: 101, Type: application.UserTaskJobType, ProcessInstanceKey: 1, ElementInstanceKey: 1001, ElementID: "old", Worker: " Accountant@FlowGo.Local ", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-4 * time.Hour), UpdatedAt: now.Add(-3 * time.Hour)},
+		{Key: 102, Type: application.UserTaskJobType, ProcessInstanceKey: 2, ElementInstanceKey: 1002, ElementID: "other", Worker: "reviewer@flowgo.local", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-3 * time.Hour), UpdatedAt: now.Add(-2 * time.Hour)},
+		{Key: 103, Type: application.UserTaskJobType, ProcessInstanceKey: 3, ElementInstanceKey: 1003, ElementID: "new", Worker: "accountant@flowgo.local", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-time.Hour)},
+		{Key: 104, Type: application.UserTaskJobType, ProcessInstanceKey: 3, ElementInstanceKey: 1004, ElementID: "duplicate", Worker: "accountant@flowgo.local", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-time.Hour)},
+		{Key: 105, Type: application.UserTaskJobType, ProcessInstanceKey: 4, ElementInstanceKey: 1005, ElementID: "active", Worker: "accountant@flowgo.local", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-time.Hour), UpdatedAt: now},
+		{Key: 106, Type: application.UserTaskJobType, ProcessInstanceKey: 5, ElementInstanceKey: 1006, ElementID: "created", Worker: "accountant@flowgo.local", Retries: 1, State: "CREATED", CreatedAt: now.Add(-time.Hour), UpdatedAt: now},
+		{Key: 107, Type: "service", ProcessInstanceKey: 6, ElementInstanceKey: 1007, ElementID: "wrong-type", Worker: "accountant@flowgo.local", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-time.Hour), UpdatedAt: now},
+	}
+	for i := range jobs {
+		if err := repo.CreateJob(ctx, &jobs[i]); err != nil {
+			t.Fatalf("failed to seed job %d: %v", jobs[i].Key, err)
+		}
+	}
+
+	matches, err := repo.ListCompletedProcessInstancesWithCompletedJobsByWorkers(
+		ctx,
+		application.UserTaskJobType,
+		[]string{"accountant@flowgo.local", "ACCOUNTANT@FLOWGO.LOCAL", " "},
+		10,
+	)
+	if err != nil {
+		t.Fatalf("failed to list completed process instances by workers: %v", err)
+	}
+	if len(matches) != 2 {
+		t.Fatalf("expected two matching instances, got %#v", matches)
+	}
+	if matches[0].Key != 3 || matches[1].Key != 1 {
+		t.Fatalf("expected matches ordered newest first without duplicates, got %#v", matches)
+	}
+
+	limited, err := repo.ListCompletedProcessInstancesWithCompletedJobsByWorkers(ctx, application.UserTaskJobType, []string{"accountant@flowgo.local"}, 1)
+	if err != nil {
+		t.Fatalf("failed to list limited completed process instances by workers: %v", err)
+	}
+	if len(limited) != 1 || limited[0].Key != 3 {
+		t.Fatalf("expected limit after worker filtering to return newest match, got %#v", limited)
+	}
+}
+
+func TestOutboxClaimReclaimsStaleProcessingMessages(t *testing.T) {
+	repo := setupGormRepositoryTest(t)
+	ctx := context.Background()
+	now := time.Now()
+	staleClaim := now.Add(-10 * time.Minute)
+	freshClaim := now.Add(-time.Minute)
+
+	messages := []model.OutboxMessage{
+		{
+			ID:        "pending",
+			EventType: "JobActivated",
+			Payload:   []byte("{}"),
+			Status:    "PENDING",
+			CreatedAt: now.Add(-time.Hour),
+		},
+		{
+			ID:                  "stale-processing",
+			EventType:           "JobActivated",
+			Payload:             []byte("{}"),
+			Status:              "PROCESSING",
+			Attempts:            1,
+			ProcessingStartedAt: &staleClaim,
+			CreatedAt:           now.Add(-time.Hour),
+		},
+		{
+			ID:                  "fresh-processing",
+			EventType:           "JobActivated",
+			Payload:             []byte("{}"),
+			Status:              "PROCESSING",
+			Attempts:            1,
+			ProcessingStartedAt: &freshClaim,
+			CreatedAt:           now.Add(-time.Hour),
+		},
+	}
+	for i := range messages {
+		if err := repo.CreateOutboxMessage(ctx, &messages[i]); err != nil {
+			t.Fatalf("failed to seed outbox message %s: %v", messages[i].ID, err)
+		}
+	}
+
+	count, err := repo.CountPendingOutboxMessages(ctx, now)
+	if err != nil {
+		t.Fatalf("failed to count claimable messages: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected pending plus stale processing to be claimable, got %d", count)
+	}
+
+	listed, err := repo.ListPendingOutboxMessages(ctx, now, 10)
+	if err != nil {
+		t.Fatalf("failed to list claimable messages: %v", err)
+	}
+	seen := map[string]bool{}
+	for _, message := range listed {
+		seen[message.ID] = true
+	}
+	if !seen["pending"] || !seen["stale-processing"] {
+		t.Fatalf("expected pending and stale processing messages to be listed, got %v", seen)
+	}
+	if seen["fresh-processing"] {
+		t.Fatalf("did not expect fresh processing message to be listed")
+	}
+
+	claimed, err := repo.ClaimOutboxMessage(ctx, "stale-processing", now)
+	if err != nil {
+		t.Fatalf("failed to claim stale processing message: %v", err)
+	}
+	if !claimed {
+		t.Fatalf("expected stale processing message to be claimed")
+	}
+
+	claimedFresh, err := repo.ClaimOutboxMessage(ctx, "fresh-processing", now)
+	if err != nil {
+		t.Fatalf("failed to attempt fresh processing claim: %v", err)
+	}
+	if claimedFresh {
+		t.Fatalf("did not expect fresh processing message to be claimed")
+	}
+
+	var stored model.OutboxMessage
+	if err := repo.DB.WithContext(ctx).First(&stored, "id = ?", "stale-processing").Error; err != nil {
+		t.Fatalf("failed to load claimed message: %v", err)
+	}
+	if stored.Status != "PROCESSING" {
+		t.Fatalf("expected stale message to remain PROCESSING after claim, got %s", stored.Status)
+	}
+	if stored.Attempts != 2 {
+		t.Fatalf("expected attempts to increment to 2, got %d", stored.Attempts)
+	}
+	if stored.ProcessingStartedAt == nil {
+		t.Fatalf("expected processing_started_at to be refreshed")
 	}
 }

@@ -7,6 +7,12 @@
 - Sync worker: `/health`.
 - Gateway/frontend: `/`.
 
+Command and query health responses are process-level checks; they do not probe
+IAM, Postgres, search, or the event transport. Sync health returns HTTP 200
+while starting and, by default, while stale/degraded. Production readiness must
+also verify an authenticated `/identity/me` request, connector/task status, and
+a write-to-query projection.
+
 ## Metrics and Internal Signals
 
 Command service exposes compact health metrics and internal counters for:

@@ -90,33 +90,28 @@ func (c *KafkaConsumer) Start(ctx context.Context) error {
 		}()
 	}
 
-	for _, topic := range c.cfg.Topics {
-		r := kafka.NewReader(kafka.ReaderConfig{
-			Brokers:        c.cfg.Brokers,
-			GroupID:        c.cfg.GroupID,
-			Topic:          topic,
-			MinBytes:       1,
-			MaxBytes:       10e6,
-			MaxWait:        500 * time.Millisecond,
-			StartOffset:    kafka.FirstOffset,
-			CommitInterval: 0,
-		})
-		c.readers = append(c.readers, r)
-	}
+	reader := kafka.NewReader(c.readerConfig())
+	c.readers = []*kafka.Reader{reader}
 
-	errCh := make(chan error, len(c.readers))
-	for _, r := range c.readers {
-		reader := r
-		go func() {
-			errCh <- c.consumeLoop(ctx, reader)
-		}()
-	}
+	return c.consumeLoop(ctx, reader)
+}
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errCh:
-		return err
+func (c *KafkaConsumer) readerConfig() kafka.ReaderConfig {
+	return kafka.ReaderConfig{
+		Brokers:        c.cfg.Brokers,
+		GroupID:        c.cfg.GroupID,
+		GroupTopics:    c.cfg.Topics,
+		MinBytes:       1,
+		MaxBytes:       10e6,
+		MaxWait:        500 * time.Millisecond,
+		StartOffset:    kafka.FirstOffset,
+		CommitInterval: 0,
+		// Debezium creates CDC topics asynchronously after the connector reports
+		// RUNNING. On a fresh cluster the first group assignment can therefore be
+		// empty. Keep watching so topic/partition creation triggers a rebalance
+		// without requiring a sync-worker restart or manual connector bootstrap.
+		WatchPartitionChanges:  true,
+		PartitionWatchInterval: 2 * time.Second,
 	}
 }
 
@@ -149,8 +144,13 @@ func (c ConsumerKafkaCarrier) Keys() []string {
 func (c *KafkaConsumer) consumeLoop(ctx context.Context, r *kafka.Reader) error {
 	defer r.Close()
 
+	readerTopics := r.Config().GroupTopics
+	if len(readerTopics) == 0 && r.Config().Topic != "" {
+		readerTopics = []string{r.Config().Topic}
+	}
+
 	c.log.Info(ctx, "consumer loop started", map[string]any{
-		"topic": r.Config().Topic,
+		"topics": readerTopics,
 	})
 
 	for {

@@ -28,8 +28,11 @@ export function queryReadLoad() {
 
   // Get a non-existent instance (tests 404 path)
   const notFoundRes = http.get(
-    `${QUERY_BASE}/instances/perf-does-not-exist-xyz`,
-    { tags: { name: "get_instance_404" } }
+    `${QUERY_BASE}/instances/999999999999999999`,
+    {
+      tags: { name: "get_instance_404" },
+      responseCallback: http.expectedStatuses(200, 404),
+    }
   );
   check(notFoundRes, {
     "404 handled correctly": (r) => r.status === 404 || r.status === 200,

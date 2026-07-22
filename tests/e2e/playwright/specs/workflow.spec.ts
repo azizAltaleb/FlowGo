@@ -56,11 +56,13 @@ test.describe("Workflow API — lifecycle", () => {
     expect(res.status()).toBe(200);
   });
 
-  test("GET /metrics returns Prometheus text", async ({ request }) => {
-    const res = await request.get(`${COMMAND_URL}/metrics`);
+  test("GET /internal/metrics returns engine metrics JSON", async ({ request }) => {
+    const res = await request.get(`${COMMAND_URL}/internal/metrics`);
     expect(res.status()).toBe(200);
     const ct = res.headers()["content-type"] || "";
-    expect(ct).toContain("text/plain");
+    expect(ct).toContain("application/json");
+    const body = await res.json();
+    expect(body).toHaveProperty("outboxPublishLagSec");
   });
 });
 

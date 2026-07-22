@@ -34,6 +34,23 @@ spec:
   {{- end }}
 ---
 apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "flowgo.flowgoAuthPvc" . }}
+  labels:
+    {{- include "flowgo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flowgo-auth
+spec:
+  accessModes:
+    {{- toYaml .Values.zitadel.bootstrapStorage.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.zitadel.bootstrapStorage.size }}
+  {{- if .Values.zitadel.bootstrapStorage.storageClassName }}
+  storageClassName: {{ .Values.zitadel.bootstrapStorage.storageClassName | quote }}
+  {{- end }}
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "flowgo.fullname" . }}-zitadel-bootstrap-script
@@ -221,6 +238,10 @@ spec:
               value: "false"
             - name: ZITADEL_DEFAULTINSTANCE_PASSWORDCOMPLEXITYPOLICY_HASSYMBOL
               value: "false"
+            - name: ZITADEL_SYSTEMDEFAULTS_SECRETGENERATORS_MACHINEKEYSIZE
+              value: {{ .Values.zitadel.api.machineKeySize | quote }}
+            - name: ZITADEL_SYSTEMDEFAULTS_SECRETGENERATORS_APPLICATIONKEYSIZE
+              value: {{ .Values.zitadel.api.applicationKeySize | quote }}
             - name: ZITADEL_FIRSTINSTANCE_PATPATH
               value: /zitadel/bootstrap/owner.pat
             - name: ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME
@@ -228,7 +249,7 @@ spec:
             - name: ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME
               value: flowgo-bootstrap
             - name: ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE
-              value: "2099-01-01T00:00:00Z"
+              value: {{ .Values.zitadel.bootstrap.ownerPatExpiration | quote }}
             - name: ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH
               value: /zitadel/bootstrap/login-client.pat
             - name: ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME
@@ -236,7 +257,7 @@ spec:
             - name: ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME
               value: workflow-login-client
             - name: ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE
-              value: "2099-01-01T00:00:00Z"
+              value: {{ .Values.zitadel.bootstrap.loginPatExpiration | quote }}
             - name: ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED
               value: "true"
             - name: ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI
@@ -335,10 +356,18 @@ spec:
               value: /zitadel/bootstrap/owner.pat
             - name: FLOWGO_FRONTEND_CLIENT_ID_FILE
               value: /flowgo/bootstrap/flowgo-frontend-client-id
+            - name: FLOWGO_PROJECT_ID_FILE
+              value: /flowgo/bootstrap/flowgo-project-id
+            - name: FLOWGO_API_CLIENT_ID_FILE
+              value: /flowgo/auth/flowgo-api-client-id
+            - name: FLOWGO_API_CLIENT_SECRET_FILE
+              value: /flowgo/auth/flowgo-api-client-secret
             - name: FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE
               value: /flowgo/bootstrap/flowgo-zitadel.json
             - name: FLOWGO_FRONTEND_URL
               value: {{ .Values.zitadel.bootstrap.frontendUrl | quote }}
+            - name: FLOWGO_ZITADEL_ACCESS_TOKEN_LIFETIME
+              value: {{ .Values.zitadel.bootstrap.accessTokenLifetime | quote }}
             - name: FLOWGO_PROJECT_NAME
               value: {{ .Values.zitadel.bootstrap.projectName | quote }}
             - name: FLOWGO_FRONTEND_APP_NAME
@@ -372,6 +401,8 @@ spec:
               readOnly: true
             - name: flowgo-bootstrap
               mountPath: /flowgo/bootstrap
+            - name: flowgo-auth
+              mountPath: /flowgo/auth
           livenessProbe:
             httpGet:
               path: /ui/v2/login/healthy
@@ -396,6 +427,9 @@ spec:
         - name: flowgo-bootstrap
           persistentVolumeClaim:
             claimName: {{ include "flowgo.flowgoBootstrapPvc" . }}
+        - name: flowgo-auth
+          persistentVolumeClaim:
+            claimName: {{ include "flowgo.flowgoAuthPvc" . }}
 {{- if .Values.zitadel.ingress.enabled }}
 ---
 apiVersion: networking.k8s.io/v1

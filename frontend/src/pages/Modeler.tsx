@@ -23,6 +23,7 @@ import '@xyflow/react/dist/style.css';
 
 import { api } from "@/lib/api";
 import { parseBpmnXml, generateBpmnXml, getElementSize } from "@/lib/bpmn-parser";
+import { setPendingWorkflowSync, waitForWorkflowInCatalog } from "@/lib/cqrsSync";
 import PropertiesPanel from "@/components/bpmn/PropertiesPanel";
 import Palette from "@/components/bpmn/Palette";
 import { TaskNode } from "@/components/bpmn/nodes/TaskNode";
@@ -81,6 +82,8 @@ const defaultEdgeOptions = {
   },
 };
 
+type DiagramLoadStatus = "idle" | "loading" | "ready" | "error";
+
 function ModelerContent() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -91,6 +94,15 @@ function ModelerContent() {
   const [processId, setProcessId] = useState("Process_1");
   const [processName, setProcessName] = useState("New Process");
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [loadStatus, setLoadStatus] = useState<DiagramLoadStatus>("idle");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [deploySyncNotice, setDeploySyncNotice] = useState<string | null>(null);
+  const [deploySyncing, setDeploySyncing] = useState(false);
+
+  const isNewDiagram = searchParams.get("new") === "true";
+  const workflowId = searchParams.get("id");
+  const isEditMode = !isNewDiagram && Boolean(workflowId);
+  const canEditDiagram = !isEditMode || loadStatus === "ready";
 
   // Selection handling
   const onSelectionChange = useCallback(({ nodes, edges }: OnSelectionChangeParams) => {
@@ -105,65 +117,84 @@ function ModelerContent() {
 
   // Connection handling
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges],
+    (params: Connection) => {
+      if (!canEditDiagram) return;
+      setEdges((eds) => addEdge(params, eds));
+    },
+    [canEditDiagram, setEdges],
   );
 
   const onReconnect = useCallback(
     (oldEdge: Edge, newConnection: Connection) => {
+      if (!canEditDiagram) return;
       setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
     },
-    [setEdges],
+    [canEditDiagram, setEdges],
   );
+
+  const loadDiagram = useCallback(async () => {
+    const isNew = searchParams.get("new") === "true";
+    const idParam = searchParams.get("id");
+    setLoadError(null);
+
+    if (isNew) {
+      // Initialize from query params
+      const paramName = searchParams.get("name");
+      // When new=true, 'id' param is the BPMN Process ID (e.g. Process_1)
+      // When new=false, 'id' param is the Database UUID
+      const paramId = searchParams.get("id");
+
+      let finalName = paramName || "";
+      let finalId = paramId || "";
+
+      // If missing, prompt user as fallback
+      if (!finalName) {
+        finalName = window.prompt("Enter Process Name:", "New Process") || "New Process";
+      }
+      
+      if (!finalId) {
+        const suggested = finalName ? finalName.replace(/\s+/g, '_') : `Process_${Date.now()}`;
+        finalId = window.prompt("Enter Process ID:", suggested) || suggested;
+      }
+
+      setProcessName(finalName);
+      setProcessId(finalId);
+      setLoadStatus("ready");
+      return;
+    }
+
+    if (!idParam) {
+      setLoadStatus("ready");
+      return;
+    }
+
+    setLoadStatus("loading");
+    try {
+      const wf = await api.getWorkflow(idParam);
+      if (!wf.bpmn_xml) {
+        throw new Error("Workflow has no BPMN XML to load");
+      }
+
+      const result = parseBpmnXml(wf.bpmn_xml);
+      setNodes(result.nodes);
+      setEdges(result.edges);
+      setProcessId(result.processId);
+      setProcessName(result.processName);
+      setLoadStatus("ready");
+    } catch (err) {
+      console.error("Failed to load workflow:", err);
+      setLoadError(err instanceof Error ? err.message : "Failed to load workflow");
+      setLoadStatus("error");
+    }
+  }, [searchParams, setNodes, setEdges]);
 
   // Load Diagram
   useEffect(() => {
-    const loadDiagram = async () => {
-      const isNew = searchParams.get("new") === "true";
-      const idParam = searchParams.get("id");
-      
-      if (isNew) {
-          // Initialize from query params
-          const paramName = searchParams.get("name");
-          // When new=true, 'id' param is the BPMN Process ID (e.g. Process_1)
-          // When new=false, 'id' param is the Database UUID
-          const paramId = searchParams.get("id");
-
-          let finalName = paramName;
-          let finalId = paramId;
-
-          // If missing, prompt user as fallback
-          if (!finalName) {
-             finalName = window.prompt("Enter Process Name:", "New Process") || "New Process";
-          }
-          
-          if (!finalId) {
-             const suggested = finalName ? finalName.replace(/\s+/g, '_') : `Process_${Date.now()}`;
-             finalId = window.prompt("Enter Process ID:", suggested) || suggested;
-          }
-
-          setProcessName(finalName);
-          setProcessId(finalId);
-
-      } else if (idParam) {
-        try {
-          const wf = await api.getWorkflow(idParam);
-          if (wf.bpmn_xml) {
-             const result = parseBpmnXml(wf.bpmn_xml);
-             setNodes(result.nodes);
-             setEdges(result.edges);
-             setProcessId(result.processId);
-             setProcessName(result.processName);
-          }
-        } catch (err) {
-          console.error("Failed to load workflow:", err);
-        }
-      }
-    };
     loadDiagram();
-  }, [searchParams, setNodes, setEdges]);
+  }, [loadDiagram]);
 
   const handleSaveXML = () => {
+    if (!canEditDiagram) return;
     const xml = generateBpmnXml(nodes, edges, processId, processName);
     const blob = new Blob([xml], { type: 'text/xml' });
     const url = URL.createObjectURL(blob);
@@ -177,16 +208,30 @@ function ModelerContent() {
   };
   
   const handleDeploy = async () => {
+    if (!canEditDiagram) return;
     try {
         const xml = generateBpmnXml(nodes, edges, processId, processName);
         const wf = await api.deployWorkflow(xml);
-        alert("Workflow deployed successfully!");
+        setPendingWorkflowSync(wf.id);
+        setDeploySyncing(true);
+        setDeploySyncNotice("Deploy accepted. Syncing process catalog from the query projection...");
         if (searchParams.get("new") === "true") {
              navigate(`/modeler?id=${wf.id}`, { replace: true });
         }
+        const result = await waitForWorkflowInCatalog(wf.id, {
+          processDefinitionId: wf.process_definition_id,
+          version: wf.version,
+        });
+        setDeploySyncNotice(
+          result === "synced"
+            ? "Deploy complete. Process catalog is up to date."
+            : "Deploy succeeded. Processes list may take longer to update; use Refresh on Processes.",
+        );
     } catch (err) {
         console.error("Deploy failed", err);
-        alert("Failed to deploy workflow");
+        alert(err instanceof Error ? err.message : "Failed to deploy workflow");
+    } finally {
+        setDeploySyncing(false);
     }
   };
 
@@ -206,6 +251,7 @@ function ModelerContent() {
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
+      if (!canEditDiagram) return;
 
       const type = event.dataTransfer.getData('application/reactflow/type');
       const originalType = event.dataTransfer.getData('application/reactflow/originalType');
@@ -239,7 +285,7 @@ function ModelerContent() {
       ]);
       setSelectedElementId(newNode.id); // Immediately show properties
     },
-    [screenToFlowPosition, setNodes],
+    [canEditDiagram, screenToFlowPosition, setNodes],
   );
 
   // Find the actual object for properties panel
@@ -249,6 +295,7 @@ function ModelerContent() {
     null;
 
   const handleUpdateElement = (id: string, newData: Record<string, unknown>) => {
+    if (!canEditDiagram) return;
     setNodes((nds) => nds.map((node) => {
       if (node.id === id) {
         return { ...node, data: newData };
@@ -274,18 +321,46 @@ function ModelerContent() {
               <span className="text-sm font-semibold text-foreground">{processName}</span>
               <span className="text-xs text-muted-foreground">{processId}</span>
           </div>
-          <Button variant="outline" size="sm" onClick={handleSaveXML}>
+          <Button variant="outline" size="sm" onClick={handleSaveXML} disabled={!canEditDiagram}>
             <Save className="mr-2 h-4 w-4" />
             Save XML
           </Button>
         </div>
         <div className="flex items-center space-x-2">
-           <Button variant="default" size="sm" onClick={handleDeploy}>
+           <Button variant="default" size="sm" onClick={handleDeploy} disabled={!canEditDiagram || deploySyncing}>
             <Play className="mr-2 h-4 w-4" />
             Deploy Process
           </Button>
         </div>
       </div>
+
+      {isEditMode && loadStatus === "loading" ? (
+        <div className="rounded-md border bg-muted p-3 text-sm text-muted-foreground">
+          Loading workflow...
+        </div>
+      ) : null}
+
+      {isEditMode && loadStatus === "error" ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="font-medium">Failed to load workflow</div>
+          <div className="mt-1">{loadError}</div>
+          <div className="mt-3 flex gap-2">
+            <Button variant="outline" size="sm" onClick={loadDiagram}>
+              Retry
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate("/processes")}>
+              Back to Processes
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {deploySyncNotice ? (
+        <div className="rounded-md border bg-muted p-3 text-sm text-muted-foreground">
+          {deploySyncing ? "Syncing... " : null}
+          {deploySyncNotice}
+        </div>
+      ) : null}
 
       <div className="flex-1 flex border rounded-lg overflow-hidden bg-white">
         <Palette onDragStart={onDragStart} />
@@ -303,6 +378,9 @@ function ModelerContent() {
                 onDragOver={onDragOver}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
+                nodesDraggable={canEditDiagram}
+                nodesConnectable={canEditDiagram}
+                elementsSelectable={canEditDiagram}
                 connectionMode={ConnectionMode.Loose}
                 fitView
                 snapToGrid={true}

@@ -2,7 +2,8 @@ name: Bug report
 description: Report a reproducible problem in FlowGo
 title: "[Bug]: "
 labels:
-  - bug
+  - kind/bug
+  - status/needs-triage
 body:
   - type: textarea
     id: summary
@@ -15,7 +16,7 @@ body:
     id: steps
     attributes:
       label: Steps to reproduce
-      description: Include commands, payloads, BPMN files, or screenshots when useful.
+      description: Include commands, payloads, BPMN files, SDK snippets, or screenshots when useful.
     validations:
       required: true
   - type: textarea
@@ -48,8 +49,38 @@ body:
       label: Version or commit
     validations:
       required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - BPMN/runtime
+        - Command API
+        - Query API/CQRS
+        - Worker API
+        - Node.js SDK
+        - Frontend/modeler
+        - IAM/security
+        - Docker/Helm/deployment
+        - Documentation
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include browser, Node.js, Go, Docker, Kubernetes, OIDC provider, and OS versions when relevant.
+      render: shell
+  - type: textarea
+    id: agent_repro
+    attributes:
+      label: Reproduction help
+      description: Can a maintainer or agent reproduce this from the information above? If not, what private or local dependency is missing?
+      placeholder: "Yes, run ... / No, requires ..."
   - type: textarea
     id: logs
     attributes:
       label: Relevant logs
+      description: Redact tokens, cookies, client secrets, private keys, and production identifiers.
       render: shell

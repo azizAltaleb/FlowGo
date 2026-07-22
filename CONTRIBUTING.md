@@ -10,11 +10,11 @@ Thank you for your interest in contributing! We want to make this project a robu
     ```bash
     make up
     ```
-    This starts the external IAM deployment using `docker-compose.external-iam.yml`.
-    No `.env` file is required. To use the bundled ZITADEL deployment instead, run:
+    This starts the bundled ZITADEL deployment using `docker-compose.zitadel.yml`.
+    No `.env` file is required. To use the external IAM template with your own OIDC provider, configure `docker-compose.external-iam.yml` and run:
 
     ```bash
-    make up-zitadel
+    make up-external-iam
     ```
 
     Debezium connector bootstrap is handled automatically by `sync-worker` startup. Manual recovery remains available via `make init-connector`.
@@ -31,8 +31,8 @@ The backend services are located in `backend/`.
 To rebuild the backend after changes:
 ```bash
 make up
-# or:
-make up-zitadel
+# or, for a configured external OIDC provider:
+make up-external-iam
 ```
 
 Validate profile configs quickly:
@@ -46,8 +46,8 @@ Located in `frontend/`.
 To rebuild the frontend after changes:
 ```bash
 make up
-# or:
-make up-zitadel
+# or, for a configured external OIDC provider:
+make up-external-iam
 ```
 
 ## Running Tests
@@ -61,6 +61,34 @@ CI/Security workflows:
 
 - Main CI pipeline: `.github/workflows/ci.yml`
 - Security/dependency scan pipeline: `.github/workflows/security.yml`
+
+Contributor-facing quality gate docs:
+
+- Agentic SDLC operating model: `docs/AGENTIC_SDLC.md`
+- Agentic QA matrix: `docs/AGENTIC_QA.md`
+- Quality gate policy: `docs/QUALITY_GATES.md`
+- Labels and triage taxonomy: `docs/LABELS.md`
+
+For most PRs, start with the fastest relevant checks and include the commands/results in the PR description:
+
+```bash
+make test-unit
+make test-frontend
+make smoke-profiles
+make validate-helm
+```
+
+Run deeper checks when the changed surface requires them:
+
+- Backend/runtime behavior: `make test-bpmn-matrix`
+- Worker API behavior: `make worker-conformance`
+- CQRS/query/sync behavior: `make cqrs-e2e-smoke` and `make cqrs-parity-check`
+- Integration/E2E behavior: `make test-integration` and `make test-e2e`
+- Performance-sensitive changes: `make test-perf`
+- Security-sensitive changes: `make test-security`
+- Release-sensitive changes: `make smoke-release-profiles` and `make release-dry-run`
+
+If a heavy check is not run, explain why and describe the residual risk.
 
 ## Pull Request Process
 

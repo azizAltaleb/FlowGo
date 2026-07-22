@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private vulnerability report
+    url: https://github.com/azizAltaleb/FlowGo/security/advisories/new
+    about: Use GitHub private vulnerability reporting or the address in SECURITY.md for sensitive vulnerabilities.
+  - name: Support and questions
+    url: https://github.com/azizAltaleb/FlowGo/discussions
+    about: Ask usage, deployment, IAM, SDK, and operations questions in Discussions when enabled.
+  - name: Contribution guide
+    url: https://github.com/azizAltaleb/FlowGo/blob/main/CONTRIBUTING.md
+    about: Read setup, architecture, quality gate, and PR expectations before contributing.

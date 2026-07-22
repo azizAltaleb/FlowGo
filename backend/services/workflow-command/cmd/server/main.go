@@ -66,6 +66,15 @@ func main() {
 		})
 		os.Exit(1)
 	}
+	if authConfig.TokenValidationMode == auth.TokenModeIntrospection &&
+		(authConfig.IntrospectionClientIDFile != "" || authConfig.IntrospectionSecretFile != "") &&
+		(strings.TrimSpace(authConfig.IntrospectionClientID) == "" || strings.TrimSpace(authConfig.IntrospectionClientSecret) == "") {
+		log.Error(ctx, "introspection credential files are unavailable or empty", map[string]any{
+			"client_id_file_configured":     authConfig.IntrospectionClientIDFile != "",
+			"client_secret_file_configured": authConfig.IntrospectionSecretFile != "",
+		})
+		os.Exit(1)
+	}
 
 	// Initialize Auth Middleware
 	var authMiddleware *auth.Middleware
@@ -338,8 +347,8 @@ func main() {
 	}()
 
 	// Start gRPC Server
-	grpcAddr := ":50051"
-	grpcServer := grpc.NewServer()
+	grpcAddr := envOrDefault("GRPC_ADDR", ":50051")
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(authMiddleware.UnaryServerInterceptor(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)))
 	pb.RegisterJobWorkerServiceServer(grpcServer, grpcImpl.NewServer(eng))
 
 	go func() {

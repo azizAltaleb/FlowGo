@@ -1,0 +1,98 @@
+name: Agentic Issue Triage
+
+on:
+  workflow_dispatch:
+  issues:
+    types:
+      - opened
+      - edited
+      - reopened
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  triage-plan:
+    name: Advisory Issue Triage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout policy docs
+        uses: actions/checkout@v4
+
+      - name: Build issue triage summary
+        env:
+          EVENT_PATH: ${{ github.event_path }}
+        run: |
+          mkdir -p reports/agentic
+          python3 - "$EVENT_PATH" > reports/agentic/issue-triage.md <<'PY'
+          import json
+          import sys
+
+          event_path = sys.argv[1]
+          with open(event_path, encoding="utf-8") as handle:
+              event = json.load(handle)
+
+          issue = event.get("issue", {})
+          title = issue.get("title", "(manual run)")
+          body = issue.get("body") or ""
+          labels = [label.get("name", "") for label in issue.get("labels", [])]
+
+          lower = f"{title}\n{body}".lower()
+          suggestions = ["status/needs-triage"]
+          if any(term in lower for term in ["error", "fail", "bug", "regression", "expected", "actual"]):
+              suggestions.append("kind/bug")
+          if any(term in lower for term in ["feature", "proposal", "enhancement"]):
+              suggestions.append("kind/feature")
+          if any(term in lower for term in ["docs", "readme", "documentation"]):
+              suggestions.append("kind/docs")
+          if any(term in lower for term in ["security", "vulnerability", "token", "secret", "auth bypass"]):
+              suggestions.append("kind/security")
+              suggestions.append("agent/needs-human")
+          if any(term in lower for term in ["frontend", "modeler", "dashboard", "browser"]):
+              suggestions.append("area/frontend")
+          if any(term in lower for term in ["sdk", "node"]):
+              suggestions.append("area/sdk")
+          if any(term in lower for term in ["docker", "helm", "compose", "kubernetes"]):
+              suggestions.append("area/deployment")
+          if any(term in lower for term in ["worker", "job activation", "jobs/"]):
+              suggestions.append("area/backend")
+          if any(term in lower for term in ["cqrs", "query", "sync", "debezium", "kafka", "elasticsearch"]):
+              suggestions.append("area/backend")
+
+          deduped = []
+          for label in suggestions:
+              if label not in deduped and label not in labels:
+                  deduped.append(label)
+
+          print("# Agentic Issue Triage")
+          print()
+          print("This workflow is advisory. It does not write labels, comments, or issue state.")
+          print()
+          print(f"- Issue: {title}")
+          print(f"- Existing labels: {', '.join(labels) if labels else 'none'}")
+          print(f"- Suggested labels: {', '.join(deduped) if deduped else 'none'}")
+          print()
+          print("## Maintainer Checklist")
+          print()
+          print("- Confirm the issue uses the right template.")
+          print("- Ask for version, deployment mode, reproduction steps, logs, BPMN, payloads, or screenshots if missing.")
+          print("- Move suspected private vulnerabilities to SECURITY.md.")
+          print("- Apply labels from docs/LABELS.md after review.")
+          print()
+          print("## Policy References")
+          print()
+          print("- docs/AGENTIC_SDLC.md")
+          print("- docs/AGENTIC_QA.md")
+          print("- docs/LABELS.md")
+          print("- SECURITY.md")
+          PY
+
+      - name: Add advisory summary
+        run: cat reports/agentic/issue-triage.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload issue triage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentic-issue-triage
+          path: reports/agentic/issue-triage.md

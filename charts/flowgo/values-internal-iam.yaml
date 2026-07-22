@@ -5,7 +5,7 @@ iam:
     issuerInternalUrl: ""
     issuerPublicUrl: "https://iam.flowgo.example.com"
     clientId: workflow-backend
-    tokenMode: jwt
+    tokenMode: introspection
     introspectionUrl: ""
     introspectionClientId: ""
     introspectionClientSecret: ""
@@ -16,7 +16,7 @@ iam:
     claimTenantPath: urn:zitadel:iam:user:resourceowner:id
     claimEmailPath: email
     claimNamePath: name
-    enforceAudience: false
+    enforceAudience: true
     allowInsecureIssuer: true
   frontend:
     oidcAuthority: "https://iam.flowgo.example.com"
@@ -31,6 +31,7 @@ zitadel:
   externalSecure: true
   masterkey: MasterkeyNeedsToHave32Characters
   bootstrap:
+    accessTokenLifetime: 900s
     frontendUrl: "https://flowgo.example.com"
     adminUsername: admin
     adminPassword: "change-me"

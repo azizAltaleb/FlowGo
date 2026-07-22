@@ -9,6 +9,17 @@ ruby -e 'require "yaml"; ARGV.each { |f| YAML.load_file(f); puts "ok #{f}" }' \
   "${CHART_DIR}/values-external-iam.yaml" \
   "${CHART_DIR}/values-internal-iam.yaml"
 
+ruby -e '
+  require "yaml"
+  external = YAML.load_file(ARGV[0])
+  internal = YAML.load_file(ARGV[1])
+  abort "values-external-iam.yaml must set iam.mode=external" unless external.dig("iam", "mode") == "external"
+  abort "values-external-iam.yaml must keep zitadel.enabled=false" unless external.dig("zitadel", "enabled") == false
+  abort "values-internal-iam.yaml must set iam.mode=zitadel" unless internal.dig("iam", "mode") == "zitadel"
+  abort "values-internal-iam.yaml must set zitadel.enabled=true" unless internal.dig("zitadel", "enabled") == true
+  puts "ok helm IAM mode values"
+' "${CHART_DIR}/values-external-iam.yaml" "${CHART_DIR}/values-internal-iam.yaml"
+
 if ! command -v helm >/dev/null 2>&1; then
   echo "helm not installed; skipped helm lint/template"
   exit 0

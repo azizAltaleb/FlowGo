@@ -11,6 +11,9 @@ Use this checklist for repository settings and community setup that cannot be fu
 - Enable secret scanning and private vulnerability reporting.
 - Enable CodeQL/code scanning for public repositories.
 - Enable Discussions when maintainers are ready to support community questions.
+- Review `CODEOWNERS`; it currently routes all ownership to `@azizAltaleb` and can be expanded with area teams later.
+- Create or sync labels from `docs/LABELS.md` and `.github/labels.yml`.
+- Treat agentic workflows as advisory unless maintainers explicitly configure provider secrets and write permissions.
 
 ## Repository Topics
 
@@ -47,6 +50,7 @@ Before announcing a public release, confirm:
 
 - CI and Security pass on the release commit.
 - `make release-dry-run` passes locally or in a controlled CI runner.
+- Agentic QA and quality gate summaries have no unresolved maintainer decisions.
 - Docker Hub repositories exist and repository descriptions are populated.
 - npm scope/package ownership is confirmed.
 - Release notes include known limitations and upgrade guidance.

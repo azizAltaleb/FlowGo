@@ -84,6 +84,7 @@ func (x *ServiceTaskExecutor) Execute(ctx context.Context, e *Engine, instance *
 		// It's better to update handler too, but let's check definition in engine.go first.
 		// Current engine.go: type ServiceTaskHandler func(instance *model.WorkflowInstance, step *model.StepDefinition) error
 		// I'll update engine.go later. For now, call as is.
+		beforeContext := snapshotVariables(instance.Context)
 		if err := handler(ctx, instance, step); err != nil {
 			// If there are attached boundary events, return the error to let autoAdvance/handleBoundaryError handle it.
 			if len(step.BoundaryEventRefs) > 0 {
@@ -120,10 +121,12 @@ func (x *ServiceTaskExecutor) Execute(ctx context.Context, e *Engine, instance *
 			return nil
 		}
 
-		// Engine: Persist Variables (if handler modified context)
-		piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
-		if err := e.persistVariables(ctx, instance.ID, piKey, instance.Context); err != nil {
-			return err
+		// Engine: Persist only variables modified by the in-process handler.
+		if changed := changedVariables(beforeContext, instance.Context); len(changed) > 0 {
+			piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
+			if err := e.persistVariables(ctx, instance.ID, piKey, changed); err != nil {
+				return err
+			}
 		}
 
 		// Listener: End
@@ -194,7 +197,7 @@ func (x *UserTaskExecutor) Execute(ctx context.Context, e *Engine, instance *mod
 		job = &model.Job{
 			Key:                  jobKey,
 			ID:                   id.GenerateUUIDv7(),
-			Type:                 "flowgo:userTask", // Standard type for user tasks
+			Type:                 UserTaskJobType,
 			ProcessInstanceKey:   piKey,
 			ElementInstanceKey:   exec.ElementInstanceKey,
 			ProcessDefinitionKey: wf.ID,
@@ -333,6 +336,8 @@ func (x *ScriptTaskExecutor) Execute(ctx context.Context, e *Engine, instance *m
 		return fmt.Errorf("script execution failed: %w", err)
 	}
 
+	beforeContext := snapshotVariables(instance.Context)
+
 	// Update variables from VM
 	// We need to capture both updated existing variables and NEW variables.
 	// Iterating over global object keys is one way.
@@ -359,10 +364,12 @@ func (x *ScriptTaskExecutor) Execute(ctx context.Context, e *Engine, instance *m
 		instance.Context[resultVar] = val.Export()
 	}
 
-	// Persist changes
-	piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
-	if err := e.persistVariables(ctx, instance.ID, piKey, instance.Context); err != nil {
-		return err
+	// Persist only variables changed by the script.
+	if changed := changedVariables(beforeContext, instance.Context); len(changed) > 0 {
+		piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
+		if err := e.persistVariables(ctx, instance.ID, piKey, changed); err != nil {
+			return err
+		}
 	}
 
 	return e.proceedToken(ctx, instance, execID, wf)

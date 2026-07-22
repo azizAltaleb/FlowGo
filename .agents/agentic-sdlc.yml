@@ -1,0 +1,167 @@
+repo:
+  name: FlowGo
+  path: /Users/abdulazizaltaleb/Desktop/work/workflowsa
+  product: Open-source BPMN workflow engine
+
+docs:
+  agentic_sdlc: docs/AGENTIC_SDLC.md
+  agentic_qa: docs/AGENTIC_QA.md
+  quality_gates: docs/QUALITY_GATES.md
+  stability_policy: docs/STABILITY_POLICY.md
+  compatibility_matrix: docs/COMPATIBILITY_MATRIX.md
+  release_checklist: docs/RELEASE_CHECKLIST.md
+  dependency_policy: docs/DEPENDENCY_POLICY.md
+  security_policy: SECURITY.md
+
+compatibility_surfaces:
+  - Worker REST API and protocol headers
+  - Node.js SDK public API
+  - Command and query HTTP response shapes
+  - Docker image environment variables and exposed ports
+  - Helm values and rendered Kubernetes resources
+  - IAM role names, claim mapping, and token validation
+  - BPMN parser/runtime semantics
+  - CQRS event payloads, outbox format, and projection mapping
+
+risk_surfaces:
+  backend:
+    paths:
+      - backend/
+    checks:
+      - make test-unit
+  frontend:
+    paths:
+      - frontend/
+    checks:
+      - make test-frontend
+      - npm --prefix frontend run lint
+      - npm --prefix frontend run build
+  sdk:
+    paths:
+      - clients/nodejs-sdk/
+    checks:
+      - npm --prefix clients/nodejs-sdk test
+      - npm --prefix clients/nodejs-sdk run validate:package
+      - cd clients/nodejs-sdk && npm pack --dry-run
+  cqrs:
+    paths:
+      - backend/services/workflow-query/
+      - backend/services/sync-worker/
+      - scripts/cqrs_e2e_smoke.sh
+      - scripts/cqrs_parity_check.sh
+    checks:
+      - make cqrs-e2e-smoke
+      - make cqrs-parity-check
+  worker_api:
+    paths:
+      - backend/libs/worker/
+      - backend/services/workflow-command/internal/interfaces/http/
+      - docs/worker-api.md
+    checks:
+      - make worker-conformance
+  deployment:
+    paths:
+      - docker-compose.yml
+      - docker-compose.external-iam.yml
+      - docker-compose.zitadel.yml
+      - docker-compose.release.yml
+      - charts/
+      - scripts/validate_helm.sh
+    checks:
+      - make smoke-profiles
+      - make smoke-release-profiles
+      - make validate-helm
+  security:
+    paths:
+      - SECURITY.md
+      - backend/libs/auth/
+      - .github/workflows/security.yml
+      - .github/dependabot.yml
+      - Dockerfile
+      - backend/Dockerfile
+      - frontend/Dockerfile
+    checks:
+      - make test-security
+  release:
+    paths:
+      - .github/workflows/release-dry-run.yml
+      - .github/workflows/release-images.yml
+      - .github/workflows/release-npm.yml
+      - scripts/release_dry_run.sh
+    checks:
+      - make release-dry-run
+
+quality_commands:
+  required_pr:
+    - make test-unit
+    - make test-frontend
+    - make smoke-profiles
+    - make validate-helm
+  deep:
+    - make test-integration
+    - make test-e2e
+    - make worker-conformance
+    - make cqrs-e2e-smoke
+    - make test-perf
+    - make test-all
+  release:
+    - make smoke-release-profiles
+    - make release-dry-run
+  security:
+    - make test-security
+
+labels:
+  areas:
+    - area/backend
+    - area/frontend
+    - area/sdk
+    - area/docs
+    - area/deployment
+    - area/security
+    - area/qa
+  kinds:
+    - kind/bug
+    - kind/feature
+    - kind/docs
+    - kind/security
+    - kind/qa
+    - kind/dependency
+  priorities:
+    - priority/p0
+    - priority/p1
+    - priority/p2
+    - priority/p3
+  statuses:
+    - status/needs-repro
+    - status/needs-triage
+    - status/blocked
+    - status/ready
+    - status/accepted-risk
+
+automation:
+  default_mode: advisory
+  no_auto_merge: true
+  no_fork_secrets: true
+  require_human_approval_before_writes: true
+  allowed_readonly_events:
+    - issues.opened
+    - issues.edited
+    - pull_request.opened
+    - pull_request.synchronize
+    - pull_request.reopened
+    - workflow_run.completed
+    - schedule
+    - workflow_dispatch
+  privileged_apply_controls:
+    - protected GitHub environment
+    - trusted maintainer label
+    - manual workflow_dispatch input
+    - scoped GitHub App token
+
+secrets:
+  agent_provider_key: AGENT_API_KEY
+  optional_github_app_id: AGENT_GITHUB_APP_ID
+  optional_github_app_private_key: AGENT_GITHUB_APP_PRIVATE_KEY
+  release_dockerhub_username: DOCKERHUB_USERNAME
+  release_dockerhub_token: DOCKERHUB_TOKEN
+  release_npm_token: NPM_TOKEN

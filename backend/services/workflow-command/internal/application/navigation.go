@@ -45,6 +45,10 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 	if len(currentStepDef.Outgoing) == 0 {
 		// End of path
 		instance.Executions[execIdx].Status = "COMPLETED"
+		processInstanceKey, err := strconv.ParseInt(instance.ID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid process instance id %q: %w", instance.ID, err)
+		}
 
 		// Engine: Complete current element instance (End Event or similar)
 		if key := instance.Executions[execIdx].ElementInstanceKey; key != 0 {
@@ -60,7 +64,7 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 			// Publish ElementInstanceCompleted
 			if err := e.eventPublisher.Publish(ctx, &pb.ElementInstanceCompleted{
 				Key:                key,
-				ProcessInstanceKey: generateKey(instance.ID), // Parse ID to int64?
+				ProcessInstanceKey: processInstanceKey,
 				ElementId:          currentStepID,
 				EndTime:            timestamppb.New(el.EndTime),
 			}, "ElementInstanceCompleted"); err != nil {
@@ -68,37 +72,8 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 			}
 		}
 
-		// Check if all executions are completed
-		allCompleted := true
-		for _, ex := range instance.Executions {
-			if ex.Status != "COMPLETED" {
-				allCompleted = false
-				break
-			}
-		}
-		if allCompleted {
-			instance.Status = model.StatusCompleted
-
-			// Engine: Update Process Instance to COMPLETED
-			if piKey, err := strconv.ParseInt(instance.ID, 10, 64); err == nil {
-				pi := &model.ProcessInstance{
-					Key:     piKey,
-					State:   "COMPLETED",
-					EndTime: time.Now(),
-				}
-				if err := e.repo.UpdateProcessInstance(ctx, pi); err != nil {
-					// log error?
-				}
-
-				// Publish ProcessInstanceCompleted
-				if err := e.eventPublisher.Publish(ctx, &pb.ProcessInstanceCompleted{
-					Key:                  piKey,
-					ProcessDefinitionKey: wf.ID,
-					EndTime:              timestamppb.New(pi.EndTime),
-				}, "ProcessInstanceCompleted"); err != nil {
-					fmt.Printf("failed to publish ProcessInstanceCompleted: %v\n", err)
-				}
-			}
+		if err := e.completeInstanceIfNoActiveExecutions(ctx, instance, wf); err != nil {
+			return err
 		}
 
 		// Check for SubProcess completion (bubbling up)
@@ -648,6 +623,42 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 				return err
 			}
 		}
+	}
+
+	return e.completeInstanceIfNoActiveExecutions(ctx, instance, wf)
+}
+
+func (e *Engine) completeInstanceIfNoActiveExecutions(ctx context.Context, instance *model.WorkflowInstance, wf *model.WorkflowDefinition) error {
+	if instance.Status == model.StatusCompleted {
+		return nil
+	}
+	for _, ex := range instance.Executions {
+		if ex.Status == "ACTIVE" {
+			return nil
+		}
+	}
+
+	processInstanceKey, err := strconv.ParseInt(instance.ID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid process instance id %q: %w", instance.ID, err)
+	}
+
+	instance.Status = model.StatusCompleted
+	pi := &model.ProcessInstance{
+		Key:     processInstanceKey,
+		State:   "COMPLETED",
+		EndTime: time.Now(),
+	}
+	if err := e.repo.UpdateProcessInstance(ctx, pi); err != nil {
+		return err
+	}
+
+	if err := e.eventPublisher.Publish(ctx, &pb.ProcessInstanceCompleted{
+		Key:                  processInstanceKey,
+		ProcessDefinitionKey: wf.ID,
+		EndTime:              timestamppb.New(pi.EndTime),
+	}, "ProcessInstanceCompleted"); err != nil {
+		fmt.Printf("failed to publish ProcessInstanceCompleted: %v\n", err)
 	}
 
 	return nil
