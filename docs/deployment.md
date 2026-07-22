@@ -139,7 +139,7 @@ make up-external-iam
 To use published images:
 
 ```bash
-FLOWGO_IMAGE_TAG=0.1.1 make up-external-iam-release
+FLOWGO_IMAGE_TAG=0.2.0 make up-external-iam-release
 ```
 
 ### 3. External-IAM postconditions
@@ -189,7 +189,7 @@ make up-zitadel
 To use published images:
 
 ```bash
-FLOWGO_IMAGE_TAG=0.1.1 make up-zitadel-release
+FLOWGO_IMAGE_TAG=0.2.0 make up-zitadel-release
 ```
 
 The first boot can take several minutes while ZITADEL initializes and FlowGo

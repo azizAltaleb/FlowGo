@@ -19,23 +19,23 @@ replicaCount:
 images:
   command:
     repository: azizaltaleb/workflow-command
-    tag: "0.1.1"
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
   query:
     repository: azizaltaleb/workflow-query
-    tag: "0.1.1"
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
   runtime:
     repository: azizaltaleb/workflow-runtime
-    tag: "0.1.1"
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
   syncWorker:
     repository: azizaltaleb/sync-worker
-    tag: "0.1.1"
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
   frontend:
     repository: azizaltaleb/frontend
-    tag: "0.1.1"
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
   gateway:
     repository: nginx

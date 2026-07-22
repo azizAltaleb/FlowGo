@@ -86,8 +86,8 @@ Use GitHub repository settings: Settings > Secrets and variables > Actions > Rep
 Create an RC tag first:
 
 ```bash
-git tag -s v0.1.1-rc.1 -m "FlowGo v0.1.1-rc.1"
-git push origin v0.1.1-rc.1
+git tag -s v0.2.0-rc.1 -m "FlowGo v0.2.0-rc.1"
+git push origin v0.2.0-rc.1
 ```
 
 Verify release workflows produce signed images, SBOM/provenance attestations, and the npm package.
@@ -97,8 +97,8 @@ Verify release workflows produce signed images, SBOM/provenance attestations, an
 After images are pushed, validate the release override:
 
 ```bash
-FLOWGO_IMAGE_TAG=v0.1.1-rc.1 make smoke-release-profiles
-FLOWGO_IMAGE_TAG=v0.1.1-rc.1 make up-zitadel-release
+FLOWGO_IMAGE_TAG=v0.2.0-rc.1 make smoke-release-profiles
+FLOWGO_IMAGE_TAG=v0.2.0-rc.1 make up-zitadel-release
 ```
 
 Open:
@@ -111,8 +111,8 @@ Sign in with local development credentials `admin` / `admin` and run the SDK smo
 ## 8. Final release
 
 ```bash
-git tag -s v0.1.1 -m "FlowGo v0.1.1"
-git push origin v0.1.1
+git tag -s v0.2.0 -m "FlowGo v0.2.0"
+git push origin v0.2.0
 ```
 
 Publish GitHub release notes with:

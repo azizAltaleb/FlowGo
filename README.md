@@ -78,7 +78,7 @@ The release Compose override removes local image builds and uses the published
 - `azizaltaleb/sync-worker`
 - `azizaltaleb/frontend`
 
-The commands below pin release `v0.1.1`. Review available tags and image
+The commands below pin release `v0.2.0`. Review available tags and image
 verification guidance in [Docker images](docs/DOCKER_IMAGES.md).
 
 ### Prerequisites
@@ -92,9 +92,9 @@ verification guidance in [Docker images](docs/DOCKER_IMAGES.md).
 Obtain the matching deployment files:
 
 ```bash
-git clone --depth 1 --branch v0.1.1 https://github.com/azizAltaleb/FlowGo.git
+git clone --depth 1 --branch v0.2.0 https://github.com/azizAltaleb/FlowGo.git
 cd FlowGo
-export FLOWGO_IMAGE_TAG=v0.1.1
+export FLOWGO_IMAGE_TAG=v0.2.0
 ```
 
 This checkout supplies the Compose and configuration files. The release
@@ -121,7 +121,7 @@ docker compose \
 Equivalent shortcut:
 
 ```bash
-FLOWGO_IMAGE_TAG=v0.1.1 make up-zitadel-release
+FLOWGO_IMAGE_TAG=v0.2.0 make up-zitadel-release
 ```
 
 Open:
@@ -178,7 +178,7 @@ docker compose \
 Equivalent shortcut:
 
 ```bash
-FLOWGO_IMAGE_TAG=v0.1.1 make up-external-iam-release
+FLOWGO_IMAGE_TAG=v0.2.0 make up-external-iam-release
 ```
 
 FlowGo validates and authorizes external identities but does not create or
