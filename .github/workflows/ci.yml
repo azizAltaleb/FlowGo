@@ -21,7 +21,7 @@ jobs:
       - name: Setup Go for actionlint
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.11"
+          go-version: "1.25.12"
 
       - name: Install actionlint
         run: go install github.com/rhysd/actionlint/cmd/actionlint@latest
@@ -49,7 +49,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.11"
+          go-version: "1.25.12"
 
       - name: Run service tests
         run: go test ./backend/... -count=1

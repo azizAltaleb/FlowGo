@@ -60,6 +60,21 @@ func main() {
 		"auth_mode":       authConfig.TokenValidationMode,
 		"auth_enabled":    authConfig.Enabled(),
 	})
+	if authConfig.TokenValidationMode == auth.TokenModeIntrospection && strings.TrimSpace(authConfig.IntrospectionURL) == "" {
+		log.Error(ctx, "introspection auth mode requires introspection URL", map[string]any{
+			"env": "AUTH_INTROSPECTION_URL",
+		})
+		os.Exit(1)
+	}
+	if authConfig.TokenValidationMode == auth.TokenModeIntrospection &&
+		(authConfig.IntrospectionClientIDFile != "" || authConfig.IntrospectionSecretFile != "") &&
+		(strings.TrimSpace(authConfig.IntrospectionClientID) == "" || strings.TrimSpace(authConfig.IntrospectionClientSecret) == "") {
+		log.Error(ctx, "introspection credential files are unavailable or empty", map[string]any{
+			"client_id_file_configured":     authConfig.IntrospectionClientIDFile != "",
+			"client_secret_file_configured": authConfig.IntrospectionSecretFile != "",
+		})
+		os.Exit(1)
+	}
 
 	// Initialize Auth Middleware
 	var authMiddleware *auth.Middleware

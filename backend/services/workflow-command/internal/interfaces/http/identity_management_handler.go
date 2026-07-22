@@ -19,6 +19,8 @@ func (h *Handler) registerIdentityManagementRoutes(r *mux.Router) {
 	r.Handle("/identity/management/clients/{id}", h.requireBundledIAMAdmin(h.deleteIdentityManagementClient)).Methods("DELETE")
 	r.Handle("/identity/management/clients/{id}/tokens", h.requireBundledIAMAdmin(h.rotateIdentityManagementClientToken)).Methods("POST")
 	r.Handle("/identity/management/clients/{id}/tokens/{tokenId}", h.requireBundledIAMAdmin(h.revokeIdentityManagementClientToken)).Methods("DELETE")
+	r.Handle("/identity/management/clients/{id}/keys", h.requireBundledIAMAdmin(h.addIdentityManagementClientKey)).Methods("POST")
+	r.Handle("/identity/management/clients/{id}/keys/{keyId}", h.requireBundledIAMAdmin(h.revokeIdentityManagementClientKey)).Methods("DELETE")
 	r.Handle("/identity/management/users", h.requireBundledIAMAdmin(h.listIdentityManagementUsers)).Methods("GET")
 	r.Handle("/identity/management/users", h.requireBundledIAMAdmin(h.createIdentityManagementUser)).Methods("POST")
 	r.Handle("/identity/management/users/{id}", h.requireBundledIAMAdmin(h.updateIdentityManagementUser)).Methods("PUT")
@@ -112,6 +114,20 @@ func (h *Handler) createIdentityManagementClientToken(w http.ResponseWriter, r *
 		http.Error(w, "name is required", http.StatusBadRequest)
 		return
 	}
+	if strings.TrimSpace(request.PublicKey) != "" {
+		client, err := h.identityManager.CreateClientKey(r.Context(), iam.ManagedClientKeyCreate{
+			Username: request.Username, Name: request.Name, Description: request.Description,
+			Environment: request.Environment, OwnerEmail: request.OwnerEmail, Purpose: request.Purpose,
+			PublicKey: request.PublicKey, ExpiresAt: request.KeyExpiresAt,
+		})
+		if err != nil {
+			writeIdentityManagementError(w, err)
+			return
+		}
+		setSensitiveResponseHeaders(w, "flowgo-client-credential.json")
+		writeJSON(w, http.StatusCreated, toIdentityManagementClientResponse(client))
+		return
+	}
 	token, err := h.identityManager.CreateClientToken(r.Context(), iam.ManagedClientTokenCreate{
 		Username:       request.Username,
 		Name:           request.Name,
@@ -125,7 +141,39 @@ func (h *Handler) createIdentityManagementClientToken(w http.ResponseWriter, r *
 		writeIdentityManagementError(w, err)
 		return
 	}
+	setSensitiveResponseHeaders(w, "flowgo-client-token.json")
 	writeJSON(w, http.StatusCreated, toIdentityManagementClientTokenResponse(token))
+}
+
+func (h *Handler) addIdentityManagementClientKey(w http.ResponseWriter, r *http.Request) {
+	var request dto.AddIdentityManagementClientKeyRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "invalid JSON request", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(request.PublicKey) == "" {
+		http.Error(w, "public_key is required", http.StatusBadRequest)
+		return
+	}
+	key, err := h.identityManager.AddClientKey(r.Context(), mux.Vars(r)["id"], iam.ManagedClientKeyAdd{
+		PublicKey: request.PublicKey,
+		ExpiresAt: request.KeyExpiresAt,
+	})
+	if err != nil {
+		writeIdentityManagementError(w, err)
+		return
+	}
+	setSensitiveResponseHeaders(w, "flowgo-client-credential.json")
+	writeJSON(w, http.StatusCreated, toIdentityManagementClientCredentialResponse(key))
+}
+
+func (h *Handler) revokeIdentityManagementClientKey(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if err := h.identityManager.RemoveClientKey(r.Context(), vars["id"], vars["keyId"]); err != nil {
+		writeIdentityManagementError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) rotateIdentityManagementClientToken(w http.ResponseWriter, r *http.Request) {
@@ -141,6 +189,7 @@ func (h *Handler) rotateIdentityManagementClientToken(w http.ResponseWriter, r *
 		writeIdentityManagementError(w, err)
 		return
 	}
+	setSensitiveResponseHeaders(w, "flowgo-client-token.json")
 	writeJSON(w, http.StatusCreated, toIdentityManagementClientTokenResponse(token))
 }
 
@@ -233,6 +282,10 @@ func (h *Handler) createIdentityManagementRole(w http.ResponseWriter, r *http.Re
 		http.Error(w, "key and display_name are required", http.StatusBadRequest)
 		return
 	}
+	if isReservedFlowGoRole(request.Key) {
+		http.Error(w, "flowgo admin, flowgo modeler, and flowgo client are built-in platform roles; flowgo viewer is no longer used", http.StatusBadRequest)
+		return
+	}
 	role, err := h.identityManager.CreateRole(r.Context(), iam.ManagedRoleCreate{Key: request.Key, DisplayName: request.DisplayName, Group: request.Group})
 	if err != nil {
 		writeIdentityManagementError(w, err)
@@ -247,7 +300,12 @@ func (h *Handler) updateIdentityManagementRole(w http.ResponseWriter, r *http.Re
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	role, err := h.identityManager.UpdateRole(r.Context(), mux.Vars(r)["roleKey"], iam.ManagedRoleUpdate{DisplayName: request.DisplayName, Group: request.Group})
+	roleKey := mux.Vars(r)["roleKey"]
+	if isProtectedFlowGoRole(roleKey) {
+		http.Error(w, "flowgo platform roles are built in and cannot be updated from identity management", http.StatusBadRequest)
+		return
+	}
+	role, err := h.identityManager.UpdateRole(r.Context(), roleKey, iam.ManagedRoleUpdate{DisplayName: request.DisplayName, Group: request.Group})
 	if err != nil {
 		writeIdentityManagementError(w, err)
 		return
@@ -256,11 +314,26 @@ func (h *Handler) updateIdentityManagementRole(w http.ResponseWriter, r *http.Re
 }
 
 func (h *Handler) deleteIdentityManagementRole(w http.ResponseWriter, r *http.Request) {
-	if err := h.identityManager.DeleteRole(r.Context(), mux.Vars(r)["roleKey"]); err != nil {
+	roleKey := mux.Vars(r)["roleKey"]
+	if isProtectedFlowGoRole(roleKey) {
+		http.Error(w, "flowgo platform roles are built in and cannot be deleted from identity management", http.StatusBadRequest)
+		return
+	}
+	if err := h.identityManager.DeleteRole(r.Context(), roleKey); err != nil {
 		writeIdentityManagementError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func isProtectedFlowGoRole(role string) bool {
+	return strings.EqualFold(strings.TrimSpace(role), auth.RoleFlowGoAdmin) ||
+		strings.EqualFold(strings.TrimSpace(role), auth.RoleFlowGoModeler) ||
+		strings.EqualFold(strings.TrimSpace(role), auth.RoleFlowGoClient)
+}
+
+func isReservedFlowGoRole(role string) bool {
+	return isProtectedFlowGoRole(role) || strings.EqualFold(strings.TrimSpace(role), "flowgo viewer")
 }
 
 func toIdentityManagementUserResponse(user iam.ManagedUser) dto.IdentityManagementUserResponse {
@@ -299,6 +372,7 @@ func toIdentityManagementClientResponse(client iam.ManagedClient) dto.IdentityMa
 		CreatedAt:   client.CreatedAt,
 		ChangedAt:   client.ChangedAt,
 		Tokens:      make([]dto.IdentityManagementClientTokenSummaryResponse, 0, len(client.Tokens)),
+		Credentials: make([]dto.IdentityManagementClientCredentialResponse, 0, len(client.Credentials)),
 	}
 	for _, token := range client.Tokens {
 		response.Tokens = append(response.Tokens, dto.IdentityManagementClientTokenSummaryResponse{
@@ -309,7 +383,17 @@ func toIdentityManagementClientResponse(client iam.ManagedClient) dto.IdentityMa
 			Status:         token.Status,
 		})
 	}
+	for _, credential := range client.Credentials {
+		response.Credentials = append(response.Credentials, toIdentityManagementClientCredentialResponse(credential))
+	}
 	return response
+}
+
+func toIdentityManagementClientCredentialResponse(credential iam.ManagedClientCredentialSummary) dto.IdentityManagementClientCredentialResponse {
+	return dto.IdentityManagementClientCredentialResponse{
+		ID: credential.ID, Type: credential.Type, CreatedAt: credential.CreatedAt,
+		ChangedAt: credential.ChangedAt, ExpiresAt: credential.ExpiresAt, Status: credential.Status,
+	}
 }
 
 func toIdentityManagementClientTokenResponse(token iam.ManagedClientToken) dto.IdentityManagementClientTokenResponse {
@@ -336,15 +420,26 @@ func writeIdentityManagementError(w http.ResponseWriter, err error) {
 		http.Error(w, "ZITADEL management is not configured", http.StatusServiceUnavailable)
 	case errors.Is(err, iam.ErrZITADELManagedClientNotFound):
 		http.Error(w, "FlowGo client was not found", http.StatusNotFound)
+	case errors.Is(err, iam.ErrInvalidClientPublicKey), errors.Is(err, iam.ErrInvalidClientCredentialExpiry):
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	case errors.Is(err, iam.ErrLegacyPATCreationDisabled), errors.Is(err, iam.ErrLegacyPATRotationDisabled):
+		http.Error(w, "legacy PAT issuance is disabled", http.StatusForbidden)
 	case errors.As(err, &zitadelErr):
 		status := http.StatusBadGateway
 		if zitadelErr.StatusCode == http.StatusBadRequest || zitadelErr.StatusCode == http.StatusNotFound || zitadelErr.StatusCode == http.StatusConflict {
 			status = zitadelErr.StatusCode
 		}
-		http.Error(w, err.Error(), status)
+		http.Error(w, "identity provider request failed", status)
 	default:
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "identity management request failed", http.StatusInternalServerError)
 	}
+}
+
+func setSensitiveResponseHeaders(w http.ResponseWriter, filename string) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

@@ -10,11 +10,11 @@ Thank you for your interest in contributing! We want to make this project a robu
     ```bash
     make up
     ```
-    This starts the external IAM deployment using `docker-compose.external-iam.yml`.
-    No `.env` file is required. To use the bundled ZITADEL deployment instead, run:
+    This starts the bundled ZITADEL deployment using `docker-compose.zitadel.yml`.
+    No `.env` file is required. To use the external IAM template with your own OIDC provider, configure `docker-compose.external-iam.yml` and run:
 
     ```bash
-    make up-zitadel
+    make up-external-iam
     ```
 
     Debezium connector bootstrap is handled automatically by `sync-worker` startup. Manual recovery remains available via `make init-connector`.
@@ -31,8 +31,8 @@ The backend services are located in `backend/`.
 To rebuild the backend after changes:
 ```bash
 make up
-# or:
-make up-zitadel
+# or, for a configured external OIDC provider:
+make up-external-iam
 ```
 
 Validate profile configs quickly:
@@ -46,8 +46,8 @@ Located in `frontend/`.
 To rebuild the frontend after changes:
 ```bash
 make up
-# or:
-make up-zitadel
+# or, for a configured external OIDC provider:
+make up-external-iam
 ```
 
 ## Running Tests

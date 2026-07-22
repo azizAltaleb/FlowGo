@@ -116,20 +116,23 @@ services:
       AUTH_INTROSPECTION_CLIENT_ID: ""
       AUTH_INTROSPECTION_CLIENT_SECRET: ""
       AUTH_INTROSPECTION_AUTH_METHOD: basic
-      # External IAM must issue one of these roles in the configured roles claim:
-      #   flowgo client - system/API/SDK integration
-      #   flowgo admin  - full platform administration
-      #   flowgo viewer - read-only platform access
+      # External IAM must issue these roles in the configured roles claim when needed:
+      #   flowgo admin  - full platform administration for human admins
+      #   flowgo modeler - process catalog and modeler access for process designers
+      #   flowgo client - system/API/SDK integration tokens only
       AUTH_CLAIM_SUBJECT_PATH: sub
       AUTH_CLAIM_ROLES_PATH: roles,realm_access.roles,groups
       AUTH_CLAIM_SCOPES_PATH: scope,scp
       AUTH_CLAIM_TENANT_PATH: tenant_id
       AUTH_CLAIM_EMAIL_PATH: email
       AUTH_CLAIM_NAME_PATH: name
-      AUTH_ENFORCE_AUDIENCE: "false"
+      AUTH_ENFORCE_AUDIENCE: "true"
       AUTH_ALLOW_INSECURE_ISSUER: "true"
       ALLOWED_ORIGINS: http://localhost:9100,http://localhost:5173
       CORS_ALLOW_CREDENTIALS: "false"
+      EVENT_BUS_TYPE: kafka
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_TOPIC_EVENTS: workflow.events.v1
       RUNTIME_ENABLED: "false"
     depends_on:
       postgres:
@@ -149,6 +152,9 @@ services:
       RUNTIME_TICK_INTERVAL: 1s
       RUNTIME_TASK_TIMEOUT: 5s
       METRICS_ADDR: :9091
+      EVENT_BUS_TYPE: kafka
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_TOPIC_EVENTS: workflow.events.v1
     depends_on:
       postgres:
         condition: service_healthy
@@ -180,17 +186,17 @@ services:
       AUTH_INTROSPECTION_CLIENT_ID: ""
       AUTH_INTROSPECTION_CLIENT_SECRET: ""
       AUTH_INTROSPECTION_AUTH_METHOD: basic
-      # External IAM must issue one of these roles in the configured roles claim:
-      #   flowgo client - system/API/SDK integration
-      #   flowgo admin  - full platform administration
-      #   flowgo viewer - read-only platform access
+      # External IAM must issue these roles in the configured roles claim when needed:
+      #   flowgo admin  - full platform administration for human admins
+      #   flowgo modeler - process catalog and modeler access for process designers
+      #   flowgo client - system/API/SDK integration tokens only
       AUTH_CLAIM_SUBJECT_PATH: sub
       AUTH_CLAIM_ROLES_PATH: roles,realm_access.roles,groups
       AUTH_CLAIM_SCOPES_PATH: scope,scp
       AUTH_CLAIM_TENANT_PATH: tenant_id
       AUTH_CLAIM_EMAIL_PATH: email
       AUTH_CLAIM_NAME_PATH: name
-      AUTH_ENFORCE_AUDIENCE: "false"
+      AUTH_ENFORCE_AUDIENCE: "true"
       AUTH_ALLOW_INSECURE_ISSUER: "true"
       ALLOWED_ORIGINS: http://localhost:9100,http://localhost:5173
       CORS_ALLOW_CREDENTIALS: "false"
@@ -255,7 +261,9 @@ services:
       # Example client id generated for a SPA or user-agent application.
       FRONTEND_AUTH_OIDC_CLIENT_ID: workflow-frontend
       # The external IAM administrator must create and assign:
-      #   flowgo admin, flowgo viewer, flowgo client
+      #   flowgo admin for FlowGo administrators
+      #   flowgo modeler for process designers
+      #   flowgo client only for SDK/service-account tokens
     depends_on:
       app:
         condition: service_started

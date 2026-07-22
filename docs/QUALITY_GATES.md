@@ -49,9 +49,14 @@ Run these when the changed surface warrants deeper confidence:
 | Worker conformance | `make worker-conformance` | Worker API, SDK worker behavior, idempotency, headers, or job lifecycle changes. |
 | Performance | `make test-perf` | Throughput, query performance, worker activation, polling, large variables, or hot paths change. |
 | Full orchestrator | `make test-all` | Nightly, pre-release, or broad cross-system validation. |
+| Exhaustive tester | `make test-all-functionality` | Maintainer-requested live validation across deployment, BPMN, API, SDK, UI, CQRS, worker, performance, and security surfaces. |
+| BPMN exhaustive catalog | `make test-bpmn-exhaustive` | BPMN parser/runtime semantics change or support status needs explicit scenario evidence. |
+| Deployment matrix | `make test-deployment-matrix` | Compose, IAM mode, CQRS profile, Helm, Docker, or release overlay behavior changes. |
 | Release profile smoke | `make smoke-release-profiles` | Docker Compose release overlays or image tag behavior changes. |
 
 `make test-all` starts the full CQRS stack, runs unit/integration/E2E/frontend/performance/security layers, and writes `reports/summary.md`. Use `SKIP_PERF=true` or `SKIP_PLAYWRIGHT=true` only with an explicit reason.
+
+`make test-all-functionality` runs a live-by-default exhaustive harness and writes `reports/all-functionality-report.json` plus `reports/all-functionality-report.md`. It continues by default and records `pass`, `fail`, `warn`, `skip`, or `flaky` evidence per layer. Use skip flags only when the environment cannot provide the dependency, and keep the skip reason visible in the report.
 
 ## Release Gates
 
@@ -87,6 +92,8 @@ Security gates include:
 | CodeQL | Security workflow for public repositories. | Block actionable high/critical alerts after maintainer review. |
 | Dependency updates | Dependabot and dependency policy. | Require review for runtime, auth, parser, Docker, GitHub Actions, and release tooling changes. |
 
+SDK credential changes additionally require live JWT Profile exchange, role/audience validation, overlapping key rotation, removed-key rejection, bounded token lifetime, legacy PAT compatibility, and artifact redaction checks.
+
 Security agents must keep vulnerability details private when disclosure could harm users.
 
 ## Compatibility-Sensitive Surfaces
@@ -120,6 +127,8 @@ Agents and maintainers should preserve or upload:
 - `reports/frontend.md`, `reports/frontend-vitest.json`, Playwright traces/screenshots/results
 - `reports/performance.md`, `reports/k6.json`, `reports/perf-raw.txt`
 - `reports/security.md`, scanner raw outputs, SARIF where available
+- `reports/all-functionality-report.json`, `reports/all-functionality-report.md`, and `reports/all-functionality/` logs for exhaustive tester runs
+- `reports/bpmn-matrix-report.json` and `reports/bpmn-matrix-report.md` for BPMN scenario catalog evidence
 - Release dry-run logs, SDK package dry-run output, SBOM/provenance files
 
 Workflow summaries should include links to artifacts and a short pass/fail/skip table. If a gate did not run, record why.

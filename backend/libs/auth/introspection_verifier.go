@@ -70,6 +70,9 @@ func (v *introspectionVerifier) Verify(ctx context.Context, rawToken string) (*P
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("Accept", "application/json")
+	if host := introspectionRequestHost(v.config, v.introspectionURL); host != "" {
+		request.Host = host
+	}
 	if !strings.EqualFold(v.config.IntrospectionAuthMethod, "post") && v.config.IntrospectionClientID != "" {
 		request.SetBasicAuth(v.config.IntrospectionClientID, v.config.IntrospectionClientSecret)
 	}
@@ -81,12 +84,12 @@ func (v *introspectionVerifier) Verify(ctx context.Context, rawToken string) (*P
 	}
 	defer response.Body.Close()
 
-	payloadRaw, err := io.ReadAll(response.Body)
+	payloadRaw, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 	if err != nil {
 		return nil, fmt.Errorf("read introspection response: %w", err)
 	}
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token introspection failed with status=%d body=%s", response.StatusCode, strings.TrimSpace(string(payloadRaw)))
+		return nil, fmt.Errorf("token introspection failed with status=%d", response.StatusCode)
 	}
 
 	claims := map[string]any{}
@@ -96,11 +99,17 @@ func (v *introspectionVerifier) Verify(ctx context.Context, rawToken string) (*P
 	if !valueAsBool(claims["active"]) {
 		return nil, fmt.Errorf("inactive token")
 	}
+	if err := validateIntrospectionTimes(claims, time.Now().UTC()); err != nil {
+		return nil, err
+	}
 
 	subject := firstNonEmpty(
 		valueAsString(claims["sub"]),
 		valueAsString(claims["username"]),
 	)
+	if subject == "" {
+		return nil, fmt.Errorf("active token has no subject")
+	}
 	principal := principalFromClaims(claims, subject, v.config, TokenModeIntrospection)
 	if issuer := valueAsString(claims["iss"]); issuer != "" {
 		principal.Issuer = issuer
@@ -128,6 +137,47 @@ func (v *introspectionVerifier) Verify(ctx context.Context, rawToken string) (*P
 	}
 
 	return principal, nil
+}
+
+func introspectionRequestHost(cfg Config, introspectionURL string) string {
+	if !cfg.AllowInsecureIssuer || strings.TrimSpace(cfg.ExternalIssuerURL) == "" {
+		return ""
+	}
+	internal, err := url.Parse(strings.TrimSpace(introspectionURL))
+	if err != nil {
+		return ""
+	}
+	external, err := url.Parse(strings.TrimSpace(cfg.ExternalIssuerURL))
+	if err != nil || external.Host == "" || internal.Host == external.Host {
+		return ""
+	}
+	return external.Host
+}
+
+func validateIntrospectionTimes(claims map[string]any, now time.Time) error {
+	if exp, ok := numericDate(claims["exp"]); ok && !now.Before(time.Unix(exp, 0)) {
+		return fmt.Errorf("expired token")
+	}
+	if nbf, ok := numericDate(claims["nbf"]); ok && now.Before(time.Unix(nbf, 0)) {
+		return fmt.Errorf("token is not active yet")
+	}
+	return nil
+}
+
+func numericDate(value any) (int64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return int64(typed), true
+	case json.Number:
+		parsed, err := typed.Int64()
+		return parsed, err == nil
+	case string:
+		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(typed))
+		if err == nil {
+			return parsed.Unix(), true
+		}
+	}
+	return 0, false
 }
 
 func valueAsBool(value any) bool {

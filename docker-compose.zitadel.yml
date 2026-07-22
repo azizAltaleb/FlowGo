@@ -134,14 +134,16 @@ services:
       ZITADEL_DEFAULTINSTANCE_PASSWORDCOMPLEXITYPOLICY_HASUPPERCASE: "false"
       ZITADEL_DEFAULTINSTANCE_PASSWORDCOMPLEXITYPOLICY_HASNUMBER: "false"
       ZITADEL_DEFAULTINSTANCE_PASSWORDCOMPLEXITYPOLICY_HASSYMBOL: "false"
+      ZITADEL_SYSTEMDEFAULTS_SECRETGENERATORS_MACHINEKEYSIZE: "${FLOWGO_ZITADEL_MACHINE_KEY_SIZE:-2048}"
+      ZITADEL_SYSTEMDEFAULTS_SECRETGENERATORS_APPLICATIONKEYSIZE: "${FLOWGO_ZITADEL_APPLICATION_KEY_SIZE:-2048}"
       ZITADEL_FIRSTINSTANCE_PATPATH: /zitadel/bootstrap/owner.pat
       ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: flowgo-bootstrap
       ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: flowgo-bootstrap
-      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "${FLOWGO_ZITADEL_OWNER_PAT_EXPIRATION:-2099-01-01T00:00:00Z}"
       ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /zitadel/bootstrap/login-client.pat
       ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
       ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: workflow-login-client
-      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "${FLOWGO_ZITADEL_LOGIN_PAT_EXPIRATION:-2099-01-01T00:00:00Z}"
       ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: "true"
       ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: http://localhost:9180/ui/v2/login/
       ZITADEL_OIDC_DEFAULTLOGINURLV2: http://localhost:9180/ui/v2/login/login?authRequest=
@@ -200,8 +202,12 @@ services:
       ZITADEL_PUBLIC_URL: http://localhost:9180
       ZITADEL_OWNER_PAT_FILE: /zitadel/bootstrap/owner.pat
       FLOWGO_FRONTEND_CLIENT_ID_FILE: /flowgo/bootstrap/flowgo-frontend-client-id
+      FLOWGO_PROJECT_ID_FILE: /flowgo/bootstrap/flowgo-project-id
+      FLOWGO_API_CLIENT_ID_FILE: /flowgo/auth/flowgo-api-client-id
+      FLOWGO_API_CLIENT_SECRET_FILE: /flowgo/auth/flowgo-api-client-secret
       FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE: /flowgo/bootstrap/flowgo-zitadel.json
       FLOWGO_FRONTEND_URL: http://localhost:9100
+      FLOWGO_ZITADEL_ACCESS_TOKEN_LIFETIME: "${FLOWGO_ZITADEL_ACCESS_TOKEN_LIFETIME:-900s}"
       FLOWGO_PROJECT_NAME: FlowGo
       FLOWGO_FRONTEND_APP_NAME: FlowGo Frontend
       ZITADEL_ADMIN_USERNAME: admin
@@ -215,6 +221,7 @@ services:
       - ./scripts/bootstrap_zitadel.mjs:/scripts/bootstrap_zitadel.mjs:ro
       - zitadel-bootstrap:/zitadel/bootstrap:ro
       - flowgo-zitadel-bootstrap:/flowgo/bootstrap:rw
+      - flowgo-zitadel-auth:/flowgo/auth:rw
     networks:
       - zitadel
     depends_on:
@@ -286,36 +293,48 @@ services:
       AUTH_ISSUER_INTERNAL_URL: http://zitadel-proxy
       # Browser-visible issuer URL.
       AUTH_ISSUER_PUBLIC_URL: http://localhost:9180
-      # Local development keeps audience enforcement relaxed, so the backend does not require a dedicated confidential client.
-      AUTH_CLIENT_ID: workflow-backend
-      AUTH_TOKEN_MODE: jwt
-      AUTH_INTROSPECTION_URL: ""
+      # Bundled ZITADEL validates both browser JWTs and SDK Client PATs through authenticated introspection.
+      AUTH_CLIENT_ID: ""
+      AUTH_CLIENT_ID_FILE: /flowgo/bootstrap/flowgo-project-id
+      AUTH_CLIENT_ID_FILE_TIMEOUT_SECONDS: "180"
+      AUTH_TOKEN_MODE: introspection
+      AUTH_INTROSPECTION_URL: http://zitadel-proxy/oauth/v2/introspect
       AUTH_INTROSPECTION_CLIENT_ID: ""
       AUTH_INTROSPECTION_CLIENT_SECRET: ""
+      AUTH_INTROSPECTION_CLIENT_ID_FILE: /flowgo/auth/flowgo-api-client-id
+      AUTH_INTROSPECTION_CLIENT_SECRET_FILE: /flowgo/auth/flowgo-api-client-secret
+      AUTH_INTROSPECTION_CREDENTIAL_FILE_TIMEOUT_SECONDS: "180"
       AUTH_INTROSPECTION_AUTH_METHOD: basic
       AUTH_CLAIM_SUBJECT_PATH: sub
       # Bundled ZITADEL project roles to create and assign on first boot:
       #   flowgo client - system/API/SDK integration
       #   flowgo admin  - full platform administration
-      #   flowgo viewer - read-only platform access
       AUTH_CLAIM_ROLES_PATH: roles,urn:zitadel:iam:org:project:roles,groups
       AUTH_CLAIM_SCOPES_PATH: scope,scp
       AUTH_CLAIM_TENANT_PATH: urn:zitadel:iam:user:resourceowner:id
       AUTH_CLAIM_EMAIL_PATH: email
       AUTH_CLAIM_NAME_PATH: name
-      AUTH_ENFORCE_AUDIENCE: "false"
+      AUTH_ENFORCE_AUDIENCE: "true"
       AUTH_ALLOW_INSECURE_ISSUER: "true"
       FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9180
       FRONTEND_AUTH_OIDC_CLIENT_ID_FILE: /flowgo/bootstrap/flowgo-frontend-client-id
       ZITADEL_MANAGEMENT_URL: http://zitadel-proxy
       ZITADEL_OWNER_PAT_FILE: /zitadel/bootstrap/owner.pat
       FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE: /flowgo/bootstrap/flowgo-zitadel.json
+      FLOWGO_IAM_CLIENT_KEY_DEFAULT_LIFETIME: "${FLOWGO_IAM_CLIENT_KEY_DEFAULT_LIFETIME:-2160h}"
+      FLOWGO_IAM_CLIENT_KEY_MAX_LIFETIME: "${FLOWGO_IAM_CLIENT_KEY_MAX_LIFETIME:-8760h}"
+      FLOWGO_IAM_ENABLE_LEGACY_PAT_CREATION: "${FLOWGO_IAM_ENABLE_LEGACY_PAT_CREATION:-false}"
+      FLOWGO_IAM_ENABLE_LEGACY_PAT_ROTATION: "${FLOWGO_IAM_ENABLE_LEGACY_PAT_ROTATION:-false}"
       ALLOWED_ORIGINS: http://localhost:9100,http://localhost:5173
       CORS_ALLOW_CREDENTIALS: "false"
+      EVENT_BUS_TYPE: kafka
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_TOPIC_EVENTS: workflow.events.v1
       RUNTIME_ENABLED: "false"
     volumes:
       - zitadel-bootstrap:/zitadel/bootstrap:ro
       - flowgo-zitadel-bootstrap:/flowgo/bootstrap:ro
+      - flowgo-zitadel-auth:/flowgo/auth:ro
     networks:
       - default
       - zitadel
@@ -339,6 +358,9 @@ services:
       RUNTIME_TICK_INTERVAL: 1s
       RUNTIME_TASK_TIMEOUT: 5s
       METRICS_ADDR: :9091
+      EVENT_BUS_TYPE: kafka
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_TOPIC_EVENTS: workflow.events.v1
     depends_on:
       postgres:
         condition: service_healthy
@@ -360,23 +382,27 @@ services:
       IAM_PROVIDER_NAME: ZITADEL
       AUTH_ISSUER_INTERNAL_URL: http://zitadel-proxy
       AUTH_ISSUER_PUBLIC_URL: http://localhost:9180
-      AUTH_CLIENT_ID: workflow-backend
-      AUTH_TOKEN_MODE: jwt
-      AUTH_INTROSPECTION_URL: ""
+      AUTH_CLIENT_ID: ""
+      AUTH_CLIENT_ID_FILE: /flowgo/bootstrap/flowgo-project-id
+      AUTH_CLIENT_ID_FILE_TIMEOUT_SECONDS: "180"
+      AUTH_TOKEN_MODE: introspection
+      AUTH_INTROSPECTION_URL: http://zitadel-proxy/oauth/v2/introspect
       AUTH_INTROSPECTION_CLIENT_ID: ""
       AUTH_INTROSPECTION_CLIENT_SECRET: ""
+      AUTH_INTROSPECTION_CLIENT_ID_FILE: /flowgo/auth/flowgo-api-client-id
+      AUTH_INTROSPECTION_CLIENT_SECRET_FILE: /flowgo/auth/flowgo-api-client-secret
+      AUTH_INTROSPECTION_CREDENTIAL_FILE_TIMEOUT_SECONDS: "180"
       AUTH_INTROSPECTION_AUTH_METHOD: basic
       AUTH_CLAIM_SUBJECT_PATH: sub
       # Bundled ZITADEL project roles to create and assign on first boot:
       #   flowgo client - system/API/SDK integration
       #   flowgo admin  - full platform administration
-      #   flowgo viewer - read-only platform access
       AUTH_CLAIM_ROLES_PATH: roles,urn:zitadel:iam:org:project:roles,groups
       AUTH_CLAIM_SCOPES_PATH: scope,scp
       AUTH_CLAIM_TENANT_PATH: urn:zitadel:iam:user:resourceowner:id
       AUTH_CLAIM_EMAIL_PATH: email
       AUTH_CLAIM_NAME_PATH: name
-      AUTH_ENFORCE_AUDIENCE: "false"
+      AUTH_ENFORCE_AUDIENCE: "true"
       AUTH_ALLOW_INSECURE_ISSUER: "true"
       FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9180
       FRONTEND_AUTH_OIDC_CLIENT_ID_FILE: /flowgo/bootstrap/flowgo-frontend-client-id
@@ -384,6 +410,7 @@ services:
       CORS_ALLOW_CREDENTIALS: "false"
     volumes:
       - flowgo-zitadel-bootstrap:/flowgo/bootstrap:ro
+      - flowgo-zitadel-auth:/flowgo/auth:ro
     networks:
       - default
       - zitadel
@@ -482,6 +509,7 @@ volumes:
   zitadel-postgres-data:
   zitadel-bootstrap:
   flowgo-zitadel-bootstrap:
+  flowgo-zitadel-auth:
 
 networks:
   zitadel:

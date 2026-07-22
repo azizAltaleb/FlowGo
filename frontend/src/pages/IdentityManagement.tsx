@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   api,
+  type CreateIdentityManagementRoleRequest,
   type CreateIdentityManagementUserRequest,
   type IdentityConfigResponse,
   type IdentityManagementRole,
@@ -16,7 +17,8 @@ import {
   type UpdateIdentityManagementRoleRequest,
   type UpdateIdentityManagementUserRequest,
 } from "@/lib/api";
-import { Pencil, Plus, RefreshCw, RotateCcw, Save, Trash2, UserX } from "lucide-react";
+import { FLOWGO_ADMIN_ROLE, FLOWGO_CLIENT_ROLE, FLOWGO_MODELER_ROLE } from "@/lib/roles";
+import { Pencil, Plus, RefreshCw, Save, Trash2, UserCheck, UserX } from "lucide-react";
 
 const emptyUser: CreateIdentityManagementUserRequest = {
   username: "",
@@ -28,8 +30,27 @@ const emptyUser: CreateIdentityManagementUserRequest = {
   roles: [],
 };
 
+const emptyRole: CreateIdentityManagementRoleRequest = {
+  key: "",
+  display_name: "",
+  group: "Business",
+};
+
+const FLOWGO_VIEWER_ROLE = "flowgo viewer";
+const HUMAN_PLATFORM_ROLE_KEYS = [FLOWGO_ADMIN_ROLE, FLOWGO_MODELER_ROLE];
+const RESERVED_ROLE_KEYS = [FLOWGO_ADMIN_ROLE, FLOWGO_MODELER_ROLE, FLOWGO_CLIENT_ROLE, FLOWGO_VIEWER_ROLE];
+const PROTECTED_ROLE_KEYS = [FLOWGO_ADMIN_ROLE, FLOWGO_MODELER_ROLE, FLOWGO_CLIENT_ROLE];
+
 function isAdmin(identity: IdentityResponse | null) {
   return (identity?.principal?.roles || []).some((role) => role.toLowerCase() === "flowgo admin");
+}
+
+function isPlatformRole(role: string) {
+  return PROTECTED_ROLE_KEYS.some((platformRole) => platformRole.toLowerCase() === role.trim().toLowerCase());
+}
+
+function isReservedRole(role: string) {
+  return RESERVED_ROLE_KEYS.some((reservedRole) => reservedRole.toLowerCase() === role.trim().toLowerCase());
 }
 
 function roleToggle(values: string[], role: string) {
@@ -38,29 +59,73 @@ function roleToggle(values: string[], role: string) {
 
 function stateVariant(state: string) {
   const value = state.toLowerCase();
-  if (value.includes("active")) return "success";
-  if (value.includes("deactivated") || value.includes("locked")) return "warning";
+  if (isInactiveUserState(state)) return "warning";
+  if (value === "active" || value.endsWith("_active")) return "success";
   if (value.includes("deleted")) return "destructive";
   return "outline";
+}
+
+function isInactiveUserState(state: string) {
+  const value = state.toLowerCase();
+  return (
+    value.includes("inactive") ||
+    value.includes("deactivated") ||
+    value.includes("locked") ||
+    value.includes("suspended")
+  );
 }
 
 function messageFromError(err: unknown) {
   return err instanceof Error ? err.message : "Identity management request failed";
 }
 
-function RolePicker({ roles, selected, onToggle }: { roles: string[]; selected: string[]; onToggle: (role: string) => void }) {
+function RolePicker({
+  platformRoles,
+  customRoles,
+  selected,
+  onToggle,
+}: {
+  platformRoles: string[];
+  customRoles: string[];
+  selected: string[];
+  onToggle: (role: string) => void;
+}) {
   return (
     <div className="space-y-2">
       <Label>Roles</Label>
+      <div className="space-y-1">
+        <div className="text-xs font-medium text-muted-foreground">Platform roles</div>
+        <div className="flex flex-wrap gap-3">
+          {platformRoles.map((role) => (
+            <label key={role} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={selected.includes(role)} onChange={() => onToggle(role)} />
+              {role}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="text-xs font-medium text-muted-foreground">Business roles</div>
       <div className="flex flex-wrap gap-3">
-        {roles.map((role) => (
+        {customRoles.map((role) => (
           <label key={role} className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={selected.includes(role)} onChange={() => onToggle(role)} />
             {role}
           </label>
         ))}
-        {roles.length === 0 && <span className="text-sm text-muted-foreground">No roles available</span>}
+        {customRoles.length === 0 && (
+          <span className="text-sm text-muted-foreground">No custom business roles available</span>
+        )}
       </div>
+      {selected.includes(FLOWGO_ADMIN_ROLE) && (
+        <p className="text-xs text-muted-foreground">
+          {FLOWGO_ADMIN_ROLE} is the administrative static role and remains assigned to current admins.
+        </p>
+      )}
+      {selected.includes(FLOWGO_MODELER_ROLE) && (
+        <p className="text-xs text-muted-foreground">
+          {FLOWGO_MODELER_ROLE} can read and deploy process definitions, but cannot start instances or manage identity.
+        </p>
+      )}
     </div>
   );
 }
@@ -71,6 +136,7 @@ export default function IdentityManagement() {
   const [users, setUsers] = useState<IdentityManagementUser[]>([]);
   const [roles, setRoles] = useState<IdentityManagementRole[]>([]);
   const [newUser, setNewUser] = useState<CreateIdentityManagementUserRequest>(emptyUser);
+  const [newRole, setNewRole] = useState<CreateIdentityManagementRoleRequest>(emptyRole);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UpdateIdentityManagementUserRequest>({});
   const [editingRoleKey, setEditingRoleKey] = useState<string | null>(null);
@@ -81,6 +147,10 @@ export default function IdentityManagement() {
 
   const canManage = config?.deployment_mode === "zitadel" && isAdmin(identity);
   const roleKeys = roles.map((role) => role.key);
+  const platformRoleKeys = HUMAN_PLATFORM_ROLE_KEYS.filter((role) =>
+    roleKeys.some((roleKey) => roleKey.toLowerCase() === role),
+  );
+  const customRoleKeys = roleKeys.filter((role) => !isReservedRole(role));
 
   const load = async () => {
     setLoading(true);
@@ -151,6 +221,18 @@ export default function IdentityManagement() {
     });
   };
 
+  const submitRole = async (event: FormEvent) => {
+    event.preventDefault();
+    if (isReservedRole(newRole.key)) {
+      setError("FlowGo admin, flowgo modeler, and flowgo client are built-in platform roles; flowgo viewer is no longer used. Add a custom business role instead.");
+      return;
+    }
+    await mutate(async () => {
+      await api.createIdentityManagementRole(newRole);
+      setNewRole(emptyRole);
+    });
+  };
+
   if (loading) return <div className="p-4">Loading identity...</div>;
   if (config && !canManage) return <Navigate to="/" replace />;
 
@@ -198,7 +280,7 @@ export default function IdentityManagement() {
               Require password change
             </label>
             <div className="md:col-span-2">
-              <RolePicker roles={roleKeys} selected={newUser.roles} onToggle={(role) => setNewUser({ ...newUser, roles: roleToggle(newUser.roles, role) })} />
+              <RolePicker platformRoles={platformRoleKeys} customRoles={customRoleKeys} selected={newUser.roles} onToggle={(role) => setNewUser({ ...newUser, roles: roleToggle(newUser.roles, role) })} />
             </div>
             <Button type="submit" disabled={saving} className="md:col-span-2"><Plus className="mr-2 h-4 w-4" />Add user</Button>
           </form>
@@ -215,7 +297,7 @@ export default function IdentityManagement() {
               <Input placeholder="Given name" value={editingUser.given_name || ""} onChange={(event) => setEditingUser({ ...editingUser, given_name: event.target.value })} />
               <Input placeholder="Family name" value={editingUser.family_name || ""} onChange={(event) => setEditingUser({ ...editingUser, family_name: event.target.value })} />
               <Input placeholder="Display name" value={editingUser.display_name || ""} onChange={(event) => setEditingUser({ ...editingUser, display_name: event.target.value })} className="md:col-span-2" />
-              <div className="md:col-span-2"><RolePicker roles={roleKeys} selected={editingUser.roles || []} onToggle={(role) => setEditingUser({ ...editingUser, roles: roleToggle(editingUser.roles || [], role) })} /></div>
+              <div className="md:col-span-2"><RolePicker platformRoles={platformRoleKeys} customRoles={customRoleKeys} selected={editingUser.roles || []} onToggle={(role) => setEditingUser({ ...editingUser, roles: roleToggle(editingUser.roles || [], role) })} /></div>
               <div className="flex gap-2 md:col-span-2">
                 <Button type="submit" disabled={saving}><Save className="mr-2 h-4 w-4" />Save user</Button>
                 <Button type="button" variant="outline" onClick={() => setEditingUserId(null)}>Cancel</Button>
@@ -238,7 +320,29 @@ export default function IdentityManagement() {
                   <TableCell><div className="flex flex-wrap gap-1">{user.roles.length ? user.roles.map((role) => <Badge key={role} variant="outline">{role}</Badge>) : <span className="text-xs text-muted-foreground">No roles</span>}</div></TableCell>
                   <TableCell><div className="flex justify-end gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setEditingUserId(user.id); setEditingUser({ username: user.username, given_name: user.given_name, family_name: user.family_name, display_name: user.display_name, email: user.email, roles: user.roles }); }}><Pencil className="h-4 w-4" /></Button>
-                    {user.state === "USER_STATE_DEACTIVATED" ? <Button variant="outline" size="sm" disabled={saving} onClick={() => mutate(() => api.reactivateIdentityManagementUser(user.id))}><RotateCcw className="h-4 w-4" /></Button> : <Button variant="outline" size="sm" disabled={saving} onClick={() => mutate(() => api.terminateIdentityManagementUser(user.id))}><UserX className="h-4 w-4" /></Button>}
+                    {isInactiveUserState(user.state) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={saving}
+                        title="Activate user"
+                        onClick={() => mutate(() => api.activateIdentityManagementUser(user.id))}
+                      >
+                        <UserCheck className="mr-2 h-4 w-4" />
+                        Activate
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={saving}
+                        title="Make user inactive"
+                        onClick={() => mutate(() => api.terminateIdentityManagementUser(user.id))}
+                      >
+                        <UserX className="mr-2 h-4 w-4" />
+                        Make inactive
+                      </Button>
+                    )}
                     <Button variant="destructive" size="sm" disabled={saving} onClick={() => window.confirm(`Delete user ${user.preferred_login_name}?`) && mutate(() => api.deleteIdentityManagementUser(user.id))}><Trash2 className="h-4 w-4" /></Button>
                   </div></TableCell>
                 </TableRow>
@@ -250,13 +354,92 @@ export default function IdentityManagement() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Roles</CardTitle><CardDescription>View, update, and delete FlowGo project roles.</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle>Roles</CardTitle>
+          <CardDescription>
+            FlowGo admin and FlowGo modeler are static human roles. FlowGo client is reserved for SDK clients.
+            Add custom business roles here and enroll users to them.
+          </CardDescription>
+        </CardHeader>
         <CardContent className="space-y-4">
+          <form className="grid gap-3 md:grid-cols-4" onSubmit={submitRole}>
+            <Input
+              required
+              placeholder="Role key, e.g. accountant"
+              value={newRole.key}
+              onChange={(event) => setNewRole({ ...newRole, key: event.target.value })}
+            />
+            <Input
+              required
+              placeholder="Display name, e.g. Accountant"
+              value={newRole.display_name}
+              onChange={(event) => setNewRole({ ...newRole, display_name: event.target.value })}
+            />
+            <Input
+              placeholder="Group, e.g. Finance"
+              value={newRole.group}
+              onChange={(event) => setNewRole({ ...newRole, group: event.target.value })}
+            />
+            <Button type="submit" disabled={saving}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add role
+            </Button>
+          </form>
           {editingRoleKey && <form className="grid gap-3 md:grid-cols-4" onSubmit={submitRoleEdit}><Input value={editingRoleKey} disabled /><Input required value={editingRole.display_name} onChange={(event) => setEditingRole({ ...editingRole, display_name: event.target.value })} /><Input value={editingRole.group} onChange={(event) => setEditingRole({ ...editingRole, group: event.target.value })} /><div className="flex gap-2"><Button type="submit" disabled={saving}>Save</Button><Button type="button" variant="outline" onClick={() => setEditingRoleKey(null)}>Cancel</Button></div></form>}
           <Table>
             <TableHeader><TableRow><TableHead>Key</TableHead><TableHead>Display name</TableHead><TableHead>Group</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
             <TableBody>
-              {roles.map((role) => <TableRow key={role.key}><TableCell className="font-mono">{role.key}</TableCell><TableCell>{role.display_name}</TableCell><TableCell>{role.group || "-"}</TableCell><TableCell><div className="flex justify-end gap-2"><Button variant="outline" size="sm" onClick={() => { setEditingRoleKey(role.key); setEditingRole({ display_name: role.display_name, group: role.group }); }}><Pencil className="h-4 w-4" /></Button><Button variant="destructive" size="sm" disabled={saving} onClick={() => window.confirm(`Delete role ${role.key}?`) && mutate(() => api.deleteIdentityManagementRole(role.key))}><Trash2 className="h-4 w-4" /></Button></div></TableCell></TableRow>)}
+              {roles.map((role) => {
+                const platformRole = isPlatformRole(role.key);
+                const deprecatedViewerRole = role.key.toLowerCase() === FLOWGO_VIEWER_ROLE;
+                return (
+                  <TableRow key={role.key}>
+                    <TableCell className="font-mono">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {role.key}
+                        {role.key.toLowerCase() === FLOWGO_ADMIN_ROLE && <Badge variant="success">Administrative</Badge>}
+                        {role.key.toLowerCase() === FLOWGO_MODELER_ROLE && <Badge variant="outline">Modeler</Badge>}
+                        {role.key.toLowerCase() === FLOWGO_CLIENT_ROLE && (
+                          <Badge variant="outline">SDK client</Badge>
+                        )}
+                        {deprecatedViewerRole && (
+                          <Badge variant="warning">Deprecated</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>{role.display_name}</TableCell>
+                    <TableCell>{role.group || "-"}</TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={platformRole}
+                          title={platformRole ? "Built-in FlowGo roles cannot be edited here" : "Edit role"}
+                          onClick={() => {
+                            setEditingRoleKey(role.key);
+                            setEditingRole({ display_name: role.display_name, group: role.group });
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={saving || platformRole}
+                          title={platformRole ? "Built-in FlowGo roles cannot be deleted" : "Delete role"}
+                          onClick={() =>
+                            window.confirm(`Delete role ${role.key}?`) &&
+                            mutate(() => api.deleteIdentityManagementRole(role.key))
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {roles.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-sm text-muted-foreground">No roles found</TableCell></TableRow>}
             </TableBody>
           </Table>

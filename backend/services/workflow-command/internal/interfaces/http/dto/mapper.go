@@ -3,6 +3,7 @@ package dto
 import (
 	"fmt"
 	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"strings"
 )
 
 // ToWorkflowResponse maps internal workflow model to API response
@@ -33,8 +34,38 @@ func ToWorkflowInstanceResponse(i *model.WorkflowInstance) WorkflowInstanceRespo
 		Context:           i.Context,
 		CreatedAt:         i.CreatedAt,
 		UpdatedAt:         i.UpdatedAt,
-		Executions:        i.Executions, // Direct copy for now
+		Executions:        ToExecutionResponses(i.Executions, nil),
 	}
+}
+
+func ToWorkflowInstanceResponseWithTasks(i *model.WorkflowInstance, tasks []UserTaskResponse) WorkflowInstanceResponse {
+	response := ToWorkflowInstanceResponse(i)
+	response.Executions = ToExecutionResponses(i.Executions, tasks)
+	return response
+}
+
+func ToExecutionResponses(executions []model.Execution, tasks []UserTaskResponse) []ExecutionResponse {
+	taskByExecutionID := make(map[string]UserTaskResponse, len(tasks))
+	for _, task := range tasks {
+		taskByExecutionID[task.ExecutionID] = task
+	}
+
+	responses := make([]ExecutionResponse, len(executions))
+	for idx, execution := range executions {
+		response := ExecutionResponse{
+			ID:                 execution.ID,
+			StepID:             execution.StepID,
+			Status:             execution.Status,
+			ParentID:           execution.ParentID,
+			StartTime:          execution.StartTime,
+			ElementInstanceKey: fmt.Sprintf("%d", execution.ElementInstanceKey),
+		}
+		if task, ok := taskByExecutionID[execution.ID]; ok {
+			response.Task = &task
+		}
+		responses[idx] = response
+	}
+	return responses
 }
 
 // ToJobResponse maps internal job model to API response
@@ -49,7 +80,11 @@ func ToJobResponse(j model.Job) JobResponse {
 		Worker:               j.Worker,
 		Retries:              j.Retries,
 		State:                j.State,
+		Assignee:             j.Assignee,
+		CandidateUsers:       j.CandidateUsers,
+		CandidateGroups:      j.CandidateGroups,
 		LockExpirationTime:   j.LockExpirationTime,
+		DueDate:              j.DueDate,
 		CreatedAt:            j.CreatedAt,
 		UpdatedAt:            j.UpdatedAt,
 	}
@@ -61,4 +96,37 @@ func ToJobResponses(jobs []model.Job) []JobResponse {
 		responses[i] = ToJobResponse(j)
 	}
 	return responses
+}
+
+func ToUserTaskResponse(j model.Job, eligible, ownsClaim, admin bool) UserTaskResponse {
+	claimed := strings.TrimSpace(j.Worker)
+	canClaim := eligible && j.State != "COMPLETED" && (claimed == "" || admin)
+	canComplete := j.State != "COMPLETED" && (admin || (eligible && ownsClaim))
+	return UserTaskResponse{
+		Key:             fmt.Sprintf("%d", j.Key),
+		ElementID:       j.ElementID,
+		ExecutionID:     fmt.Sprintf("%d", j.ElementInstanceKey),
+		State:           j.State,
+		Assignee:        j.Assignee,
+		CandidateUsers:  splitAssignmentList(j.CandidateUsers),
+		CandidateGroups: splitAssignmentList(j.CandidateGroups),
+		ClaimedBy:       claimed,
+		CanClaim:        canClaim,
+		CanComplete:     canComplete,
+		DueDate:         j.DueDate,
+		CreatedAt:       j.CreatedAt,
+		UpdatedAt:       j.UpdatedAt,
+	}
+}
+
+func splitAssignmentList(value string) []string {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }

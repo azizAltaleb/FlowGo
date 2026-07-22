@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	pb "github.com/azizAltaleb/flowgo/backend/api/v1/go"
 	"github.com/azizAltaleb/flowgo/backend/libs/model"
@@ -14,9 +15,17 @@ import (
 
 type txOnlyRepo struct {
 	repository.Repository
-	txCalls     int
-	outbox      map[string]model.OutboxMessage
-	idempotency map[string]model.IdempotencyRecord
+	txCalls          int
+	outbox           map[string]model.OutboxMessage
+	idempotency      map[string]model.IdempotencyRecord
+	elementInstances map[int64]model.ElementInstance
+	jobs             map[int64]model.Job
+	processes        map[int64]model.Process
+	processInstances map[int64]model.ProcessInstance
+	variables        []model.Variable
+	processGets      int
+	stateGets        int
+	typeQueries      [][]string
 }
 
 func (r *txOnlyRepo) WithTx(_ context.Context, fn func(txRepo repository.Repository) error) error {
@@ -36,12 +45,14 @@ func (r *txOnlyRepo) ListPendingOutboxMessages(_ context.Context, now time.Time,
 	if limit <= 0 {
 		limit = 100
 	}
+	staleBefore := now.Add(-5 * time.Minute)
 	out := make([]model.OutboxMessage, 0, limit)
 	for _, msg := range r.outbox {
-		if msg.Status != "PENDING" {
-			continue
-		}
-		if msg.NextAttempt != nil && msg.NextAttempt.After(now) {
+		pendingDue := msg.Status == "PENDING" && (msg.NextAttempt == nil || !msg.NextAttempt.After(now))
+		staleProcessing := msg.Status == "PROCESSING" &&
+			((msg.ProcessingStartedAt != nil && !msg.ProcessingStartedAt.After(staleBefore)) ||
+				(msg.ProcessingStartedAt == nil && !msg.CreatedAt.After(staleBefore)))
+		if !pendingDue && !staleProcessing {
 			continue
 		}
 		out = append(out, msg)
@@ -57,16 +68,20 @@ func (r *txOnlyRepo) ClaimOutboxMessage(_ context.Context, id string, claimedAt 
 	if !ok {
 		return false, nil
 	}
-	if msg.Status != "PENDING" {
+	staleBefore := claimedAt.Add(-5 * time.Minute)
+	pendingDue := msg.Status == "PENDING" && (msg.NextAttempt == nil || !msg.NextAttempt.After(claimedAt))
+	staleProcessing := msg.Status == "PROCESSING" &&
+		((msg.ProcessingStartedAt != nil && !msg.ProcessingStartedAt.After(staleBefore)) ||
+			(msg.ProcessingStartedAt == nil && !msg.CreatedAt.After(staleBefore)))
+	if !pendingDue && !staleProcessing {
 		return false, nil
 	}
-	if msg.NextAttempt != nil && msg.NextAttempt.After(claimedAt) {
-		return false, nil
-	}
+	processingStartedAt := claimedAt
 	msg.Status = "PROCESSING"
 	msg.Attempts++
 	msg.LastError = ""
 	msg.NextAttempt = nil
+	msg.ProcessingStartedAt = &processingStartedAt
 	r.outbox[id] = msg
 	return true, nil
 }
@@ -79,6 +94,7 @@ func (r *txOnlyRepo) MarkOutboxMessagePublishFailed(_ context.Context, id, lastE
 	msg.Status = "PENDING"
 	msg.LastError = lastError
 	msg.NextAttempt = &nextAttempt
+	msg.ProcessingStartedAt = nil
 	r.outbox[id] = msg
 	return nil
 }
@@ -91,6 +107,7 @@ func (r *txOnlyRepo) MarkOutboxMessageTerminalFailed(_ context.Context, id, last
 	msg.Status = "FAILED"
 	msg.LastError = lastError
 	msg.NextAttempt = nil
+	msg.ProcessingStartedAt = nil
 	msg.PublishedAt = &failedAt
 	r.outbox[id] = msg
 	return nil
@@ -102,6 +119,7 @@ func (r *txOnlyRepo) MarkOutboxMessagePublished(_ context.Context, id string, pu
 		return nil
 	}
 	msg.Status = "PUBLISHED"
+	msg.ProcessingStartedAt = nil
 	msg.PublishedAt = &publishedAt
 	r.outbox[id] = msg
 	return nil
@@ -109,11 +127,13 @@ func (r *txOnlyRepo) MarkOutboxMessagePublished(_ context.Context, id string, pu
 
 func (r *txOnlyRepo) CountPendingOutboxMessages(_ context.Context, now time.Time) (int64, error) {
 	var count int64
+	staleBefore := now.Add(-5 * time.Minute)
 	for _, msg := range r.outbox {
-		if msg.Status != "PENDING" {
-			continue
-		}
-		if msg.NextAttempt != nil && msg.NextAttempt.After(now) {
+		pendingDue := msg.Status == "PENDING" && (msg.NextAttempt == nil || !msg.NextAttempt.After(now))
+		staleProcessing := msg.Status == "PROCESSING" &&
+			((msg.ProcessingStartedAt != nil && !msg.ProcessingStartedAt.After(staleBefore)) ||
+				(msg.ProcessingStartedAt == nil && !msg.CreatedAt.After(staleBefore)))
+		if !pendingDue && !staleProcessing {
 			continue
 		}
 		count++
@@ -159,8 +179,117 @@ func (r *txOnlyRepo) DeleteIdempotencyRecordsBefore(_ context.Context, cutoff ti
 	return deleted, nil
 }
 
+func (r *txOnlyRepo) GetProcess(_ context.Context, key int64) (*model.Process, error) {
+	r.processGets++
+	process, ok := r.processes[key]
+	if !ok {
+		return nil, errors.New("process not found")
+	}
+	return &process, nil
+}
+
+func (r *txOnlyRepo) GetProcessInstanceWithState(_ context.Context, key int64) (*model.ProcessInstance, []model.ElementInstance, []model.Variable, error) {
+	r.stateGets++
+	instance, ok := r.processInstances[key]
+	if !ok {
+		return nil, nil, nil, errors.New("process instance not found")
+	}
+
+	elements := make([]model.ElementInstance, 0)
+	for _, element := range r.elementInstances {
+		if element.ProcessInstanceKey == key {
+			elements = append(elements, element)
+		}
+	}
+
+	variables := make([]model.Variable, 0)
+	for _, variable := range r.variables {
+		if variable.ProcessInstanceKey == key {
+			variables = append(variables, variable)
+		}
+	}
+
+	return &instance, elements, variables, nil
+}
+
+func (r *txOnlyRepo) ListActiveElementInstances(_ context.Context, processInstanceKey int64) ([]model.ElementInstance, error) {
+	return r.listActiveElementInstances(processInstanceKey, nil), nil
+}
+
+func (r *txOnlyRepo) ListActiveElementInstancesByTypes(_ context.Context, processInstanceKey int64, elementTypes []string) ([]model.ElementInstance, error) {
+	r.typeQueries = append(r.typeQueries, append([]string(nil), elementTypes...))
+	return r.listActiveElementInstances(processInstanceKey, elementTypes), nil
+}
+
+func (r *txOnlyRepo) listActiveElementInstances(processInstanceKey int64, elementTypes []string) []model.ElementInstance {
+	typeAllowed := func(elementType string) bool {
+		if len(elementTypes) == 0 {
+			return true
+		}
+		for _, allowed := range elementTypes {
+			if elementType == allowed {
+				return true
+			}
+		}
+		return false
+	}
+
+	elements := make([]model.ElementInstance, 0)
+	for _, element := range r.elementInstances {
+		if processInstanceKey != 0 && element.ProcessInstanceKey != processInstanceKey {
+			continue
+		}
+		if element.State != "ACTIVATED" && element.State != "ACTIVATING" && element.State != "COMPLETING" {
+			continue
+		}
+		if !typeAllowed(element.BpmnElementType) {
+			continue
+		}
+		elements = append(elements, element)
+	}
+	return elements
+}
+
+func (r *txOnlyRepo) CreateVariable(_ context.Context, variable *model.Variable) error {
+	r.variables = append(r.variables, *variable)
+	return nil
+}
+
+func (r *txOnlyRepo) GetJob(_ context.Context, key int64) (*model.Job, error) {
+	job, ok := r.jobs[key]
+	if !ok {
+		return nil, errors.New("job not found")
+	}
+	return &job, nil
+}
+
+func (r *txOnlyRepo) UpdateJob(_ context.Context, job *model.Job) error {
+	if r.jobs == nil {
+		r.jobs = make(map[int64]model.Job)
+	}
+	r.jobs[job.Key] = *job
+	return nil
+}
+
+func (r *txOnlyRepo) UpdateProcessInstance(_ context.Context, instance *model.ProcessInstance) error {
+	if r.processInstances == nil {
+		r.processInstances = make(map[int64]model.ProcessInstance)
+	}
+	r.processInstances[instance.Key] = *instance
+	return nil
+}
+
+func (r *txOnlyRepo) UpdateElementInstance(_ context.Context, element *model.ElementInstance) error {
+	if r.elementInstances == nil {
+		r.elementInstances = make(map[int64]model.ElementInstance)
+	}
+	r.elementInstances[element.Key] = *element
+	return nil
+}
+
 type capturedPublisher struct {
-	events []string
+	events   []string
+	messages []proto.Message
 }
 
 func (p *capturedPublisher) Publish(_ context.Context, event proto.Message, eventType string) error {
@@ -168,6 +297,7 @@ func (p *capturedPublisher) Publish(_ context.Context, event proto.Message, even
 		return errors.New("event is required")
 	}
 	p.events = append(p.events, eventType)
+	p.messages = append(p.messages, event)
 	return nil
 }
 
@@ -183,6 +313,19 @@ func (p *failingPublisher) Publish(_ context.Context, _ proto.Message, _ string)
 
 func (p *failingPublisher) Close() error {
 	return nil
+}
+
+func testJSONValue(t *testing.T, value any) []byte {
+	t.Helper()
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("failed to marshal test value: %v", err)
+	}
+	return data
+}
+
+func ptrTime(value time.Time) *time.Time {
+	return &value
 }
 
 func TestWithTxFlushesBufferedEventsAfterCommit(t *testing.T) {
@@ -305,6 +448,277 @@ func TestRunOutboxRelayCyclePublishesClaimedMessages(t *testing.T) {
 	}
 	if snapshot.OutboxPublishLagSec == 0 {
 		t.Fatalf("expected outbox publish lag metric to be set")
+	}
+}
+
+func TestRunOutboxRelayCycleReclaimsStaleProcessingMessages(t *testing.T) {
+	repo := &txOnlyRepo{outbox: map[string]model.OutboxMessage{}}
+	publisher := &capturedPublisher{}
+	engine := NewEngine(repo, publisher)
+	now := time.Now()
+	staleClaim := now.Add(-10 * time.Minute)
+
+	payload, err := proto.Marshal(&pb.JobActivated{Key: 104})
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
+
+	repo.outbox["msg-stale"] = model.OutboxMessage{
+		ID:                  "msg-stale",
+		EventType:           "JobActivated",
+		Payload:             payload,
+		Status:              "PROCESSING",
+		Attempts:            1,
+		ProcessingStartedAt: &staleClaim,
+		CreatedAt:           now.Add(-time.Hour),
+	}
+
+	result, err := engine.RunOutboxRelayCycle(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("relay cycle failed: %v", err)
+	}
+	if result.Claimed != 1 || result.Published != 1 || result.Failed != 0 {
+		t.Fatalf("unexpected relay result: %+v", result)
+	}
+
+	msg := repo.outbox["msg-stale"]
+	if msg.Status != "PUBLISHED" {
+		t.Fatalf("expected reclaimed outbox message to be published, got %s", msg.Status)
+	}
+	if msg.Attempts != 2 {
+		t.Fatalf("expected reclaimed message attempts to increment to 2, got %d", msg.Attempts)
+	}
+	if msg.ProcessingStartedAt != nil {
+		t.Fatalf("expected processing timestamp to be cleared after publish")
+	}
+}
+
+func TestProceedTokenPublishesElementCompletionWithProcessInstanceKey(t *testing.T) {
+	repo := &txOnlyRepo{}
+	publisher := &capturedPublisher{}
+	engine := NewEngine(repo, publisher)
+
+	instance := &model.WorkflowInstance{
+		ID:     "12345",
+		Status: model.StatusRunning,
+		Executions: []model.Execution{
+			{
+				ID:                 "exec-end",
+				StepID:             "end",
+				Status:             "ACTIVE",
+				ElementInstanceKey: 67890,
+			},
+		},
+		Context: map[string]any{},
+	}
+	workflow := &model.WorkflowDefinition{
+		ID: 777,
+		Steps: []model.StepDefinition{
+			{ID: "end", Type: model.StepTypeEnd},
+		},
+	}
+
+	if err := engine.proceedToken(context.Background(), instance, "exec-end", workflow); err != nil {
+		t.Fatalf("proceedToken failed: %v", err)
+	}
+
+	var completed *pb.ElementInstanceCompleted
+	for _, message := range publisher.messages {
+		if event, ok := message.(*pb.ElementInstanceCompleted); ok {
+			completed = event
+			break
+		}
+	}
+	if completed == nil {
+		t.Fatalf("expected ElementInstanceCompleted event, got %v", publisher.events)
+	}
+	if completed.Key != 67890 {
+		t.Fatalf("expected element key 67890, got %d", completed.Key)
+	}
+	if completed.ProcessInstanceKey != 12345 {
+		t.Fatalf("expected process instance key 12345, got %d", completed.ProcessInstanceKey)
+	}
+}
+
+func TestCompleteJobPublishesOnlyUpdatedVariables(t *testing.T) {
+	repo := &txOnlyRepo{
+		elementInstances: map[int64]model.ElementInstance{
+			456: {
+				Key:                  456,
+				ProcessInstanceKey:   123,
+				ProcessDefinitionKey: 777,
+				ElementID:            "end",
+				BpmnElementType:      string(model.StepTypeEnd),
+				State:                "ACTIVATED",
+				CreatedAt:            time.Now().Add(-time.Minute),
+			},
+		},
+		jobs: map[int64]model.Job{
+			111: {
+				Key:                  111,
+				Type:                 "worker-task",
+				ProcessInstanceKey:   123,
+				ElementInstanceKey:   456,
+				ProcessDefinitionKey: 777,
+				ElementID:            "end",
+				Worker:               "worker-1",
+				State:                "ACTIVATED",
+				LockExpirationTime:   ptrTime(time.Now().Add(time.Minute)),
+			},
+		},
+		processes: map[int64]model.Process{
+			777: {
+				Key:           777,
+				BpmnProcessID: "test-process",
+				Version:       1,
+				Resource:      []byte(`[{"id":"end","type":"END"}]`),
+			},
+		},
+		processInstances: map[int64]model.ProcessInstance{
+			123: {
+				Key:                  123,
+				ProcessDefinitionKey: 777,
+				Version:              1,
+				State:                "ACTIVE",
+				CreatedAt:            time.Now().Add(-time.Minute),
+			},
+		},
+		variables: []model.Variable{
+			{
+				ScopeKey:           1,
+				ProcessInstanceKey: 123,
+				Name:               "existing",
+				Value:              testJSONValue(t, "keep-me"),
+			},
+			{
+				ScopeKey:           2,
+				ProcessInstanceKey: 123,
+				Name:               "secret",
+				Value:              testJSONValue(t, "do-not-republish"),
+			},
+		},
+	}
+	publisher := &capturedPublisher{}
+	engine := NewEngine(repo, publisher)
+
+	if err := engine.CompleteJob(context.Background(), 111, "worker-1", map[string]any{"approved": true}); err != nil {
+		t.Fatalf("CompleteJob failed: %v", err)
+	}
+
+	var variableEvents []string
+	for _, message := range publisher.messages {
+		if event, ok := message.(*pb.VariableUpdated); ok {
+			variableEvents = append(variableEvents, event.Name)
+		}
+	}
+	if len(variableEvents) != 1 {
+		t.Fatalf("expected one VariableUpdated event, got %v", variableEvents)
+	}
+	if variableEvents[0] != "approved" {
+		t.Fatalf("expected only approved to be published, got %v", variableEvents)
+	}
+}
+
+func TestPublishSignalUsesScopedCandidateQuery(t *testing.T) {
+	repo := &txOnlyRepo{
+		elementInstances: map[int64]model.ElementInstance{
+			456: {
+				Key:                  456,
+				ProcessInstanceKey:   123,
+				ProcessDefinitionKey: 777,
+				ElementID:            "service-task",
+				BpmnElementType:      string(model.StepTypeServiceTask),
+				State:                "ACTIVATED",
+				CreatedAt:            time.Now().Add(-time.Minute),
+			},
+		},
+		processes: map[int64]model.Process{
+			777: {
+				Key:           777,
+				BpmnProcessID: "test-process",
+				Version:       1,
+				Resource:      []byte(`[{"id":"service-task","type":"SERVICE_TASK"}]`),
+			},
+		},
+	}
+	engine := NewEngine(repo, &capturedPublisher{})
+
+	if err := engine.PublishSignal(context.Background(), "approval-received", nil); err != nil {
+		t.Fatalf("PublishSignal failed: %v", err)
+	}
+
+	if len(repo.typeQueries) != 1 {
+		t.Fatalf("expected one type-scoped active element query, got %d", len(repo.typeQueries))
+	}
+	if repo.txCalls != 0 {
+		t.Fatalf("expected no transaction for non-signal element rows, got %d", repo.txCalls)
+	}
+	if repo.processGets != 0 {
+		t.Fatalf("expected no workflow definition load for non-signal element rows, got %d", repo.processGets)
+	}
+	if repo.stateGets != 0 {
+		t.Fatalf("expected no instance hydration for non-signal element rows, got %d", repo.stateGets)
+	}
+}
+
+func TestPublishSignalMemoizesWorkflowDefinitionsBeforeHydratingInstances(t *testing.T) {
+	repo := &txOnlyRepo{
+		elementInstances: map[int64]model.ElementInstance{
+			456: {
+				Key:                  456,
+				ProcessInstanceKey:   123,
+				ProcessDefinitionKey: 777,
+				ElementID:            "catch-a",
+				BpmnElementType:      string(model.StepTypeIntermediateCatchEvent),
+				State:                "ACTIVATED",
+				CreatedAt:            time.Now().Add(-time.Minute),
+			},
+			457: {
+				Key:                  457,
+				ProcessInstanceKey:   124,
+				ProcessDefinitionKey: 777,
+				ElementID:            "catch-b",
+				BpmnElementType:      string(model.StepTypeIntermediateCatchEvent),
+				State:                "ACTIVATED",
+				CreatedAt:            time.Now().Add(-time.Minute),
+			},
+			458: {
+				Key:                  458,
+				ProcessInstanceKey:   125,
+				ProcessDefinitionKey: 777,
+				ElementID:            "catch-c",
+				BpmnElementType:      string(model.StepTypeIntermediateCatchEvent),
+				State:                "ACTIVATED",
+				CreatedAt:            time.Now().Add(-time.Minute),
+			},
+		},
+		processes: map[int64]model.Process{
+			777: {
+				Key:           777,
+				BpmnProcessID: "test-process",
+				Version:       1,
+				Resource: []byte(`[
+					{"id":"catch-a","type":"INTERMEDIATE_CATCH_EVENT","properties":{"signal_ref":"other-signal"}},
+					{"id":"catch-b","type":"INTERMEDIATE_CATCH_EVENT","properties":{"signal_ref":"other-signal"}},
+					{"id":"catch-c","type":"INTERMEDIATE_CATCH_EVENT","properties":{"signal_ref":"other-signal"}}
+				]`),
+			},
+		},
+	}
+	engine := NewEngine(repo, &capturedPublisher{})
+
+	if err := engine.PublishSignal(context.Background(), "approval-received", map[string]any{"approved": true}); err != nil {
+		t.Fatalf("PublishSignal failed: %v", err)
+	}
+
+	if repo.processGets != 1 {
+		t.Fatalf("expected one workflow definition load for shared process, got %d", repo.processGets)
+	}
+	if repo.stateGets != 0 {
+		t.Fatalf("expected no instance hydration for non-matching signal, got %d", repo.stateGets)
+	}
+	if repo.txCalls != 0 {
+		t.Fatalf("expected no transaction for non-matching signal, got %d", repo.txCalls)
 	}
 }
 

@@ -1,5 +1,9 @@
 import { Worker, WorkerHandler, WorkerOptions } from './Worker';
 import {
+    OAuthClientCredentialsAuthProvider,
+    ZitadelJwtProfileAuthProvider,
+} from './Auth';
+import {
     ActivateJobsRequest,
     ActivateJobsResponse,
     CreateIdentityManagementClientTokenRequest,
@@ -10,6 +14,7 @@ import {
     FailJobRequest,
     FetchLike,
     FetchResponseLike,
+    GetInboxInstanceOptions,
     GetInstanceOptions,
     HealthResponse,
     IdentityConfigResponse,
@@ -19,7 +24,10 @@ import {
     IdentityManagementUser,
     IdentityResponse,
     InstanceSearchResponse,
+    InboxRequestOptions,
+    ListMyCompletedTransactionsOptions,
     ListOptions,
+    ListUserTasksOptions,
     ListWorkflowsOptions,
     PublishMessageRequest,
     PublishSignalRequest,
@@ -30,12 +38,14 @@ import {
     UpdateIdentityManagementRoleRequest,
     UpdateIdentityManagementUserRequest,
     UpdateVariablesRequest,
+    UserTask,
     WorkerCapabilitiesResponse,
     WorkflowDefinition,
     WorkflowInstance,
     WorkflowSearchResponse,
     FlowGoClientOptions,
     CompleteJobRequest,
+    TokenProvider,
 } from './types';
 
 export const WorkerProtocolVersion = 'v1';
@@ -44,6 +54,9 @@ export const HeaderEngineProtocolVersion = 'X-Workflow-Engine-Protocol-Version';
 export const IdempotencyKeyHeader = 'Idempotency-Key';
 
 type RequestBody = unknown;
+type AuthProvider = {
+    getToken(): Promise<string>;
+};
 
 export class FlowGoApiError extends Error {
     public readonly status: number;
@@ -66,22 +79,38 @@ export class FlowGoApiError extends Error {
 export class FlowGoClient {
     private baseUrl: string;
     private queryBaseUrl: string;
-    private token?: FlowGoClientOptions['token'];
+    private token?: TokenProvider;
+    private authProvider?: AuthProvider;
     private headers?: FlowGoClientOptions['headers'];
     private timeoutMs: number;
     private fetchImpl: FetchLike;
 
     constructor(options: FlowGoClientOptions | string = {}) {
         const resolvedOptions = typeof options === 'string' ? { baseUrl: options } : options;
+        if (resolvedOptions.token !== undefined && resolvedOptions.auth !== undefined) {
+            throw new Error('FlowGoClient options.token and options.auth cannot be used together');
+        }
         this.baseUrl = normalizeBaseUrl(resolvedOptions.baseUrl || 'http://localhost:9100/api');
         this.queryBaseUrl = normalizeBaseUrl(resolvedOptions.queryBaseUrl || `${this.baseUrl}/query`);
+        this.fetchImpl = resolvedOptions.fetch || defaultFetch();
         this.token = resolvedOptions.token;
+        if (resolvedOptions.auth?.type === 'zitadel-jwt-profile') {
+            this.authProvider = new ZitadelJwtProfileAuthProvider(
+                resolvedOptions.auth,
+                this.fetchImpl,
+            );
+        } else if (resolvedOptions.auth?.type === 'oauth-client-credentials') {
+            this.authProvider = new OAuthClientCredentialsAuthProvider(
+                resolvedOptions.auth,
+                this.fetchImpl,
+            );
+        }
         this.headers = resolvedOptions.headers;
         this.timeoutMs = resolvedOptions.timeoutMs ?? 30000;
-        this.fetchImpl = resolvedOptions.fetch || defaultFetch();
     }
 
     public setToken(token: string | undefined): void {
+        this.authProvider = undefined;
         this.token = token;
     }
 
@@ -156,6 +185,50 @@ export class FlowGoClient {
             return this.queryRequest<WorkflowInstance>('GET', `/instances/${encodeURIComponent(id)}`, undefined, options);
         }
         return this.request<WorkflowInstance>('GET', `/instances/${encodeURIComponent(id)}`, undefined, options);
+    }
+
+    public async listInboxItems(options: InboxRequestOptions): Promise<WorkflowInstance[]> {
+        return this.request<WorkflowInstance[]>('GET', '/inbox', undefined, withActingUserHeaders(options));
+    }
+
+    public async listVisibleActiveInstances(options: InboxRequestOptions): Promise<WorkflowInstance[]> {
+        return this.listInboxItems(options);
+    }
+
+    public async getInboxInstance(id: string, options: GetInboxInstanceOptions): Promise<WorkflowInstance> {
+        return this.request<WorkflowInstance>('GET', `/inbox/instances/${encodeURIComponent(id)}${queryString(options, ['includeCompleted'])}`, undefined, withActingUserHeaders(options));
+    }
+
+    public async listUserTasks(instanceId: string, options: ListUserTasksOptions): Promise<UserTask[]> {
+        const response = await this.request<{ tasks?: UserTask[] }>(
+            'GET',
+            `/inbox/instances/${encodeURIComponent(instanceId)}/tasks${queryString(options, ['includeCompleted'])}`,
+            undefined,
+            withActingUserHeaders(options),
+        );
+        return response.tasks || [];
+    }
+
+    public async claimUserTask(instanceId: string, executionId: string, options: InboxRequestOptions): Promise<UserTask> {
+        return this.request<UserTask>(
+            'POST',
+            `/inbox/instances/${encodeURIComponent(instanceId)}/tasks/${encodeURIComponent(executionId)}/claim`,
+            undefined,
+            withActingUserHeaders(options),
+        );
+    }
+
+    public async completeUserTask(instanceId: string, executionId: string, options: InboxRequestOptions): Promise<void> {
+        await this.request<void>(
+            'POST',
+            `/inbox/instances/${encodeURIComponent(instanceId)}/tasks/${encodeURIComponent(executionId)}/complete`,
+            undefined,
+            withActingUserHeaders(options),
+        );
+    }
+
+    public async listMyCompletedTransactions(options: ListMyCompletedTransactionsOptions): Promise<WorkflowInstance[]> {
+        return this.request<WorkflowInstance[]>('GET', `/inbox/history${queryString(options, ['limit'])}`, undefined, withActingUserHeaders(options));
     }
 
     public async updateInstanceVariables(id: string, variables: Record<string, unknown>, options?: RequestOptions): Promise<void> {
@@ -422,7 +495,9 @@ export class FlowGoClient {
         };
         const extraHeaders = await resolveMaybe(this.headers);
         Object.assign(headers, extraHeaders || {});
-        const token = await resolveMaybe(this.token);
+        const token = this.authProvider
+            ? await this.authProvider.getToken()
+            : await resolveMaybe(this.token);
         if (token) {
             headers.Authorization = `Bearer ${token}`;
         }
@@ -477,6 +552,37 @@ function withWorkerHeaders(options: RequestOptions = {}): RequestOptions {
             [HeaderWorkerProtocolVersion]: WorkerProtocolVersion,
             ...options.headers,
         },
+    };
+}
+
+function withActingUserHeaders(options: InboxRequestOptions): RequestOptions {
+    const actingUser = options.actingUser;
+    if (!actingUser || (!actingUser.subject && !actingUser.username && !actingUser.email)) {
+        throw new Error('actingUser.subject, actingUser.username, or actingUser.email is required for inbox requests');
+    }
+
+    const headers: Record<string, string> = { ...options.headers };
+    if (actingUser.subject) {
+        headers['X-FlowGo-Acting-Subject'] = actingUser.subject;
+    }
+    if (actingUser.username) {
+        headers['X-FlowGo-Acting-Username'] = actingUser.username;
+    }
+    if (actingUser.email) {
+        headers['X-FlowGo-Acting-Email'] = actingUser.email;
+    }
+    if (actingUser.name) {
+        headers['X-FlowGo-Acting-Name'] = actingUser.name;
+    }
+    if (actingUser.roles && actingUser.roles.length > 0) {
+        headers['X-FlowGo-Acting-Roles'] = actingUser.roles.join(',');
+    }
+
+    return {
+        correlationId: options.correlationId,
+        idempotencyKey: options.idempotencyKey,
+        signal: options.signal,
+        headers,
     };
 }
 

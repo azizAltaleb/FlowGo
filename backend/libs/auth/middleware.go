@@ -73,7 +73,7 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 			return
 		}
 		if !cfg.Enabled() {
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(WithPrincipal(r.Context(), disabledAuthPrincipal())))
 			return
 		}
 		verifier, err := m.getVerifier(r.Context(), cfg)
@@ -105,6 +105,14 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func disabledAuthPrincipal() Principal {
+	return Principal{
+		Subject:   "local-disabled-auth",
+		Roles:     StandardRoles(),
+		TokenMode: "disabled",
+	}
 }
 
 func (m *Middleware) getVerifier(ctx context.Context, cfg Config) (TokenVerifier, error) {

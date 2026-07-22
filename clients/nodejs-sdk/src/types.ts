@@ -5,20 +5,73 @@ export interface JsonObject {
 }
 export interface JsonArray extends Array<JsonValue> {}
 
-export interface FlowGoClientOptions {
+export type TokenProvider = string | (() => string | Promise<string>);
+
+export interface ZitadelJwtProfile {
+    type: 'serviceaccount';
+    keyId: string;
+    key: string;
+    userId: string;
+    issuer: string;
+    tokenUrl: string;
+    scopes: string[];
+}
+
+export interface ZitadelJwtProfileAuthOptions {
+    type: 'zitadel-jwt-profile';
+    profile: ZitadelJwtProfile;
+    refreshSkewMs?: number;
+    assertionTtlMs?: number;
+    clock?: () => number;
+    fetch?: FetchLike;
+}
+
+export interface OAuthClientCredentialsProfile {
+    type: 'oauth-client-credentials';
+    tokenUrl: string;
+    clientId: string;
+    clientSecret: string;
+    scopes?: string[];
+}
+
+export interface OAuthClientCredentialsAuthOptions {
+    type: 'oauth-client-credentials';
+    profile: OAuthClientCredentialsProfile;
+    refreshSkewMs?: number;
+    clock?: () => number;
+    fetch?: FetchLike;
+}
+
+export type FlowGoAuthOptions =
+    | ZitadelJwtProfileAuthOptions
+    | OAuthClientCredentialsAuthOptions;
+
+export interface FlowGoClientBaseOptions {
     baseUrl?: string;
     queryBaseUrl?: string;
-    token?: string | (() => string | Promise<string>);
     headers?: Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>);
     timeoutMs?: number;
     fetch?: FetchLike;
 }
+
+export type FlowGoClientOptions = FlowGoClientBaseOptions & (
+    | { token?: TokenProvider; auth?: never }
+    | { token?: never; auth?: FlowGoAuthOptions }
+);
 
 export interface RequestOptions {
     correlationId?: string;
     idempotencyKey?: string;
     headers?: Record<string, string>;
     signal?: AbortSignal;
+}
+
+export interface ActingUser {
+    subject?: string;
+    username?: string;
+    email?: string;
+    name?: string;
+    roles?: string[];
 }
 
 export interface FetchResponseLike {
@@ -82,6 +135,22 @@ export interface WorkflowInstance {
     updated_at: string;
 }
 
+export interface UserTask {
+    key: string;
+    elementId: string;
+    executionId: string;
+    state: string;
+    assignee?: string;
+    candidateUsers?: string[];
+    candidateGroups?: string[];
+    claimedBy?: string;
+    canClaim: boolean;
+    canComplete: boolean;
+    dueDate?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface InstanceSearchResponse {
     instances: WorkflowInstance[];
     total: number;
@@ -103,6 +172,22 @@ export interface SearchInstancesOptions extends ListOptions {
 
 export interface GetInstanceOptions extends RequestOptions {
     source?: 'command' | 'query';
+}
+
+export interface InboxRequestOptions extends RequestOptions {
+    actingUser: ActingUser;
+}
+
+export interface GetInboxInstanceOptions extends InboxRequestOptions {
+    includeCompleted?: boolean;
+}
+
+export interface ListUserTasksOptions extends InboxRequestOptions {
+    includeCompleted?: boolean;
+}
+
+export interface ListMyCompletedTransactionsOptions extends InboxRequestOptions {
+    limit?: number;
 }
 
 export interface StartInstanceRequest {

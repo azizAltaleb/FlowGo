@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/azizAltaleb/flowgo/backend/libs/auth"
 	"github.com/azizAltaleb/flowgo/backend/libs/model"
 	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/application"
 	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/domain/repository"
@@ -78,10 +79,26 @@ func setupTestHandler() *Handler {
 	return NewHandler(service)
 }
 
+func registerTestRoutes(r *mux.Router, h *Handler) {
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if _, ok := auth.PrincipalFromContext(req.Context()); !ok {
+				principal := auth.Principal{
+					Subject: "test-admin",
+					Roles:   []string{auth.RoleFlowGoAdmin},
+				}
+				req = req.WithContext(auth.WithPrincipal(req.Context(), principal))
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
+	h.RegisterRoutes(r)
+}
+
 func TestSearchInstances(t *testing.T) {
 	h := setupTestHandler()
 	r := mux.NewRouter()
-	h.RegisterRoutes(r)
+	registerTestRoutes(r, h)
 
 	req, _ := http.NewRequest("GET", "/instances", nil)
 	rr := httptest.NewRecorder()
@@ -112,10 +129,65 @@ func TestSearchInstances(t *testing.T) {
 	}
 }
 
+func TestSearchInstancesRejectsCustomRoleProjectionRead(t *testing.T) {
+	h := setupTestHandler()
+	r := mux.NewRouter()
+	registerTestRoutes(r, h)
+
+	req, _ := http.NewRequest("GET", "/instances", nil)
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "accountant", Roles: []string{"accountant"}}))
+	rr := httptest.NewRecorder()
+
+	r.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusForbidden {
+		t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusForbidden)
+	}
+}
+
+func TestSearchWorkflowsRejectsCustomRoleProjectionRead(t *testing.T) {
+	h := setupTestHandler()
+	r := mux.NewRouter()
+	registerTestRoutes(r, h)
+
+	req, _ := http.NewRequest("GET", "/workflows", nil)
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "accountant", Roles: []string{"accountant"}}))
+	rr := httptest.NewRecorder()
+
+	r.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusForbidden {
+		t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusForbidden)
+	}
+}
+
+func TestModelerReadsWorkflowProjectionOnly(t *testing.T) {
+	h := setupTestHandler()
+	r := mux.NewRouter()
+	registerTestRoutes(r, h)
+	modeler := auth.Principal{Subject: "modeler", Roles: []string{auth.RoleFlowGoModeler}}
+
+	workflowsReq, _ := http.NewRequest("GET", "/workflows", nil)
+	workflowsReq = workflowsReq.WithContext(auth.WithPrincipal(workflowsReq.Context(), modeler))
+	workflowsRec := httptest.NewRecorder()
+	r.ServeHTTP(workflowsRec, workflowsReq)
+	if status := workflowsRec.Code; status != http.StatusOK {
+		t.Fatalf("workflow handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	instancesReq, _ := http.NewRequest("GET", "/instances", nil)
+	instancesReq = instancesReq.WithContext(auth.WithPrincipal(instancesReq.Context(), modeler))
+	instancesRec := httptest.NewRecorder()
+	r.ServeHTTP(instancesRec, instancesReq)
+	if status := instancesRec.Code; status != http.StatusForbidden {
+		t.Fatalf("instance handler returned wrong status code: got %v want %v", status, http.StatusForbidden)
+	}
+}
+
 func TestSearchWorkflows(t *testing.T) {
 	h := setupTestHandler()
 	r := mux.NewRouter()
-	h.RegisterRoutes(r)
+	registerTestRoutes(r, h)
 
 	req, _ := http.NewRequest("GET", "/workflows", nil)
 	rr := httptest.NewRecorder()
@@ -146,7 +218,7 @@ func TestSearchWorkflows(t *testing.T) {
 func TestSearchInstances_RunningStateNormalizedToActive(t *testing.T) {
 	h := setupTestHandler()
 	r := mux.NewRouter()
-	h.RegisterRoutes(r)
+	registerTestRoutes(r, h)
 
 	req, _ := http.NewRequest("GET", "/instances?state=RUNNING", nil)
 	rr := httptest.NewRecorder()
@@ -170,7 +242,7 @@ func TestSearchInstances_RunningStateNormalizedToActive(t *testing.T) {
 func TestGetInstance_ReturnsProjectedResponse(t *testing.T) {
 	h := setupTestHandler()
 	r := mux.NewRouter()
-	h.RegisterRoutes(r)
+	registerTestRoutes(r, h)
 
 	req, _ := http.NewRequest("GET", "/instances/123", nil)
 	rr := httptest.NewRecorder()
@@ -200,7 +272,7 @@ func TestGetInstance_ReturnsProjectedResponse(t *testing.T) {
 func TestSearchInstances_InvalidWorkflowIDReturnsBadRequest(t *testing.T) {
 	h := setupTestHandler()
 	r := mux.NewRouter()
-	h.RegisterRoutes(r)
+	registerTestRoutes(r, h)
 
 	req, _ := http.NewRequest("GET", "/instances?workflowId=not-a-number", nil)
 	rr := httptest.NewRecorder()
@@ -215,7 +287,7 @@ func TestSearchInstances_InvalidWorkflowIDReturnsBadRequest(t *testing.T) {
 func TestGetInstance_InvalidIDReturnsBadRequest(t *testing.T) {
 	h := setupTestHandler()
 	r := mux.NewRouter()
-	h.RegisterRoutes(r)
+	registerTestRoutes(r, h)
 
 	req, _ := http.NewRequest("GET", "/instances/not-a-number", nil)
 	rr := httptest.NewRecorder()

@@ -22,6 +22,13 @@ go test ./backend/... -count=1
 
 Do not publish if any real `.env`, PAT, ZITADEL token, private key, client secret, or local credential is present in tracked files or release artifacts.
 
+For bundled ZITADEL releases:
+
+- Confirm new SDK clients receive browser-generated private-key profiles and no PAT.
+- Confirm JWT Profile exchange, project audience, `flowgo client`, SDK refresh, overlapping key rotation, and key revocation.
+- Confirm legacy PAT issuance/rotation defaults remain disabled and inventory/revocation still works.
+- Confirm UAT reports, screenshots, traces, and logs contain no private key, assertion, access token, PAT, or authorization header.
+
 ## 3. Local validation
 
 ```bash

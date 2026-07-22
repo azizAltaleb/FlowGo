@@ -30,11 +30,20 @@ run bash -n scripts/init_connector.sh
 run bash -n scripts/cqrs_parity_check.sh
 run bash -n scripts/cqrs_e2e_smoke.sh
 run bash -n scripts/worker_conformance_smoke.sh
+run bash -n scripts/validate_compose_kafka_wiring.sh
 run bash -n scripts/validate_helm.sh
+run_quiet docker compose -f docker-compose.yml config
 run_quiet docker compose -f docker-compose.external-iam.yml config
 run_quiet docker compose -f docker-compose.zitadel.yml config
+run_quiet docker compose -f docker-compose.yml -f docker-compose.release.yml config
 run_quiet docker compose -f docker-compose.external-iam.yml -f docker-compose.release.yml config
 run_quiet docker compose -f docker-compose.zitadel.yml -f docker-compose.release.yml config
+run bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.yml
+run bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.external-iam.yml
+run bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.zitadel.yml
+run bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.yml -f docker-compose.release.yml
+run bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.external-iam.yml -f docker-compose.release.yml
+run bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.zitadel.yml -f docker-compose.release.yml
 run bash scripts/validate_helm.sh
 run node scripts/validate_nodejs_sdk_package.mjs
 

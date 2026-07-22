@@ -47,11 +47,10 @@ volumes/
 # Test and coverage artifacts
 coverage.out
 coverage/
-reports/*.out
-reports/*.txt
-reports/*.json
-reports/*.md
+reports/**
 !reports/.gitkeep
+tests/e2e/playwright/reports/
+tests/e2e/playwright/test-results/
 
 # Logs
 *.log

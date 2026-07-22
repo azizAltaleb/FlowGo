@@ -23,10 +23,16 @@ const ZITADEL_INTERNAL_URL = env("ZITADEL_INTERNAL_URL", "http://zitadel-api:808
 const ZITADEL_PUBLIC_URL = env("ZITADEL_PUBLIC_URL", "http://localhost:9180").replace(/\/$/, "");
 const OWNER_PAT_FILE = env("ZITADEL_OWNER_PAT_FILE", "/zitadel/bootstrap/owner.pat");
 const CLIENT_ID_FILE = env("FLOWGO_FRONTEND_CLIENT_ID_FILE", "/flowgo/bootstrap/flowgo-frontend-client-id");
+const PROJECT_ID_FILE = env("FLOWGO_PROJECT_ID_FILE", "/flowgo/bootstrap/flowgo-project-id");
+const API_CLIENT_ID_FILE = env("FLOWGO_API_CLIENT_ID_FILE", "/flowgo/auth/flowgo-api-client-id");
+const API_CLIENT_SECRET_FILE = env("FLOWGO_API_CLIENT_SECRET_FILE", "/flowgo/auth/flowgo-api-client-secret");
+const API_CREDENTIAL_UID = Number(env("FLOWGO_API_CREDENTIAL_UID", "100"));
 const BOOTSTRAP_STATE_FILE = env("FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE", "/flowgo/bootstrap/flowgo-zitadel.json");
 const PROJECT_NAME = env("FLOWGO_PROJECT_NAME", "FlowGo");
 const FRONTEND_APP_NAME = env("FLOWGO_FRONTEND_APP_NAME", "FlowGo Frontend");
+const API_APP_NAME = env("FLOWGO_API_APP_NAME", "FlowGo API");
 const FRONTEND_URL = env("FLOWGO_FRONTEND_URL", "http://localhost:9100").replace(/\/$/, "");
+const ACCESS_TOKEN_LIFETIME = env("FLOWGO_ZITADEL_ACCESS_TOKEN_LIFETIME", "900s");
 const ADMIN_USERNAME = env("ZITADEL_ADMIN_USERNAME", env("ZITADEL_ADMIN_LOGIN_NAME", "admin"));
 const ADMIN_PASSWORD = env("ZITADEL_ADMIN_PASSWORD", "admin");
 const ADMIN_GIVEN_NAME = env("ZITADEL_ADMIN_GIVEN_NAME", "admin");
@@ -43,9 +49,9 @@ const LEGACY_ADMIN_IDENTIFIERS = new Set(
 );
 const PUBLIC_HOST = new URL(ZITADEL_PUBLIC_URL).host;
 const ROLES = [
-  ["flowgo client", "FlowGo Client"],
   ["flowgo admin", "FlowGo Admin"],
-  ["flowgo viewer", "FlowGo Viewer"],
+  ["flowgo modeler", "FlowGo Modeler"],
+  ["flowgo client", "FlowGo Client"],
 ];
 
 function log(message) {
@@ -176,6 +182,53 @@ function isAlreadyExists(error) {
 
 function isNotChanged(error) {
   return JSON.stringify(error?.body || error).toLowerCase().includes("notchanged");
+}
+
+function durationSeconds(value) {
+  const match = /^([1-9]\d*)(s|m|h)$/.exec(value);
+  if (!match) {
+    throw new Error("FLOWGO_ZITADEL_ACCESS_TOKEN_LIFETIME must be a positive duration using s, m, or h");
+  }
+  const multiplier = { s: 1, m: 60, h: 3600 }[match[2]];
+  const seconds = Number(match[1]) * multiplier;
+  if (!Number.isSafeInteger(seconds) || seconds < 60 || seconds > 86400) {
+    throw new Error("FLOWGO_ZITADEL_ACCESS_TOKEN_LIFETIME must be between 60s and 24h");
+  }
+  return seconds;
+}
+
+async function ensureAccessTokenLifetime(token) {
+  const desiredSeconds = durationSeconds(ACCESS_TOKEN_LIFETIME);
+  const response = await requestJson("GET", "/admin/v1/settings/oidc", token, undefined, [200]);
+  const settings = response.settings || {};
+  const required = ["accessTokenLifetime", "idTokenLifetime", "refreshTokenIdleExpiration", "refreshTokenExpiration"];
+  for (const field of required) {
+    if (!settings[field]) {
+      throw new Error(`ZITADEL OIDC settings response omitted ${field}; refusing a partial settings update`);
+    }
+  }
+  if (durationSeconds(settings.accessTokenLifetime) === desiredSeconds) {
+    log(`access-token lifetime is already ${ACCESS_TOKEN_LIFETIME}`);
+    return;
+  }
+  const payload = {
+    accessTokenLifetime: `${desiredSeconds}s`,
+    idTokenLifetime: settings.idTokenLifetime,
+    refreshTokenIdleExpiration: settings.refreshTokenIdleExpiration,
+    refreshTokenExpiration: settings.refreshTokenExpiration,
+  };
+  const inherited = response.isDefault === true || settings.isDefault === true;
+  const method = inherited ? "POST" : "PUT";
+  try {
+    await requestJson(method, "/admin/v1/settings/oidc", token, payload, [200]);
+  } catch (error) {
+    if (method === "POST" && isAlreadyExists(error)) {
+      await requestJson("PUT", "/admin/v1/settings/oidc", token, payload, [200]);
+    } else if (!isNotChanged(error)) {
+      throw error;
+    }
+  }
+  log(`configured access-token lifetime to ${ACCESS_TOKEN_LIFETIME}`);
 }
 
 function loginPolicyPayload(policy = {}) {
@@ -324,6 +377,54 @@ async function ensureFrontendApplication(token, projectId) {
   }
   log(`created frontend app ${FRONTEND_APP_NAME} with client ID ${clientId}`);
   return [response.applicationId, clientId];
+}
+
+function readTextIfPresent(filePath) {
+  try {
+    return fs.readFileSync(filePath, "utf8").trim();
+  } catch {
+    return "";
+  }
+}
+
+async function ensureAPIApplication(token, projectId) {
+  for (const app of await listApplications(token)) {
+    const api = app.apiConfiguration || {};
+    if (app.projectId !== projectId || app.name !== API_APP_NAME || !api.clientId) {
+      continue;
+    }
+    let clientSecret = "";
+    if (readTextIfPresent(API_CLIENT_ID_FILE) === api.clientId) {
+      clientSecret = readTextIfPresent(API_CLIENT_SECRET_FILE);
+    }
+    if (!clientSecret) {
+      const generated = await connect("/zitadel.application.v2.ApplicationService/GenerateClientSecret", token, {
+        applicationId: app.applicationId,
+        projectId,
+      });
+      clientSecret = generated.clientSecret;
+    }
+    if (!clientSecret) {
+      throw new Error("ZITADEL did not return an API client secret");
+    }
+    log(`using existing API application ${API_APP_NAME} with client ID ${api.clientId}`);
+    return [app.applicationId, api.clientId, clientSecret];
+  }
+
+  const response = await connect("/zitadel.application.v2.ApplicationService/CreateApplication", token, {
+    projectId,
+    name: API_APP_NAME,
+    apiConfiguration: {
+      authMethodType: "API_AUTH_METHOD_TYPE_BASIC",
+    },
+  });
+  const clientId = response.apiConfiguration?.clientId;
+  const clientSecret = response.apiConfiguration?.clientSecret;
+  if (!clientId || !clientSecret) {
+    throw new Error("ZITADEL did not return API introspection credentials");
+  }
+  log(`created API application ${API_APP_NAME} with client ID ${clientId}`);
+  return [response.applicationId, clientId, clientSecret];
 }
 
 async function listUsers(token) {
@@ -479,12 +580,15 @@ async function assignAdminRole(token, orgId, projectId, userId) {
   }
 }
 
-function writeText(filePath, value) {
+function writeText(filePath, value, mode = 0o644, ownerUid = undefined) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const tempPath = `${filePath}.tmp`;
-  fs.writeFileSync(tempPath, `${value}\n`, "utf8");
+  fs.writeFileSync(tempPath, `${value}\n`, { encoding: "utf8", mode });
   fs.renameSync(tempPath, filePath);
-  fs.chmodSync(filePath, 0o644);
+  fs.chmodSync(filePath, mode);
+  if (ownerUid !== undefined && Number.isInteger(ownerUid) && ownerUid >= 0) {
+    fs.chownSync(filePath, ownerUid, ownerUid);
+  }
 }
 
 async function main() {
@@ -493,13 +597,18 @@ async function main() {
   const orgId = await getOrgId(token);
   await ensureRegistrationDisabled(token);
   await ensureAdminPasswordAccepted(token);
+  await ensureAccessTokenLifetime(token);
   const projectId = await ensureProject(token, orgId);
   await ensureRoles(token, projectId);
   const [applicationId, clientId] = await ensureFrontendApplication(token, projectId);
+  const [apiApplicationId, apiClientId, apiClientSecret] = await ensureAPIApplication(token, projectId);
   const adminUserId = await ensureAdminUser(token, orgId);
   await assignAdminRole(token, orgId, projectId, adminUserId);
   await cleanupExtraAdminUsers(token, projectId, adminUserId);
   writeText(CLIENT_ID_FILE, clientId);
+  writeText(PROJECT_ID_FILE, projectId);
+  writeText(API_CLIENT_ID_FILE, apiClientId, 0o600, API_CREDENTIAL_UID);
+  writeText(API_CLIENT_SECRET_FILE, apiClientSecret, 0o600, API_CREDENTIAL_UID);
   writeText(
     BOOTSTRAP_STATE_FILE,
     JSON.stringify(
@@ -509,6 +618,8 @@ async function main() {
         frontend_application_id: applicationId,
         frontend_client_id: clientId,
         frontend_redirect_uri: FRONTEND_URL,
+        api_application_id: apiApplicationId,
+        api_client_id: apiClientId,
       },
       null,
       2,

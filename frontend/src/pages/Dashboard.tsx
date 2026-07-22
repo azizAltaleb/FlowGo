@@ -8,12 +8,14 @@ import { api, type WorkflowInstance } from "@/lib/api";
 export default function Dashboard() {
   const [instances, setInstances] = useState<WorkflowInstance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const data = await api.getInstances();
       setInstances(data);
+      setLastUpdatedAt(new Date());
     } catch (err) {
       console.error("Failed to load dashboard data", err);
     } finally {
@@ -81,6 +83,9 @@ export default function Dashboard() {
       color: "text-red-500",
     },
   ];
+  const freshnessText = lastUpdatedAt
+    ? `Query projection updated ${lastUpdatedAt.toLocaleTimeString()}`
+    : "Query projection";
 
   if (loading) {
     return <div className="p-4">Loading dashboard...</div>;
@@ -109,7 +114,7 @@ export default function Dashboard() {
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
                 <p className="text-xs text-muted-foreground">
-                  Real-time data
+                  {freshnessText}
                 </p>
               </CardContent>
             </Card>

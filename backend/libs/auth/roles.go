@@ -6,13 +6,23 @@ import (
 )
 
 const (
-	RoleFlowGoClient = "flowgo client"
-	RoleFlowGoAdmin  = "flowgo admin"
-	RoleFlowGoViewer = "flowgo viewer"
+	RoleFlowGoAdmin   = "flowgo admin"
+	RoleFlowGoModeler = "flowgo modeler"
+	RoleFlowGoClient  = "flowgo client"
 )
 
 func StandardRoles() []string {
-	return []string{RoleFlowGoClient, RoleFlowGoAdmin, RoleFlowGoViewer}
+	return []string{RoleFlowGoAdmin, RoleFlowGoModeler, RoleFlowGoClient}
+}
+
+func RequireAuthenticated(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := PrincipalFromContext(r.Context()); !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (p Principal) HasRole(role string) bool {
@@ -42,7 +52,7 @@ func RequireAnyRole(roles ...string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			principal, ok := PrincipalFromContext(r.Context())
 			if !ok {
-				next.ServeHTTP(w, r)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
 			if principal.HasAnyRole(roles...) {

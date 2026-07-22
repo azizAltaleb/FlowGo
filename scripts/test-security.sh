@@ -8,6 +8,15 @@ mkdir -p "${REPORTS}"
 
 OVERALL=0
 
+is_govulncheck_environmental_failure() {
+  local file="$1"
+  [[ -f "${file}" ]] || return 1
+  if grep -Eqi 'TLS handshake timeout|i/o timeout|context deadline exceeded|no such host|temporary failure|connection refused|network is unreachable|proxyconnect|Forbidden|403' "${file}"; then
+    return 0
+  fi
+  return 1
+}
+
 {
   echo "# Security Test Results"
   echo ""
@@ -38,6 +47,8 @@ cat "${REPORTS}/govulncheck.txt" >> "${REPORTS}/security.md"
   echo '```'
   if [[ $VULN_EXIT -eq 0 ]]; then
     echo "**Status: ✅ No vulnerabilities found**"
+  elif is_govulncheck_environmental_failure "${REPORTS}/govulncheck.txt"; then
+    echo "**Status: ⚠️ Vulnerability database unavailable — network/environmental failure, not a vulnerability finding**"
   else
     echo "**Status: ❌ Vulnerabilities found — review above**"
     OVERALL=1

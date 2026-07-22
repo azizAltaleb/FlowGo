@@ -112,19 +112,13 @@ export interface IdentityManagementRole {
   group: string;
 }
 
-export interface IdentityManagementClientToken {
-  client_id: string;
-  username: string;
-  name: string;
-  description: string;
-  environment: string;
-  owner_email: string;
-  purpose: string;
-  role: string;
-  token_id: string;
-  token: string;
-  token_created_at: string;
-  token_expires_at: string;
+export interface IdentityManagementClientCredential {
+  id: string;
+  type: "private_key_jwt" | "legacy_pat" | string;
+  created_at: string;
+  changed_at?: string;
+  expires_at: string;
+  status: string;
 }
 
 export interface IdentityManagementClientTokenSummary {
@@ -147,6 +141,7 @@ export interface IdentityManagementClient {
   state: string;
   created_at: string;
   changed_at: string;
+  credentials: IdentityManagementClientCredential[];
   tokens: IdentityManagementClientTokenSummary[];
 }
 
@@ -160,18 +155,20 @@ export interface CreateIdentityManagementUserRequest {
   roles: string[];
 }
 
-export interface CreateIdentityManagementClientTokenRequest {
+export interface CreateIdentityManagementClientKeyRequest {
   username?: string;
   name: string;
   description?: string;
   environment?: string;
   owner_email?: string;
   purpose?: string;
-  token_expires_at?: string;
+  public_key: string;
+  key_expires_at?: string;
 }
 
-export interface RotateIdentityManagementClientTokenRequest {
-  token_expires_at?: string;
+export interface AddIdentityManagementClientKeyRequest {
+  public_key: string;
+  key_expires_at?: string;
 }
 
 export interface UpdateIdentityManagementUserRequest {
@@ -198,11 +195,34 @@ export interface Execution {
   id: string;
   step_id: string;
   status: string;
+  parent_id?: string;
   start_time: string;
+  element_instance_key?: string;
+  task?: UserTask;
+}
+
+export interface UserTask {
+  key: string;
+  elementId: string;
+  executionId: string;
+  state: string;
+  assignee?: string;
+  candidateUsers?: string[];
+  candidateGroups?: string[];
+  claimedBy?: string;
+  canClaim: boolean;
+  canComplete: boolean;
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const api = {
   // Workflows
+  /**
+   * Reads the CQRS query projection. Command writes may take a few seconds to
+   * appear here; use cqrsSync helpers after deploy/delete flows.
+   */
   getWorkflows: async (): Promise<WorkflowDefinition[]> => {
     const correlationId = generateCorrelationId();
     const endTimer = log.time('getWorkflows');
@@ -217,10 +237,11 @@ export const api = {
       throw new Error(`Failed to fetch workflows: ${response.statusText}`);
     }
     const data = await response.json();
-    log.info('workflows fetched', { count: data.workflows?.length || 0 });
+    const workflows = data.workflows || [];
+    log.info('workflows fetched', { count: workflows.length });
     endTimer();
     
-    return (data.workflows || []).map((w: Record<string, unknown>) => {
+    return workflows.map((w: Record<string, unknown>) => {
         if (w.id && w.process_definition_id) return w as unknown as WorkflowDefinition;
 
         return {
@@ -268,7 +289,8 @@ export const api = {
     });
     if (!response.ok) {
       log.error('failed to deploy workflow', { status: response.status, statusText: response.statusText });
-      throw new Error(`Failed to deploy workflow: ${response.statusText}`);
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to deploy workflow: ${detail}`);
     }
     const result = await response.json();
     log.info('workflow deployed', { workflowId: result.id, workflowName: result.name });
@@ -292,13 +314,16 @@ export const api = {
   },
 
   // Instances
+  /**
+   * Reads the command-side active instance list so user/task ownership scoping
+   * is enforced for the platform UI.
+   */
   getInstances: async (): Promise<WorkflowInstance[]> => {
     const correlationId = generateCorrelationId();
     const endTimer = log.time('getInstances');
     log.debug('fetching instances', { correlationId });
 
-    // CQRS: Read from Query Service
-    const response = await fetch(`${API_BASE_URL}/query/instances?page=1&pageSize=100`, {
+    const response = await fetch(`${API_BASE_URL}/instances`, {
       headers: getHeaders(correlationId),
     });
     if (!response.ok) {
@@ -306,31 +331,23 @@ export const api = {
       throw new Error(`Failed to fetch instances: ${response.statusText}`);
     }
     const data = await response.json();
-    log.info('instances fetched', { count: data.instances?.length || 0, total: data.total });
+    log.info('instances fetched', { count: Array.isArray(data) ? data.length : 0 });
     endTimer();
-    
-    // Map Query Service (Engine-like) response to Frontend (Legacy) model
-    return (data.instances || []).map((i: Record<string, unknown>) => {
-        // If it already looks like the legacy model, return it (id and status present)
-        if (i.id && i.status) return i as unknown as WorkflowInstance;
+    return Array.isArray(data) ? data : [];
+  },
 
-        // Map Engine model (key/state) to Legacy model (id/status)
-        let status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" = "PENDING";
-        if (i.state === "ACTIVE" || i.state === "ACTIVATED") status = "RUNNING";
-        else if (i.state === "COMPLETED") status = "COMPLETED";
-        else if (i.state === "CANCELED" || i.state === "TERMINATED") status = "FAILED";
+  getCompletedInstanceHistory: async (): Promise<WorkflowInstance[]> => {
+    const correlationId = generateCorrelationId();
+    log.debug('fetching completed instance history', { correlationId });
 
-        return {
-            id: String(i.key),
-            workflow_id: String(i.processDefinitionKey),
-            status: status,
-            current_step: "", // Not available in summary list
-            context: i.context || {},
-            executions: [], // Not available in summary list
-            created_at: i.createdAt,
-            updated_at: i.endTime || i.createdAt // Use endTime if available, else createdAt
-        } as unknown as WorkflowInstance;
+    const response = await fetch(`${API_BASE_URL}/instances/history/completed?limit=100`, {
+      headers: getHeaders(correlationId),
     });
+    if (!response.ok) {
+      log.error('failed to fetch completed instance history', { status: response.status, statusText: response.statusText });
+      throw new Error(`Failed to fetch completed instance history: ${response.statusText}`);
+    }
+    return response.json();
   },
 
   startInstance: async (workflowId: string, context: Record<string, unknown> = {}): Promise<WorkflowInstance> => {
@@ -412,6 +429,56 @@ export const api = {
     log.info('task completed', { instanceId, stepId });
   },
 
+  claimUserTask: async (instanceId: string, executionId: string): Promise<UserTask> => {
+    const correlationId = generateCorrelationId();
+    log.info('claiming user task', { instanceId, executionId, correlationId });
+
+    const response = await fetch(`${API_BASE_URL}/instances/${instanceId}/tasks/${executionId}/claim`, {
+      method: "POST",
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to take task: ${detail}`);
+    }
+    return response.json();
+  },
+
+  listUserTasks: async (instanceId: string, options: { includeCompleted?: boolean } = {}): Promise<UserTask[]> => {
+    const correlationId = generateCorrelationId();
+    log.debug('fetching user tasks', { instanceId, includeCompleted: options.includeCompleted, correlationId });
+
+    const params = new URLSearchParams();
+    if (options.includeCompleted) {
+      params.set("includeCompleted", "true");
+    }
+    const query = params.toString();
+    const response = await fetch(`${API_BASE_URL}/instances/${instanceId}/tasks${query ? `?${query}` : ""}`, {
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to load user tasks: ${detail}`);
+    }
+    const data = await response.json();
+    return data.tasks || [];
+  },
+
+  completeUserTask: async (instanceId: string, executionId: string): Promise<void> => {
+    const correlationId = generateCorrelationId();
+    log.info('completing user task', { instanceId, executionId, correlationId });
+
+    const response = await fetch(`${API_BASE_URL}/instances/${instanceId}/tasks/${executionId}/complete`, {
+      method: "POST",
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to complete user task: ${detail}`);
+    }
+    log.info('user task completed', { instanceId, executionId });
+  },
+
   deleteInstance: async (id: string): Promise<void> => {
     const correlationId = generateCorrelationId();
     log.info('deleting instance', { instanceId: id, correlationId });
@@ -482,7 +549,7 @@ export const api = {
     return response.json();
   },
 
-  createIdentityManagementClientToken: async (request: CreateIdentityManagementClientTokenRequest): Promise<IdentityManagementClientToken> => {
+  createIdentityManagementClientKey: async (request: CreateIdentityManagementClientKeyRequest): Promise<IdentityManagementClient> => {
     const correlationId = generateCorrelationId();
     const headers = getHeaders(correlationId);
     headers["Content-Type"] = "application/json";
@@ -492,7 +559,7 @@ export const api = {
       body: JSON.stringify(request),
     });
     if (!response.ok) {
-      throw new Error(`Failed to create FlowGo client token: ${response.statusText}`);
+      throw new Error(`Failed to create FlowGo client: ${response.statusText}`);
     }
     return response.json();
   },
@@ -509,19 +576,30 @@ export const api = {
     return data.clients || [];
   },
 
-  rotateIdentityManagementClientToken: async (id: string, request: RotateIdentityManagementClientTokenRequest): Promise<IdentityManagementClientToken> => {
+  addIdentityManagementClientKey: async (id: string, request: AddIdentityManagementClientKeyRequest): Promise<IdentityManagementClientCredential> => {
     const correlationId = generateCorrelationId();
     const headers = getHeaders(correlationId);
     headers["Content-Type"] = "application/json";
-    const response = await fetch(`${API_BASE_URL}/identity/management/clients/${encodeURIComponent(id)}/tokens`, {
+    const response = await fetch(`${API_BASE_URL}/identity/management/clients/${encodeURIComponent(id)}/keys`, {
       method: "POST",
       headers,
       body: JSON.stringify(request),
     });
     if (!response.ok) {
-      throw new Error(`Failed to rotate FlowGo client token: ${response.statusText}`);
+      throw new Error(`Failed to add FlowGo client key: ${response.statusText}`);
     }
     return response.json();
+  },
+
+  revokeIdentityManagementClientKey: async (id: string, keyId: string): Promise<void> => {
+    const correlationId = generateCorrelationId();
+    const response = await fetch(`${API_BASE_URL}/identity/management/clients/${encodeURIComponent(id)}/keys/${encodeURIComponent(keyId)}`, {
+      method: "DELETE",
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to revoke FlowGo client key: ${response.statusText}`);
+    }
   },
 
   revokeIdentityManagementClientToken: async (id: string, tokenId: string): Promise<void> => {
@@ -581,6 +659,10 @@ export const api = {
     if (!response.ok) {
       throw new Error(`Failed to reactivate identity user: ${response.statusText}`);
     }
+  },
+
+  activateIdentityManagementUser: async (id: string): Promise<void> => {
+    return api.reactivateIdentityManagementUser(id);
   },
 
   deleteIdentityManagementUser: async (id: string): Promise<void> => {

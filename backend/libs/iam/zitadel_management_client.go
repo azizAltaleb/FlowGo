@@ -67,6 +67,14 @@ type zitadelPersonalAccessToken struct {
 	ExpirationDate string `json:"expirationDate"`
 }
 
+type zitadelKey struct {
+	ID             string `json:"id"`
+	UserID         string `json:"userId"`
+	CreationDate   string `json:"creationDate"`
+	ChangeDate     string `json:"changeDate"`
+	ExpirationDate string `json:"expirationDate"`
+}
+
 func (c *ZITADELManagementClient) ListUsers(ctx context.Context) ([]ManagedUser, error) {
 	state, err := c.readBootstrapState()
 	if err != nil {
@@ -212,6 +220,17 @@ func (c *ZITADELManagementClient) ListClients(ctx context.Context) ([]ManagedCli
 	for _, token := range tokens {
 		tokensByUser[token.UserID] = append(tokensByUser[token.UserID], managedClientTokenSummaryFromZitadel(token))
 	}
+	keysByUser := make(map[string][]zitadelKey)
+	for _, user := range usersResponse.Result {
+		if user.Machine == nil || strings.TrimSpace(user.UserID) == "" {
+			continue
+		}
+		keys, err := c.listKeysForUser(ctx, user.UserID)
+		if err != nil {
+			return nil, err
+		}
+		keysByUser[user.UserID] = keys
+	}
 	clients := make([]ManagedClient, 0)
 	for _, user := range usersResponse.Result {
 		managed := managedClientFromZitadel(user)
@@ -227,6 +246,15 @@ func (c *ZITADELManagementClient) ListClients(ctx context.Context) ([]ManagedCli
 		sort.Slice(managed.Tokens, func(i, j int) bool {
 			return managed.Tokens[i].TokenCreatedAt > managed.Tokens[j].TokenCreatedAt
 		})
+		for _, key := range keysByUser[managed.ClientID] {
+			managed.Credentials = append(managed.Credentials, managedClientKeySummaryFromZitadel(key))
+		}
+		for _, token := range managed.Tokens {
+			managed.Credentials = append(managed.Credentials, managedClientPATSummary(token))
+		}
+		sort.Slice(managed.Credentials, func(i, j int) bool {
+			return managed.Credentials[i].CreatedAt > managed.Credentials[j].CreatedAt
+		})
 		clients = append(clients, managed)
 	}
 	sort.Slice(clients, func(i, j int) bool {
@@ -235,7 +263,118 @@ func (c *ZITADELManagementClient) ListClients(ctx context.Context) ([]ManagedCli
 	return clients, nil
 }
 
+func (c *ZITADELManagementClient) CreateClientKey(ctx context.Context, input ManagedClientKeyCreate) (ManagedClient, error) {
+	publicKey, err := parseClientPublicKey(input.PublicKey)
+	if err != nil {
+		return ManagedClient{}, err
+	}
+	expiresAt, err := clientCredentialExpirationWithLimits(
+		input.ExpiresAt,
+		time.Now(),
+		c.cfg.ClientKeyDefaultLifetime,
+		c.cfg.ClientKeyMaxLifetime,
+	)
+	if err != nil {
+		return ManagedClient{}, err
+	}
+	state, err := c.readBootstrapState()
+	if err != nil {
+		return ManagedClient{}, err
+	}
+	username := strings.TrimSpace(input.Username)
+	clientMetadata := ManagedClient{
+		Description: strings.TrimSpace(input.Description),
+		Environment: strings.TrimSpace(input.Environment),
+		OwnerEmail:  strings.TrimSpace(input.OwnerEmail),
+		Purpose:     strings.TrimSpace(input.Purpose),
+	}
+	payload := map[string]any{
+		"organizationId": state.OrgID,
+		"machine": map[string]any{
+			"name":            strings.TrimSpace(input.Name),
+			"description":     encodeClientDescription(clientMetadata),
+			"accessTokenType": "ACCESS_TOKEN_TYPE_JWT",
+		},
+	}
+	if username != "" {
+		payload["username"] = username
+	}
+	var createResponse struct {
+		ID string `json:"id"`
+	}
+	if err := c.connect(ctx, "/zitadel.user.v2.UserService/CreateUser", payload, &createResponse); err != nil {
+		return ManagedClient{}, err
+	}
+	if err := c.setUserRoles(ctx, state, createResponse.ID, []string{auth.RoleFlowGoClient}); err != nil {
+		_ = c.DeleteUser(ctx, createResponse.ID)
+		return ManagedClient{}, err
+	}
+	key, err := c.addClientKey(ctx, createResponse.ID, publicKey, expiresAt)
+	if err != nil {
+		_ = c.DeleteUser(ctx, createResponse.ID)
+		return ManagedClient{}, err
+	}
+	return ManagedClient{
+		ClientID:    createResponse.ID,
+		Username:    username,
+		Name:        strings.TrimSpace(input.Name),
+		Description: clientMetadata.Description,
+		Environment: clientMetadata.Environment,
+		OwnerEmail:  clientMetadata.OwnerEmail,
+		Purpose:     clientMetadata.Purpose,
+		Role:        auth.RoleFlowGoClient,
+		Credentials: []ManagedClientCredentialSummary{key},
+	}, nil
+}
+
+func (c *ZITADELManagementClient) AddClientKey(ctx context.Context, clientID string, input ManagedClientKeyAdd) (ManagedClientCredentialSummary, error) {
+	if _, err := c.getClient(ctx, clientID); err != nil {
+		return ManagedClientCredentialSummary{}, err
+	}
+	publicKey, err := parseClientPublicKey(input.PublicKey)
+	if err != nil {
+		return ManagedClientCredentialSummary{}, err
+	}
+	expiresAt, err := clientCredentialExpirationWithLimits(
+		input.ExpiresAt,
+		time.Now(),
+		c.cfg.ClientKeyDefaultLifetime,
+		c.cfg.ClientKeyMaxLifetime,
+	)
+	if err != nil {
+		return ManagedClientCredentialSummary{}, err
+	}
+	return c.addClientKey(ctx, strings.TrimSpace(clientID), publicKey, expiresAt)
+}
+
+func (c *ZITADELManagementClient) RemoveClientKey(ctx context.Context, clientID string, keyID string) error {
+	if _, err := c.getClient(ctx, clientID); err != nil {
+		return err
+	}
+	keys, err := c.listKeysForUser(ctx, strings.TrimSpace(clientID))
+	if err != nil {
+		return err
+	}
+	owned := false
+	for _, key := range keys {
+		if key.ID == strings.TrimSpace(keyID) {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		return ErrZITADELManagedClientNotFound
+	}
+	return c.connect(ctx, "/zitadel.user.v2.UserService/RemoveKey", map[string]any{
+		"userId": strings.TrimSpace(clientID),
+		"keyId":  strings.TrimSpace(keyID),
+	}, nil)
+}
+
 func (c *ZITADELManagementClient) CreateClientToken(ctx context.Context, input ManagedClientTokenCreate) (ManagedClientToken, error) {
+	if !c.cfg.EnableLegacyPATCreation {
+		return ManagedClientToken{}, ErrLegacyPATCreationDisabled
+	}
 	state, err := c.readBootstrapState()
 	if err != nil {
 		return ManagedClientToken{}, err
@@ -301,6 +440,9 @@ func (c *ZITADELManagementClient) CreateClientToken(ctx context.Context, input M
 }
 
 func (c *ZITADELManagementClient) RotateClientToken(ctx context.Context, clientID string, input ManagedClientTokenRotate) (ManagedClientToken, error) {
+	if !c.cfg.EnableLegacyPATRotation {
+		return ManagedClientToken{}, ErrLegacyPATRotationDisabled
+	}
 	client, err := c.getClient(ctx, clientID)
 	if err != nil {
 		return ManagedClientToken{}, err
@@ -337,10 +479,50 @@ func (c *ZITADELManagementClient) RevokeClientToken(ctx context.Context, clientI
 	if _, err := c.getClient(ctx, clientID); err != nil {
 		return err
 	}
+	tokens, err := c.listPersonalAccessTokens(ctx, "")
+	if err != nil {
+		return err
+	}
+	owned := false
+	for _, token := range tokens {
+		if token.UserID == strings.TrimSpace(clientID) && token.ID == strings.TrimSpace(tokenID) {
+			owned = true
+			break
+		}
+	}
+	if !owned {
+		return ErrZITADELManagedClientNotFound
+	}
 	return c.connect(ctx, "/zitadel.user.v2.UserService/RemovePersonalAccessToken", map[string]any{
 		"userId":  strings.TrimSpace(clientID),
 		"tokenId": strings.TrimSpace(tokenID),
 	}, nil)
+}
+
+func (c *ZITADELManagementClient) addClientKey(ctx context.Context, userID string, publicKey []byte, expiresAt string) (ManagedClientCredentialSummary, error) {
+	var response struct {
+		ID           string `json:"id"`
+		KeyID        string `json:"keyId"`
+		CreationDate string `json:"creationDate"`
+	}
+	if err := c.connect(ctx, "/zitadel.user.v2.UserService/AddKey", map[string]any{
+		"userId":         userID,
+		"publicKey":      publicKey,
+		"expirationDate": expiresAt,
+	}, &response); err != nil {
+		return ManagedClientCredentialSummary{}, err
+	}
+	keyID := response.KeyID
+	if keyID == "" {
+		keyID = response.ID
+	}
+	return ManagedClientCredentialSummary{
+		ID:        keyID,
+		Type:      "private_key_jwt",
+		CreatedAt: response.CreationDate,
+		ExpiresAt: expiresAt,
+		Status:    "active",
+	}, nil
 }
 
 func (c *ZITADELManagementClient) DeleteClient(ctx context.Context, clientID string) error {
@@ -513,6 +695,29 @@ func (c *ZITADELManagementClient) listPersonalAccessTokens(ctx context.Context, 
 		}
 	}
 	return tokens, nil
+}
+
+func (c *ZITADELManagementClient) listKeysForUser(ctx context.Context, userID string) ([]zitadelKey, error) {
+	var response struct {
+		Keys   []zitadelKey `json:"keys"`
+		Result []zitadelKey `json:"result"`
+	}
+	if err := c.connect(ctx, "/zitadel.user.v2.UserService/ListKeys", map[string]any{
+		"userId":     strings.TrimSpace(userID),
+		"pagination": map[string]any{"limit": "100"},
+	}, &response); err != nil {
+		return nil, err
+	}
+	keys := response.Keys
+	if len(keys) == 0 {
+		keys = response.Result
+	}
+	for index := range keys {
+		if keys[index].UserID == "" {
+			keys[index].UserID = strings.TrimSpace(userID)
+		}
+	}
+	return keys, nil
 }
 
 func (c *ZITADELManagementClient) getClient(ctx context.Context, clientID string) (ManagedClient, error) {
@@ -690,6 +895,36 @@ func managedClientTokenSummaryFromZitadel(token zitadelPersonalAccessToken) Mana
 		TokenExpiresAt: token.ExpirationDate,
 		Status:         status,
 	}
+}
+
+func managedClientKeySummaryFromZitadel(key zitadelKey) ManagedClientCredentialSummary {
+	status := credentialStatus(key.ExpirationDate)
+	return ManagedClientCredentialSummary{
+		ID:        key.ID,
+		Type:      "private_key_jwt",
+		CreatedAt: key.CreationDate,
+		ChangedAt: key.ChangeDate,
+		ExpiresAt: key.ExpirationDate,
+		Status:    status,
+	}
+}
+
+func managedClientPATSummary(token ManagedClientTokenSummary) ManagedClientCredentialSummary {
+	return ManagedClientCredentialSummary{
+		ID:        token.TokenID,
+		Type:      "pat",
+		CreatedAt: token.TokenCreatedAt,
+		ChangedAt: token.TokenChangedAt,
+		ExpiresAt: token.TokenExpiresAt,
+		Status:    token.Status,
+	}
+}
+
+func credentialStatus(expirationDate string) string {
+	if expiresAt, err := time.Parse(time.RFC3339, expirationDate); err == nil && time.Now().UTC().After(expiresAt) {
+		return "expired"
+	}
+	return "active"
 }
 
 func encodeClientDescription(client ManagedClient) string {

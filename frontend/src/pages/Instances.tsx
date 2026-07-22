@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Table,
@@ -11,18 +11,29 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, type WorkflowInstance } from "@/lib/api";
+import { isAdmin } from "@/lib/roles";
+import {
+  consumePendingInstanceSync,
+  waitForInstanceInList,
+  waitForInstanceRemovedFromList,
+} from "@/lib/cqrsSync";
 import { Eye, Trash2, RefreshCw } from "lucide-react";
 
 export default function Instances() {
   const [instances, setInstances] = useState<WorkflowInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [syncingInstanceId, setSyncingInstanceId] = useState<string | null>(null);
+  const [canDeleteInstances, setCanDeleteInstances] = useState(false);
 
-  const fetchInstances = async () => {
-    setLoading(true);
+  const fetchInstances = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     try {
       const data = await api.getInstances();
-      setInstances(data || []);
+      setInstances((data || []).filter((instance) => instance.status === "PENDING" || instance.status === "RUNNING"));
       setError(null);
     } catch (err) {
       console.error(err);
@@ -30,11 +41,33 @@ export default function Instances() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const syncInstanceIntoList = useCallback(async (id: string) => {
+    setSyncingInstanceId(id);
+    setSyncNotice("Syncing new instance from the query projection...");
+    const result = await waitForInstanceInList(id);
+    await fetchInstances(false);
+    setSyncNotice(
+      result === "synced"
+        ? "Instance list is up to date."
+        : "Instance started. Instance list is still syncing; use Refresh to check again.",
+    );
+    setSyncingInstanceId(null);
+  }, [fetchInstances]);
 
   useEffect(() => {
     fetchInstances();
-  }, []);
+    api.getIdentity().then((identity) => {
+      setCanDeleteInstances(isAdmin(identity));
+    }).catch(() => {
+      setCanDeleteInstances(false);
+    });
+    const pendingInstanceId = consumePendingInstanceSync();
+    if (pendingInstanceId) {
+      void syncInstanceIntoList(pendingInstanceId);
+    }
+  }, [fetchInstances, syncInstanceIntoList]);
 
   const handleDeleteInstance = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this instance?")) {
@@ -42,10 +75,20 @@ export default function Instances() {
     }
     try {
         await api.deleteInstance(id);
-        setInstances(instances.filter(i => i.id !== id));
+        setSyncingInstanceId(id);
+        setSyncNotice("Delete accepted. Waiting for the instance list to sync...");
+        const result = await waitForInstanceRemovedFromList(id);
+        await fetchInstances(false);
+        setSyncNotice(
+          result === "synced"
+            ? "Instance list is up to date."
+            : "Delete succeeded. Instance list is still syncing; use Refresh to check again.",
+        );
     } catch (err) {
         console.error("Failed to delete instance:", err);
         alert("Failed to delete instance");
+    } finally {
+        setSyncingInstanceId(null);
     }
   };
 
@@ -60,12 +103,22 @@ export default function Instances() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold tracking-tight">Instances</h2>
-        <Button variant="outline" size="sm" onClick={fetchInstances} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Instances</h2>
+          <p className="text-sm text-muted-foreground">
+            In-progress instances only. Completed instances are available on the History screen.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => fetchInstances()} disabled={loading || Boolean(syncingInstanceId)}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading || syncingInstanceId ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
+      {syncNotice ? (
+        <div className="rounded-md border bg-muted p-3 text-sm text-muted-foreground">
+          {syncNotice}
+        </div>
+      ) : null}
       <div className="rounded-md border bg-card text-card-foreground">
         <Table>
           <TableHeader>
@@ -82,7 +135,7 @@ export default function Instances() {
             {instances.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground">
-                  No active instances found.
+                  No in-progress instances found. Completed instances are available on the History screen.
                 </TableCell>
               </TableRow>
             ) : (
@@ -111,14 +164,22 @@ export default function Instances() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
-                        <Button variant="ghost" size="sm" asChild>
+                        <Button variant="ghost" size="sm" asChild disabled={syncingInstanceId === instance.id}>
                         <Link to={`/instances/${instance.id}`}>
                             <Eye className="h-4 w-4" />
                         </Link>
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteInstance(instance.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {canDeleteInstances ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteInstance(instance.id)}
+                            disabled={syncingInstanceId === instance.id}
+                          >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                              {syncingInstanceId === instance.id ? <span className="ml-2">Syncing...</span> : null}
+                          </Button>
+                        ) : null}
                     </div>
                   </TableCell>
                 </TableRow>

@@ -21,11 +21,29 @@ QA agents should not:
 - Treat scanner warnings as release-blocking without severity and impact review.
 - Add broad tests unrelated to the changed behavior.
 
+## Exhaustive Tester Harness
+
+Use `make test-all-functionality` when a maintainer asks for live, broad validation across deployment models and functional surfaces. The target runs `scripts/test-all-functionality.sh`, which is live-by-default and executes serially to avoid port and container conflicts.
+
+The harness records:
+
+- Machine-readable evidence in `reports/all-functionality-report.json`.
+- Human-readable evidence in `reports/all-functionality-report.md`.
+- BPMN scenario evidence in `reports/bpmn-matrix-report.json` and `reports/bpmn-matrix-report.md`.
+- Per-layer logs under `reports/all-functionality/`.
+
+Supported flags include `--skip-deployments`, `--skip-ui`, `--skip-sdk-live`, `--skip-perf`, `--skip-security`, `--skip-helm-live`, `--allow-helm-live`, `--fail-fast`, `--continue-on-failure`, `--reset-volumes`, `--reports-dir`, and `--wait-timeout-sec`. Skipped live checks must remain visible in the report with a reason; agents should not describe a run as exhaustive when required infrastructure was skipped.
+
+Focused helpers:
+
+- `make test-bpmn-exhaustive` runs the BPMN scenario catalog in `tests/bpmn/matrix/scenarios.yml`.
+- `make test-deployment-matrix` runs the live deployment-oriented harness path while skipping UI, SDK live, performance, and security layers.
+
 ## Functional QA Matrix
 
 | Surface | Existing evidence | Recommended agent action |
 | :--- | :--- | :--- |
-| BPMN parser/runtime | `make test-bpmn-matrix`, backend workflow-command tests. | Require targeted Go tests for BPMN behavior changes and recommend matrix tests for parser/runtime semantics. |
+| BPMN parser/runtime | `make test-bpmn-matrix`, `make test-bpmn-exhaustive`, backend workflow-command tests, `tests/bpmn/matrix/scenarios.yml`. | Require targeted Go tests for BPMN behavior changes and recommend matrix tests for parser/runtime semantics. Track unsupported and missing XML-runtime coverage as explicit report entries. |
 | Command API | Handler tests under workflow-command. | Check deploy/start/task/message/signal/job APIs and idempotency behavior for API changes. |
 | Query API and CQRS projection | Query handler tests, sync-worker tests, `make cqrs-e2e-smoke`, `make cqrs-parity-check`. | Require targeted query/sync tests; recommend CQRS smoke when write-to-read visibility changes. |
 | External worker API | Protocol/idempotency/capabilities tests, `make worker-conformance`. | Treat worker REST changes as compatibility-sensitive and require conformance evidence. |
@@ -53,7 +71,7 @@ QA agents should not:
 | Worker activates and completes jobs | Worker conformance and backend tests. | Expand real-job conformance cases for complete, fail, extend-lock, timeout, and retry behavior. |
 | Command writes appear in query read model | `make cqrs-e2e-smoke`, `make cqrs-parity-check`. | Add failure-mode coverage for lag, duplicate events, replay, and backfill. |
 | Frontend dashboard/process/instance navigation | Basic page-load coverage. | Add realistic UI paths for dashboard, processes, instances, empty/loading/error states. |
-| IAM login and role boundaries | Unit/handler coverage and deployment docs. | Add external IAM and bundled ZITADEL E2E checks for viewer/client/admin behavior. |
+| IAM login and role boundaries | Unit/handler coverage and deployment docs. | Add external IAM and bundled ZITADEL E2E checks for admin/modeler/client/flex-role behavior. |
 | Node SDK workflow and worker use | SDK mocked tests and live smoke example. | Add versioned contract fixtures and release-smoke SDK examples. |
 | Release candidate smoke | `make release-dry-run`, release workflows. | Add RC readiness summary that includes artifacts, known limitations, and upgrade notes. |
 
@@ -111,6 +129,7 @@ Every QA plan or review should include:
 - Changed surfaces and risk level.
 - Commands already run with pass/fail/skip status.
 - Artifacts produced, such as `reports/summary.md`, coverage, Playwright traces, k6 JSON, security reports, or release dry-run output.
+- Exhaustive harness artifacts when run: `reports/all-functionality-report.json`, `reports/all-functionality-report.md`, `reports/bpmn-matrix-report.json`, and `reports/bpmn-matrix-report.md`.
 - Manual QA requested or completed.
 - Residual risks and maintainer decisions.
 
@@ -132,7 +151,7 @@ Use these defaults when planning validation:
 High-priority gaps:
 
 - Browser E2E for modeler deploy, dashboard, processes, instances, task/job completion, and error states.
-- IAM E2E for bundled ZITADEL and external IAM token flows, including viewer/client/admin boundaries.
+- IAM E2E for bundled ZITADEL and external IAM token flows, including admin/modeler/client/flex-role boundaries.
 - CQRS failure-mode tests for Kafka, Debezium Connect, Elasticsearch/OpenSearch, replay, lag, duplicate events, and schema changes.
 - Worker conformance expansion with real jobs and negative mutation cases.
 - Frontend component tests for pages, forms, loading, empty, sync-lag, and error states.

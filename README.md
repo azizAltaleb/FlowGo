@@ -1,380 +1,400 @@
 # FlowGo
 
-FlowGo is an open-source BPMN workflow engine with a Go backend, React modeler/admin UI, CQRS query projection, OIDC-based IAM, Docker/Helm deployment assets, and a Node.js SDK.
+FlowGo is an open-source BPMN workflow platform for modeling, running, and
+observing business processes. It combines a Go workflow engine, React modeler
+and operations UI, CQRS query projection, OIDC-based identity, and a Node.js
+SDK.
+
+Use Docker Compose to evaluate the complete solution from published Docker Hub
+images. Use the Helm chart for production Kubernetes deployments.
+
+## What FlowGo provides
+
+- Browser BPMN modeler, process catalog, dashboards, and instance history
+- Command API for workflow deployment, instance mutation, messages, and signals
+- Runtime service for workflow execution, timers, jobs, and SLA processing
+- External-worker APIs with locking, retries, idempotency, and capabilities
+- Read-optimized query API backed by Elasticsearch or OpenSearch
+- Kafka/NATS event transport and Kafka/Debezium CDC projection
+- External OIDC or bundled ZITADEL identity deployment
+- Node.js SDK for workflows, workers, inbox applications, and administration
+
+See the [BPMN support matrix](docs/BPMN_SUPPORT_MATRIX.md) for the current
+engine contract.
 
 ## Architecture
 
-- **Backend**: Go, Gorilla Mux, Postgres, Kafka/NATS, Elasticsearch/OpenSearch, outbox/idempotency, and worker APIs.
-- **Frontend**: React, Vite, TypeScript, Tailwind CSS, BPMN modeler, dashboards, IAM, and SDK client management.
-- **Deployment**: Docker Compose for local/evaluation use and Helm for production Kubernetes environments.
-- **SDK**: `@flowgo/nodejs-sdk` for workflow, worker, identity, and management APIs.
+```mermaid
+flowchart LR
+    Browser[Browser user] --> Gateway[NGINX gateway]
+    SDK[Node.js SDK / workers] --> Gateway
+    Browser --> IAM[External OIDC or ZITADEL]
 
-Read more in [docs/architecture.md](docs/architecture.md).
+    Gateway --> Frontend[React frontend]
+    Gateway --> Command[Command API]
+    Gateway --> Query[Query API]
 
-## Prerequisites
+    Command --> Postgres[(Postgres)]
+    Runtime[Workflow runtime] --> Postgres
+    Command --> Bus[Kafka or NATS]
+    Postgres --> Debezium[Debezium Connect]
+    Debezium --> Kafka[Kafka CDC topics]
 
-- Docker & Docker Compose
-- Node.js 20+ for frontend and SDK development
-- Go 1.25+ for backend development
-
-## 🚀 Quick Start
-
-### 1) External IAM deployment
-
-```bash
-docker compose -f docker-compose.external-iam.yml up -d --build
+    Bus --> Sync[Sync worker]
+    Kafka --> Sync
+    Sync --> Search[(Elasticsearch / OpenSearch)]
+    Query --> Search
 ```
 
-- No `.env` file is required.
-- Edit the inline `AUTH_*` and `FRONTEND_AUTH_*` values in `docker-compose.external-iam.yml` to match your existing OIDC provider.
-- The external IAM administrator must create and assign the FlowGo roles listed in the IAM configuration section.
-- This deployment includes the workflow command API, runtime, query API, sync worker, Kafka, Debezium Connect, Postgres, Elasticsearch, frontend, and gateway.
+Main components:
 
-Endpoints:
+- **Gateway**: single entry point; routes `/` to the frontend, `/api/` to the
+  command service, and `/api/query/` to the query service.
+- **Frontend**: BPMN modeler, dashboards, process/instance views, human task
+  views, identity administration, and SDK-client management.
+- **Command service**: workflow writes, worker APIs, identity endpoints,
+  idempotency, and transactional outbox.
+- **Runtime**: advances workflow execution and handles timers and background
+  work.
+- **Sync worker**: consumes application events and/or Debezium CDC records and
+  updates search projections.
+- **Query service**: serves read-optimized process and instance data from
+  Elasticsearch or OpenSearch.
+- **IAM**: validates browser and machine identities through external OIDC or
+  bundled ZITADEL.
 
-- Frontend: [http://localhost:9100](http://localhost:9100)
-- Backend API: [http://localhost:8080](http://localhost:8080)
-- Query API: [http://localhost:8081](http://localhost:8081)
+The command database is the source of truth. Search-backed query views are
+eventually consistent. Read the detailed [architecture guide](docs/architecture.md)
+and [CQRS runbook](docs/RUNBOOK_CQRS_SYNC.md).
 
-### 2) Bundled ZITADEL deployment
+## Run the released solution from Docker Hub
 
-```bash
-docker compose -f docker-compose.zitadel.yml up -d --build
-```
+The release Compose override removes local image builds and uses the published
+`azizaltaleb/*` images:
 
-- No `.env` file is required.
-- This deployment bundles ZITADEL with the workflow stack.
-- The backend and query services are preconfigured to validate ZITADEL-issued JWTs.
-- On first boot, the stack bootstraps the FlowGo ZITADEL project, standard roles, frontend OIDC application, and initial admin role assignment.
+- `azizaltaleb/workflow-command`
+- `azizaltaleb/workflow-runtime`
+- `azizaltaleb/workflow-query`
+- `azizaltaleb/sync-worker`
+- `azizaltaleb/frontend`
 
-First boot for the bundled mode:
+The commands below pin release `v0.1.1`. Review available tags and image
+verification guidance in [Docker images](docs/DOCKER_IMAGES.md).
 
-1. Open [http://localhost:9180/ui/console?login_hint=admin](http://localhost:9180/ui/console?login_hint=admin)
-2. Sign in with `admin` / `admin`
-3. Review the generated FlowGo project, project roles, and frontend OIDC application
-4. The frontend client ID is generated by ZITADEL and written to the shared bootstrap volume automatically
+### Prerequisites
 
-Endpoints:
+- Docker Engine or Docker Desktop
+- Docker Compose v2
+- `curl` for post-deployment checks
+- Free local ports `5432`, `8080`, `8081`, `8083`, `8092`, `9092`, `9100`, and
+  `9200`; bundled ZITADEL also uses `9180`
 
-- Frontend: [http://localhost:9100](http://localhost:9100)
-- Backend API: [http://localhost:8080](http://localhost:8080)
-- Query API: [http://localhost:8081](http://localhost:8081)
-- ZITADEL: [http://localhost:9180](http://localhost:9180)
-
-Detailed quickstart: [docs/getting-started.md](docs/getting-started.md)
-
-### 3) Deployment Compatibility Matrix
-
-| Feature | External IAM Compose | Bundled ZITADEL Compose |
-| :--- | :--- | :--- |
-| **Workflow Execution** | ✅ Yes | ✅ Yes |
-| **Persistence (Postgres)** | ✅ Yes | ✅ Yes |
-| **Real-time Dashboard** | ✅ Yes | ✅ Yes |
-| **Identity Management** | ✅ Yes | ✅ Yes |
-| **Advanced Search (Elasticsearch)** | ✅ Yes | ✅ Yes |
-| **Audit Logs (CDC/Debezium)** | ✅ Yes | ✅ Yes |
-| **Sync Worker (Event Projection)** | ✅ Yes | ✅ Yes |
-| **Bundled IAM Provider** | ❌ No | ✅ ZITADEL |
-
-For production Kubernetes deployment, use the Helm chart in [charts/flowgo](charts/flowgo). See [docs/deployment.md](docs/deployment.md).
-
-## Developer Tools
-
-We provide a `Makefile` to simplify common development tasks:
-
-| Command | Description |
-| :--- | :--- |
-| `make up` | Start the external IAM deployment |
-| `make up-zitadel` | Start the bundled ZITADEL deployment |
-| `make up-external-iam-release` | Start the external IAM deployment using published `azizaltaleb/*` images |
-| `make up-zitadel-release` | Start the bundled ZITADEL deployment using published `azizaltaleb/*` images |
-| `docker compose -f docker-compose.external-iam.yml up -d --build` | Start the external IAM deployment |
-| `docker compose -f docker-compose.zitadel.yml up -d --build` | Start the bundled ZITADEL deployment |
-| `docker compose -f docker-compose.external-iam.yml config` | Validate the external IAM compose file |
-| `docker compose -f docker-compose.zitadel.yml config` | Validate the bundled ZITADEL compose file |
-| `make smoke-profiles` | Run both profile smoke checks |
-| `make smoke-release-profiles` | Validate compose profiles with the published-image override |
-| `make test-bpmn-matrix` | Run BPMN parser/runtime compatibility regression matrix |
-| `make cqrs-parity-check` | Compare Postgres vs Elasticsearch document counts for CQRS indexes |
-| `make cqrs-e2e-smoke` | Run full CQRS write→consume→query smoke check |
-| `make worker-conformance` | Run language-agnostic external worker API conformance smoke (v1) |
-| `make down` | Stop the stack |
-| `make clean` | Stop the stack and remove volumes (fresh start) |
-| `make logs` | Follow container logs |
-| `make demo` | Run the end-to-end demo script |
-
-`workflow-query` supports `SEARCH_BACKEND=elasticsearch|opensearch` (default: `elasticsearch`) for backend policy compatibility.
-
-To run published images instead of local builds, apply `docker-compose.release.yml` or use the release Make targets. Override the tag with `FLOWGO_IMAGE_TAG`, for example:
+Obtain the matching deployment files:
 
 ```bash
-FLOWGO_IMAGE_TAG=0.1.1 make up-zitadel-release
+git clone --depth 1 --branch v0.1.1 https://github.com/azizAltaleb/FlowGo.git
+cd FlowGo
+export FLOWGO_IMAGE_TAG=v0.1.1
 ```
 
-## IAM configuration (OIDC, two deployment modes)
+This checkout supplies the Compose and configuration files. The release
+commands pull application images from Docker Hub and do not build the source.
 
-Use provider-agnostic OIDC settings so IAM switching is pure configuration.
-For local development, edit the inline environment values in `docker-compose.external-iam.yml` or `docker-compose.zitadel.yml`.
+### Option 1: bundled ZITADEL
 
-| Purpose | Env vars |
-| :--- | :--- |
-| Backend issuer/audience | `AUTH_ISSUER_INTERNAL_URL`, `AUTH_ISSUER_PUBLIC_URL`, `AUTH_CLIENT_ID` |
-| Backend validation mode | `AUTH_TOKEN_MODE=jwt|introspection`, optional `AUTH_INTROSPECTION_*` |
-| Backend claims mapping | `AUTH_CLAIM_SUBJECT_PATH`, `AUTH_CLAIM_ROLES_PATH`, `AUTH_CLAIM_SCOPES_PATH`, `AUTH_CLAIM_TENANT_PATH`, `AUTH_CLAIM_EMAIL_PATH`, `AUTH_CLAIM_NAME_PATH` |
-| Frontend login authority/client | `FRONTEND_AUTH_OIDC_AUTHORITY`, `FRONTEND_AUTH_OIDC_CLIENT_ID` |
-| Optional frontend build-time fallback | `VITE_OIDC_AUTHORITY`, `VITE_OIDC_CLIENT_ID` |
+Choose this option for a self-contained evaluation environment. FlowGo
+automatically creates the ZITADEL project, frontend client, API introspection
+client, standard roles, and initial administrator.
 
-### FlowGo IAM roles
+```bash
+docker compose \
+  -f docker-compose.zitadel.yml \
+  -f docker-compose.release.yml \
+  pull
 
-FlowGo recognizes these standard role names from the configured `AUTH_CLAIM_ROLES_PATH` claim:
+docker compose \
+  -f docker-compose.zitadel.yml \
+  -f docker-compose.release.yml \
+  up -d
+```
 
-| Role | Intended holder | Access |
-| :--- | :--- | :--- |
-| `flowgo client` | SDK, API, worker, or system integration | Programmatic workflow and worker APIs, plus read access |
-| `flowgo admin` | Platform administrator | Full feature control, including administrative and destructive operations |
-| `flowgo viewer` | Auditor, operator, or support user | View-only access |
+Equivalent shortcut:
 
-- External IAM mode: create these roles in the external OIDC provider and map them into the token claim configured by `AUTH_CLAIM_ROLES_PATH`.
-- Bundled ZITADEL mode: the ZITADEL first-instance setup generates the initial admin login `admin`; the compose bootstrap creates the FlowGo project roles and assigns `flowgo admin` to that initial admin user.
-- No-IAM setup: the developer or setup engineer is responsible for creating the initial admin user or equivalent local access path for their deployment.
+```bash
+FLOWGO_IMAGE_TAG=v0.1.1 make up-zitadel-release
+```
 
-*Frontend reads `runtime-config.js` at container startup. Changing IAM authority is env-driven and requires recreating the frontend container.*
+Open:
 
-For more details on contributing, please read [CONTRIBUTING.md](CONTRIBUTING.md).
+- FlowGo: <http://localhost:9100>
+- ZITADEL: <http://localhost:9180>
 
-## Public Project Resources
+Local administrator:
 
-- Security policy: [SECURITY.md](SECURITY.md)
-- Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- Changelog: [CHANGELOG.md](CHANGELOG.md)
-- Roadmap: [ROADMAP.md](ROADMAP.md)
-- Release checklist: [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)
-- Docker images: [docs/DOCKER_IMAGES.md](docs/DOCKER_IMAGES.md)
-- Compatibility matrix: [docs/COMPATIBILITY_MATRIX.md](docs/COMPATIBILITY_MATRIX.md)
-- Agentic SDLC: [docs/AGENTIC_SDLC.md](docs/AGENTIC_SDLC.md)
-- Agentic QA: [docs/AGENTIC_QA.md](docs/AGENTIC_QA.md)
-- Quality gates: [docs/QUALITY_GATES.md](docs/QUALITY_GATES.md)
-- Community launch checklist: [docs/COMMUNITY_LAUNCH.md](docs/COMMUNITY_LAUNCH.md)
-- Dependency policy: [docs/DEPENDENCY_POLICY.md](docs/DEPENDENCY_POLICY.md)
-- Stability policy: [docs/STABILITY_POLICY.md](docs/STABILITY_POLICY.md)
+- Username: `admin`
+- Password: `admin`
+- Email: `admin@admin.localhost`
 
-## Production Note
+These credentials, the HTTP issuer, and exposed infrastructure ports are for
+development/evaluation only. The current bundled bootstrap also retains only
+the configured initial human administrator during reconciliation. Review the
+[bundled-IAM constraints](docs/deployment.md#helm-with-bundled-zitadel) before
+using this deployment model outside evaluation.
 
-This Docker Compose configuration is optimized for **development and testing environments**. It includes:
-- Automated setup scripts (e.g., connector registration).
-- Exposed ports for debugging (DB, Kafka, etc.).
-- Basic security defaults (development credentials).
+### Option 2: external IAM
 
-For **Production**, deploy to Kubernetes using the Helm chart, ensuring:
-- Secrets management (Vault/K8s Secrets).
-- High Availability (HA) for Kafka/ES/Postgres.
-- Ingress/Mesh networking instead of exposed container ports.
-- TLS, strict OIDC audience validation, backups, observability, resource limits, and signed release images.
+Choose this option when your organization already has an OIDC provider.
+Before starting FlowGo, the IAM administrator must create:
 
-## Troubleshooting Profiles
+- Backend API audience/client `workflow-backend`
+- Public Authorization Code + PKCE client `workflow-frontend`
+- Machine-to-machine client for SDK and worker integrations
+- `flowgo admin`, `flowgo modeler`, and `flowgo client` roles
+- Token mappings that include the FlowGo audience and assigned roles
 
-- If compose fails during startup, validate the compose definitions first:
-  ```bash
-  make smoke-profiles
-  ```
-- If Query API (`:8081`) is unavailable, ensure you started one of the new compose deployments:
-  ```bash
-  docker compose -f docker-compose.external-iam.yml up -d --build
-  # or:
-  docker compose -f docker-compose.zitadel.yml up -d --build
-  ```
+For local browser login, register `http://localhost:9100` as the redirect,
+post-logout redirect, and allowed web origin.
 
-  If connector bootstrap still needs intervention, run:
-  ```bash
-  make init-connector
-  ```
+Replace the `https://login.example.com` placeholders and client/claim settings
+in `docker-compose.external-iam.yml`. Apply the same backend authentication
+settings to both `app` and `workflow-query`. See
+[external IAM prerequisites](docs/deployment.md#external-iam-prerequisites)
+for JWT, opaque-token introspection, audience, claims, and network details.
 
-## Supported BPMN Features
+Then pull and start the released images:
 
-The engine supports a wide range of BPMN 2.0 elements and advanced features:
+```bash
+docker compose \
+  -f docker-compose.external-iam.yml \
+  -f docker-compose.release.yml \
+  pull
 
-- Support contract and coverage matrix: [docs/BPMN_SUPPORT_MATRIX.md](docs/BPMN_SUPPORT_MATRIX.md)
+docker compose \
+  -f docker-compose.external-iam.yml \
+  -f docker-compose.release.yml \
+  up -d
+```
+
+Equivalent shortcut:
+
+```bash
+FLOWGO_IMAGE_TAG=v0.1.1 make up-external-iam-release
+```
+
+FlowGo validates and authorizes external identities but does not create or
+manage users, roles, clients, or tokens in the external provider.
+
+### Verify the deployment
+
+```bash
+curl -fsS http://localhost:9100/api/health
+curl -fsS http://localhost:9100/api/query/health
+curl -fsS http://localhost:8092/health
+curl -fsS http://localhost:8083/connectors/flowgo-postgres-connector/status
+```
+
+The command/query endpoints must report `ok`, and the Debezium connector and
+tasks must be `RUNNING`. HTTP health is process-level only; complete validation
+also requires:
+
+1. Successful browser login
+2. An authenticated `/api/identity/me` response with the expected role
+3. A workflow deployment and start
+4. The resulting instance appearing through `/api/query/`
+
+Useful operations:
+
+```bash
+# Status and logs for bundled IAM
+make ps-zitadel
+make logs-zitadel
+
+# Status and logs for external IAM
+make ps-external-iam
+make logs-external-iam
+```
+
+Stop the selected stack with `make down-zitadel` or
+`make down-external-iam`. The corresponding `make clean-*` command also deletes
+all local volumes and data.
+
+## Production deployment
+
+Docker Compose is not production hardened: it exposes infrastructure ports,
+uses development credentials, and runs single-node stateful dependencies.
+
+For production, use the [FlowGo Helm chart](charts/flowgo) and follow the
+[production deployment guide](docs/deployment.md#kubernetes-and-helm). It
+covers:
+
+- External and bundled IAM values
+- Kubernetes Secrets and TLS ingress
+- Managed Postgres, Kafka/NATS, Debezium Connect, and search
+- Connector credentials and logical-replication requirements
+- Readiness and functional postconditions
+- Backups, observability, network policy, resource sizing, and rollback
+
+Pin release images or digests and review their SBOM, provenance, scan, and
+signature information before rollout.
+
+## IAM and authorization
+
+FlowGo recognizes these standard roles:
+
+- `flowgo admin`: human platform administrator
+- `flowgo modeler`: human process designer
+- `flowgo client`: SDK, worker, API, and automation identity
+
+External IAM administrators must create and map these roles. Bundled ZITADEL
+creates them automatically. Keep machine identities limited to
+`flowgo client`; do not grant SDK clients administrative roles.
+
+Audience enforcement is enabled in the supplied external deployment. Tokens
+must contain the configured backend audience, normally `workflow-backend`.
+
+See [IAM and roles](docs/iam.md) for provider setup, claim paths, JWT versus
+introspection, troubleshooting, and credential hardening.
 
 ## Node.js SDK
 
-The Node.js SDK is published as `@flowgo/nodejs-sdk`.
-
-Local development:
+Install the SDK:
 
 ```bash
-cd clients/nodejs-sdk
-npm ci
-npm test
+npm install @flowgo/nodejs-sdk
 ```
 
-Live smoke test:
+Both IAM modes send the resulting access token to FlowGo as a Bearer token.
+Token acquisition differs:
+
+- **Bundled ZITADEL**: download a private-key profile from **SDK Clients** and
+  use `auth.type="zitadel-jwt-profile"`.
+- **External IAM**: use `auth.type="oauth-client-credentials"` or provide a
+  provider-managed token callback.
+
+Every SDK identity needs `flowgo client`. Keep private profiles, client secrets,
+and access tokens in a secret manager and never expose them to browser code.
+
+See [SDK authentication](docs/sdk-nodejs.md) and the
+[package README](clients/nodejs-sdk/README.md) for complete examples, workers,
+human-task inbox integration, rotation, and smoke testing.
+
+## APIs and documentation
+
+- FlowGo UI and gateway: <http://localhost:9100>
+- Command API: <http://localhost:8080>
+- Query API: <http://localhost:8081>
+- OpenAPI/Swagger document: <http://localhost:8080/swagger/doc.json>
+
+Operator and user guides:
+
+- [Getting started](docs/getting-started.md)
+- [Deployment guide](docs/deployment.md)
+- [Architecture](docs/architecture.md)
+- [IAM](docs/iam.md)
+- [Node.js SDK](docs/sdk-nodejs.md)
+- [BPMN support](docs/BPMN_SUPPORT_MATRIX.md)
+- [Compatibility matrix](docs/COMPATIBILITY_MATRIX.md)
+- [Operations](docs/operations.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Roadmap](ROADMAP.md)
+
+## Develop from source
+
+### Download the source
+
+Requirements:
+
+- Git and Make
+- Go 1.25.12 or a compatible Go 1.25 toolchain
+- Node.js 20+ and npm
+- Docker with Compose v2
+
+Clone the development branch and install dependencies:
 
 ```bash
-FLOWGO_TOKEN=<token> FLOWGO_BASE_URL=http://localhost:9100/api node examples/sdk-smoke-test.js
+git clone https://github.com/azizAltaleb/FlowGo.git
+cd FlowGo
+
+go mod download
+npm --prefix frontend ci
+npm --prefix clients/nodejs-sdk ci
 ```
 
-Use a machine-to-machine token with the `flowgo client` role. See [docs/sdk-nodejs.md](docs/sdk-nodejs.md).
+### Start a source-built environment
 
-### 1. Service Level Agreements (SLA)
-- **Task Due Dates**: Set a `due_date` property on User Tasks (e.g., `PT1H` for 1 hour or an ISO8601 timestamp).
-- **Breach Monitoring**: The engine automatically tracks overdue tasks and marks them as breached.
-- **Background Jobs**: A background worker periodically checks for SLA breaches and timer events.
+The normal Compose targets build the application images from the checked-out
+source:
 
-### 2. Multi-Instance (Loops)
-- **Parallel Execution**: Execute a task multiple times in parallel based on a collection.
-- **Configuration**:
-  - `loop_type`: Set to "PARALLEL".
-  - `loop_collection`: Context variable name containing the list of items.
-  - `loop_element`: (Optional) Variable name for the current item in the child execution.
+```bash
+make smoke-profiles
+make up-zitadel
+```
 
-### 3. Task Listeners
-Attach lifecycle hooks to tasks to execute custom logic at specific points:
-- **Events**: `create`, `assignment`, `start`, `end`, `complete`.
-- **Implementation**: Link to a registered handler ID (similar to Service Tasks).
+Use `make up-external-iam` instead after configuring
+`docker-compose.external-iam.yml` for your provider.
 
-### 4. Advanced Gateways & Events
-- **Inclusive Gateway**: improved path reachability analysis for nested scopes.
-- **Boundary Events**: Timer and Message boundary events (interrupting and non-interrupting).
-- **Sub-Processes**: Fully supported, including nested scopes.
+For focused development:
 
-## Features
+```bash
+# Compile all Go services
+make build-backend
 
+# Build the React frontend
+make build-frontend
 
-- **Deploy Workflows**: Upload BPMN 2.0 XML files via the Modeler or API.
-- **Start Instances**: Trigger workflow instances with initial context variables.
-- **Track Progress**: Monitor active instances, current steps, and variables in real-time.
-- **Visual Modeler**: Create and edit BPMN diagrams directly in the browser.
-- **Dashboard**: View high-level statistics and recent activity.
+# Run the frontend dev server on port 5173
+npm --prefix frontend run dev
+```
 
-## Project Structure
+Database schema setup and local Debezium connector registration occur
+automatically when the Compose stack starts.
 
-- `/frontend`: React SPA.
-- `/backend`: Backend services (monorepo).
-  - `/backend/services/workflow-command`: Main backend service (command/API).
-  - `/backend/services/sync-worker`: CDC projector (separate container/image).
-  - `/backend/services/workflow-query`: Read-only query API (Elasticsearch-backed).
-- `/internal`: Shared backend packages (engine, model, storage, workers).
-- `/debezium`: Debezium connector configuration.
-- `/charts/flowgo`: Helm chart for production Kubernetes deployments.
-- `/clients/nodejs-sdk`: Node.js SDK.
-- `/docs`: Public user, operator, and contributor documentation.
-- `docker-compose.external-iam.yml`: Full stack wired to an existing external OIDC provider.
-- `docker-compose.zitadel.yml`: Full stack bundled with ZITADEL for solution-managed IAM.
+### Run tests
 
-## API Documentation
+Fast component checks:
 
-The API is documented using Swagger. Once the backend is running, you can access the raw OpenAPI spec at:
-- `http://localhost:8080/swagger/doc.json`
+```bash
+go test ./backend/...
+npm --prefix frontend test
+npm --prefix clients/nodejs-sdk test
+make smoke-profiles
+make validate-helm
+```
 
-## Development
+Run deeper checks for the changed area:
 
-### Backend
-- **Add Step Types**: Modify `internal/engine/executor.go` and `registerStepExecutors`.
-- **Database Schema**: Managed via GORM auto-migration in `internal/storage/pg_es.go`.
+```bash
+make test-bpmn-matrix       # BPMN parser/runtime contract
+make worker-conformance     # External worker HTTP contract
+make cqrs-e2e-smoke         # Write, project, and query path
+make cqrs-parity-check      # Postgres/search projection parity
+make test-integration       # Integration suite; running stack required
+make test-e2e               # End-to-end suite
+make test-security          # Security checks
+make release-dry-run        # Release packaging and image validation
+```
 
-### Worker API contract notes:
+See [quality gates](docs/QUALITY_GATES.md) for required checks by change type.
 
-- Protocol version negotiation headers are supported:
-  - request: `X-Workflow-Worker-Protocol-Version`
-  - response: `X-Workflow-Engine-Protocol-Version`
-- Engine capabilities endpoint: `GET /jobs/capabilities`
-- For safe retries on mutation calls (`complete`, `fail`, `extend-lock`), send `Idempotency-Key`.
-- Worker API conformance smoke (wire-level contract checks):
-  - `make worker-conformance`
-  - Guide: [docs/WORKER_CONFORMANCE.md](docs/WORKER_CONFORMANCE.md)
+## Contributing
 
-Outbox relay notes:
+Contributions are welcome:
 
-- The command service runs a background outbox relay loop by default.
-- Relay configuration:
-  - `OUTBOX_RELAY_ENABLED` (default `true`)
-  - `OUTBOX_RELAY_INTERVAL` (default `1s`)
-  - `OUTBOX_RELAY_TIMEOUT` (default `5s`)
-  - `OUTBOX_RELAY_BATCH_SIZE` (default `200`)
-  - `OUTBOX_RELAY_MAX_ATTEMPTS` (default `10`)
-- The relay claims pending outbox messages, publishes to the configured event bus, retries failed messages with backoff, and moves exhausted messages to terminal `FAILED` status.
-- Operator-visible counters are exposed on:
-  - `GET /health` (compact metrics payload)
-  - `GET /internal/metrics` (outbox/idempotency counters + publish lag + max attempts)
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md), the
+   [Code of Conduct](CODE_OF_CONDUCT.md), and the
+   [dependency policy](docs/DEPENDENCY_POLICY.md).
+2. Fork the repository and clone your fork.
+3. Create a focused feature or fix branch.
+4. Keep domain, application, persistence, and interface boundaries separated.
+5. Add tests and documentation for behavior or contract changes.
+6. Run the fastest relevant checks and include their results in the pull
+   request.
+7. Open a small, reviewable pull request with a clear problem statement and
+   test plan.
 
-Idempotency cleanup notes:
+Report security issues through [SECURITY.md](SECURITY.md), not a public issue.
+Release history is in [CHANGELOG.md](CHANGELOG.md).
 
-- Cleanup configuration:
-  - `IDEMPOTENCY_CLEANUP_ENABLED` (default `true`)
-  - `IDEMPOTENCY_RETENTION` (default `168h`)
-  - `IDEMPOTENCY_CLEANUP_INTERVAL` (default `1h`)
-  - `IDEMPOTENCY_CLEANUP_TIMEOUT` (default `10s`)
-  - `IDEMPOTENCY_CLEANUP_BATCH_SIZE` (default `500`)
-- Expired idempotency records are periodically deleted in bounded batches.
+## License
 
-Security & CI:
-
-- Main CI workflow: `.github/workflows/ci.yml`
-- Security scan workflow: `.github/workflows/security.yml`
-
-Operations runbook:
-
-- [docs/RUNBOOK_OUTBOX_IDEMPOTENCY.md](docs/RUNBOOK_OUTBOX_IDEMPOTENCY.md)
-- [docs/RUNBOOK_CQRS_SYNC.md](docs/RUNBOOK_CQRS_SYNC.md)
-
-CQRS parity helper:
-
-- `make cqrs-parity-check`
-- Optional deep key diff mode: `INCLUDE_KEY_DIFF=true make cqrs-parity-check`
-
-CQRS integration smoke:
-
-- `make cqrs-e2e-smoke`
-- CI usage keeps cleanup enabled and enforces auth path:
-  `CLEANUP=true WAIT_TIMEOUT_SEC=420 QUERY_AUTH_MODE=required OIDC_TOKEN_URL=... OIDC_CLIENT_ID=... ./scripts/cqrs_e2e_smoke.sh`
-- Auth-aware mode options:
-  - `QUERY_AUTH_MODE=auto|required|off` (default `auto`)
-  - `QUERY_AUTH_MODE=off` now fast-fails if `/workflows` is auth-protected (instead of timing out)
-  - Optional pre-supplied token: `QUERY_BEARER_TOKEN=...`
-  - OIDC token bootstrap inputs (when token is not pre-supplied): `OIDC_TOKEN_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_USERNAME`, `OIDC_PASSWORD`, `OIDC_SCOPE`, `OIDC_GRANT_TYPE=password|client_credentials`
-  - Optional connector override: `CONNECTOR_NAME` (default `flowgo-postgres-connector`)
-  - `AUTH_ENFORCE_AUDIENCE=false` is the smoke default for local/CI interoperability (override to `true` if strict audience checks are required)
-- Deterministic scan controls for larger datasets:
-  - `QUERY_PAGE_SIZE` (default `200`)
-  - `QUERY_MAX_PAGES` (default `50`)
-
-CQRS sync-worker reliability settings:
-
-- `SYNC_PROJECTION_CONTRACT=hybrid|event-first|debezium` (default `hybrid`; validates topic contract at startup)
-- `KAFKA_TOPICS` (primary multi-topic projection contract; defaults to hybrid event+CDC topics in `.env.full.example`)
-- `KAFKA_TOPIC_EVENTS` (legacy single-topic fallback)
-- `KAFKA_DLQ_TOPIC` (projection dead-letter topic)
-- `CONNECT_BOOTSTRAP_ENABLED` (`true|false`, default `true`; auto-register Debezium connector on sync-worker startup)
-- `CONNECT_INTERNAL_URL` (internal Kafka Connect URL for sync-worker bootstrap, default `http://connect:8083`)
-- `CONNECTOR_NAME` (connector name to ensure, default `flowgo-postgres-connector`)
-- `CONNECTOR_FILE` / `CONNECTOR_JSON` (optional override payloads; when empty, sync-worker uses embedded connector defaults)
-- `SYNC_MAX_PROCESS_RETRIES` (bounded retries before DLQ)
-- `SYNC_RETRY_BACKOFF` (retry delay)
-- `SYNC_FRESHNESS_SLO_SEC` (lag threshold in seconds used by `/health` freshness evaluation)
-- `SYNC_HEALTH_FAIL_ON_STALE` (`true|false`, default `false`; when `true`, stale freshness returns HTTP 503)
-- `SYNC_METRICS_ADDR` (sync-worker health/metrics endpoint bind address)
-
-Identity endpoint:
-
-- `GET /api/identity/me` (command service)
-- `GET /api/query/identity/me` (query service)
-
-Manual recovery command (optional):
-
-- `make init-connector`
-
-Projection contract quick guide:
-
-| Contract | Required topics in `KAFKA_TOPICS` | Rejected topics | Best for |
-| :--- | :--- | :--- | :--- |
-| `hybrid` | event topic (`KAFKA_TOPIC_EVENTS`) + at least one Debezium table topic (`*.public.*`) | none | incremental migration / dual-source projection |
-| `event-first` | event topic (`KAFKA_TOPIC_EVENTS`) | Debezium table topics (`*.public.*`) | pure outbox/event projection |
-| `debezium` | at least one Debezium table topic (`*.public.*`) | none | CDC-only projection |
-
-### Frontend
-- **UI Components**: Located in `frontend/src/components/ui`.
-- **Pages**: Located in `frontend/src/pages`.
-- **API Client**: `frontend/src/lib/api.ts`.
-- **Dependency Policy**: [docs/DEPENDENCY_POLICY.md](docs/DEPENDENCY_POLICY.md)
-- **Stability Policy**: [docs/STABILITY_POLICY.md](docs/STABILITY_POLICY.md)
-
+FlowGo is licensed under the [MIT License](LICENSE).

@@ -266,9 +266,6 @@ func isConnectorRunning(ctx context.Context, client *http.Client, baseURL, conne
 		return false, fmt.Errorf("decode connector status: %w", err)
 	}
 
-	if !strings.EqualFold(strings.TrimSpace(parsed.Connector.State), "RUNNING") {
-		return false, nil
-	}
 	if len(parsed.Tasks) == 0 {
 		return false, nil
 	}
@@ -278,7 +275,8 @@ func isConnectorRunning(ctx context.Context, client *http.Client, baseURL, conne
 		}
 	}
 
-	return true, nil
+	connectorState := strings.ToUpper(strings.TrimSpace(parsed.Connector.State))
+	return connectorState == "RUNNING" || connectorState == "UNASSIGNED", nil
 }
 
 func httpGet(ctx context.Context, client *http.Client, targetURL string) (int, string, error) {

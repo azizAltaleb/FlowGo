@@ -68,6 +68,14 @@ trap cleanup EXIT
 
 append_row() { echo "$1" >> "${SUMMARY_FILE}"; }
 
+FAILED_LAYERS=()
+record_required_failure() {
+  local exit_code="$1" layer="$2"
+  if [[ "${exit_code}" -ne 0 ]]; then
+    FAILED_LAYERS+=("${layer}")
+  fi
+}
+
 # ═══════════════════════════════════════════════════════════════════════════
 # STEP 1 — Start stack
 # ═══════════════════════════════════════════════════════════════════════════
@@ -255,12 +263,12 @@ if [[ "${SKIP_PERF}" != "true" ]]; then
   log "Running k6 performance tests..."
 
   set +e
-  docker run --rm --network host \
-    -v "${ROOT}/tests/performance/k6:/scripts" \
-    -v "${REPORTS}:/reports" \
+  bash -o pipefail -c 'docker run --rm --network host \
+    -v "$1/tests/performance/k6:/scripts" \
+    -v "$2:/reports" \
     grafana/k6:latest run \
       --out json=/reports/k6.json \
-      /scripts/run-all.js 2>&1 | tee "${REPORTS}/perf-raw.txt"
+      /scripts/run-all.js 2>&1 | tee "$2/perf-raw.txt"' _ "${ROOT}" "${REPORTS}"
   PERF_EXIT=$?
   set -e
 
@@ -320,11 +328,36 @@ fi
 bash "${ROOT}/scripts/test-report.sh"
 
 TOTAL_DURATION=$(( $(date +%s) - START_TIME ))
+
+record_required_failure "${UNIT_EXIT}" "Unit (Go)"
+record_required_failure "${INT_EXIT}" "Integration (Go)"
+record_required_failure "${E2E_EXIT}" "E2E Backend"
+record_required_failure "${FE_UNIT_EXIT}" "Frontend (Vitest)"
+if [[ "${SKIP_PLAYWRIGHT}" != "true" ]]; then
+  record_required_failure "${PW_EXIT}" "Frontend (Playwright)"
+fi
+if [[ "${SKIP_PERF}" != "true" ]]; then
+  record_required_failure "${PERF_EXIT}" "Performance (k6)"
+fi
+
 {
   echo ""
   echo "---"
   echo "_Total wall-clock time: ${TOTAL_DURATION}s_"
   echo ""
+	if (( ${#FAILED_LAYERS[@]} > 0 )); then
+	  echo "**Overall result: FAIL**"
+	  echo ""
+	  echo "Required layers failed: ${FAILED_LAYERS[*]}"
+	  echo ""
+	else
+	  echo "**Overall result: PASS**"
+	  echo ""
+	fi
+	if [[ "${SEC_EXIT}" -ne 0 ]]; then
+	  echo "Security completed with WARN status and is not part of the required-layer exit gate."
+	  echo ""
+	fi
   echo "Reports: \`$(realpath "${REPORTS}")\`"
 } >> "${SUMMARY_FILE}"
 
@@ -334,3 +367,10 @@ log "All tests complete in ${TOTAL_DURATION}s"
 log "Report: ${SUMMARY_FILE}"
 log "═══════════════════════════════════════"
 cat "${SUMMARY_FILE}"
+
+if (( ${#FAILED_LAYERS[@]} > 0 )); then
+  fail "One or more required test layers failed: ${FAILED_LAYERS[*]}"
+  exit 1
+fi
+
+exit 0

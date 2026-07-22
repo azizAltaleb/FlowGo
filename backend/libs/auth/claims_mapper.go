@@ -64,10 +64,12 @@ func claimFirstStringSlice(claims map[string]any, pathsCSV string) []string {
 func claimFirstRoleSlice(claims map[string]any, pathsCSV string) []string {
 	for _, path := range splitAndTrim(pathsCSV) {
 		value, ok := claimByPath(claims, path)
-		if !ok {
-			continue
+		var parsed []string
+		if ok {
+			parsed = valueAsRoleSlice(value)
+		} else if path == "urn:zitadel:iam:org:project:roles" {
+			parsed = claimZitadelProjectIDRoles(claims)
 		}
-		parsed := valueAsRoleSlice(value)
 		if len(parsed) > 0 {
 			return parsed
 		}
@@ -156,6 +158,23 @@ func valueAsRoleSlice(value any) []string {
 	default:
 		return valueAsStringSlice(value)
 	}
+}
+
+func claimZitadelProjectIDRoles(claims map[string]any) []string {
+	const prefix = "urn:zitadel:iam:org:project:"
+	const suffix = ":roles"
+	roles := make([]string, 0)
+	for key, value := range claims {
+		if !strings.HasPrefix(key, prefix) || !strings.HasSuffix(key, suffix) {
+			continue
+		}
+		projectID := strings.TrimSuffix(strings.TrimPrefix(key, prefix), suffix)
+		if projectID == "" {
+			continue
+		}
+		roles = append(roles, valueAsRoleSlice(value)...)
+	}
+	return dedupeStrings(roles)
 }
 
 func splitAndTrim(raw string) []string {

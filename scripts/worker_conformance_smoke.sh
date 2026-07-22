@@ -28,10 +28,13 @@ curl_with_context() {
     -o "${response_body_file}"
     -D "${response_header_file}"
     -w "%{http_code}"
-    "${auth_args[@]}"
-    "$@"
-    "${url}"
   )
+
+  if [[ "${#auth_args[@]}" -gt 0 ]]; then
+    curl_args+=("${auth_args[@]}")
+  fi
+
+  curl_args+=("$@" "${url}")
 
   if [[ -n "${body_file}" ]]; then
     curl_args+=(--data-binary "@${body_file}")

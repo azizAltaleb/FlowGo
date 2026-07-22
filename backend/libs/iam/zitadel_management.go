@@ -3,7 +3,11 @@ package iam
 import (
 	"bytes"
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -18,12 +22,25 @@ import (
 
 var ErrZITADELManagementNotConfigured = errors.New("zitadel management is not configured")
 var ErrZITADELManagedClientNotFound = errors.New("zitadel managed client not found")
+var ErrInvalidClientPublicKey = errors.New("client public key must be an RSA SPKI public key of at least 2048 bits")
+var ErrInvalidClientCredentialExpiry = errors.New("client credential expiry must be in the future and no more than 365 days away")
+var ErrLegacyPATCreationDisabled = errors.New("legacy PAT creation is disabled")
+var ErrLegacyPATRotationDisabled = errors.New("legacy PAT rotation is disabled")
+
+const (
+	defaultClientCredentialLifetime = 90 * 24 * time.Hour
+	maxClientCredentialLifetime     = 365 * 24 * time.Hour
+)
 
 type ZITADELManagementConfig struct {
-	BaseURL            string
-	PublicHost         string
-	OwnerPATFile       string
-	BootstrapStateFile string
+	BaseURL                  string
+	PublicHost               string
+	OwnerPATFile             string
+	BootstrapStateFile       string
+	ClientKeyDefaultLifetime time.Duration
+	ClientKeyMaxLifetime     time.Duration
+	EnableLegacyPATCreation  bool
+	EnableLegacyPATRotation  bool
 }
 
 type ZITADELBootstrapState struct {
@@ -75,6 +92,15 @@ type ManagedClientTokenSummary struct {
 	Status         string
 }
 
+type ManagedClientCredentialSummary struct {
+	ID        string
+	Type      string
+	CreatedAt string
+	ChangedAt string
+	ExpiresAt string
+	Status    string
+}
+
 type ManagedClient struct {
 	ClientID    string
 	Username    string
@@ -88,6 +114,23 @@ type ManagedClient struct {
 	CreatedAt   string
 	ChangedAt   string
 	Tokens      []ManagedClientTokenSummary
+	Credentials []ManagedClientCredentialSummary
+}
+
+type ManagedClientKeyCreate struct {
+	Username    string
+	Name        string
+	Description string
+	Environment string
+	OwnerEmail  string
+	Purpose     string
+	PublicKey   string
+	ExpiresAt   string
+}
+
+type ManagedClientKeyAdd struct {
+	PublicKey string
+	ExpiresAt string
 }
 
 type ManagedClientToken struct {
@@ -140,18 +183,13 @@ type ZITADELError struct {
 	StatusCode int
 	Code       string
 	Message    string
-	Body       string
 }
 
 func (e *ZITADELError) Error() string {
-	message := strings.TrimSpace(e.Message)
-	if message == "" {
-		message = strings.TrimSpace(e.Body)
+	if code := strings.TrimSpace(e.Code); code != "" {
+		return fmt.Sprintf("ZITADEL request failed with status %d (%s)", e.StatusCode, code)
 	}
-	if message == "" {
-		message = http.StatusText(e.StatusCode)
-	}
-	return fmt.Sprintf("ZITADEL request failed with status %d: %s", e.StatusCode, message)
+	return fmt.Sprintf("ZITADEL request failed with status %d", e.StatusCode)
 }
 
 func ResolveZITADELManagementConfigFromEnv(authConfig auth.Config, frontendConfig FrontendAuthConfig) ZITADELManagementConfig {
@@ -177,12 +215,45 @@ func ResolveZITADELManagementConfigFromEnv(authConfig auth.Config, frontendConfi
 	if bootstrapStateFile == "" {
 		bootstrapStateFile = "/flowgo/bootstrap/flowgo-zitadel.json"
 	}
+	defaultKeyLifetime := boundedDurationEnv(
+		"FLOWGO_IAM_CLIENT_KEY_DEFAULT_LIFETIME",
+		defaultClientCredentialLifetime,
+		time.Hour,
+		maxClientCredentialLifetime,
+	)
+	maxKeyLifetime := boundedDurationEnv(
+		"FLOWGO_IAM_CLIENT_KEY_MAX_LIFETIME",
+		maxClientCredentialLifetime,
+		defaultKeyLifetime,
+		maxClientCredentialLifetime,
+	)
 	return ZITADELManagementConfig{
-		BaseURL:            strings.TrimRight(baseURL, "/"),
-		PublicHost:         publicHost,
-		OwnerPATFile:       ownerPATFile,
-		BootstrapStateFile: bootstrapStateFile,
+		BaseURL:                  strings.TrimRight(baseURL, "/"),
+		PublicHost:               publicHost,
+		OwnerPATFile:             ownerPATFile,
+		BootstrapStateFile:       bootstrapStateFile,
+		ClientKeyDefaultLifetime: defaultKeyLifetime,
+		ClientKeyMaxLifetime:     maxKeyLifetime,
+		EnableLegacyPATCreation:  envBool("FLOWGO_IAM_ENABLE_LEGACY_PAT_CREATION"),
+		EnableLegacyPATRotation:  envBool("FLOWGO_IAM_ENABLE_LEGACY_PAT_ROTATION"),
 	}
+}
+
+func boundedDurationEnv(name string, fallback, minimum, maximum time.Duration) time.Duration {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil || parsed < minimum || parsed > maximum {
+		return fallback
+	}
+	return parsed
+}
+
+func envBool(name string) bool {
+	value := strings.TrimSpace(os.Getenv(name))
+	return strings.EqualFold(value, "true") || value == "1"
 }
 
 type ZITADELManagementClient struct {
@@ -283,7 +354,6 @@ func (c *ZITADELManagementClient) requestJSON(ctx context.Context, method string
 			StatusCode: resp.StatusCode,
 			Code:       responseError.Code,
 			Message:    responseError.Message,
-			Body:       string(responseBody),
 		}
 	}
 	if target == nil || len(responseBody) == 0 {
@@ -293,6 +363,64 @@ func (c *ZITADELManagementClient) requestJSON(ctx context.Context, method string
 		return fmt.Errorf("decode ZITADEL response: %w", err)
 	}
 	return nil
+}
+
+func parseClientPublicKey(value string) ([]byte, error) {
+	raw := []byte(strings.TrimSpace(value))
+	if block, _ := pem.Decode(raw); block != nil {
+		if block.Type != "PUBLIC KEY" {
+			return nil, ErrInvalidClientPublicKey
+		}
+		raw = block.Bytes
+	} else {
+		decoded, err := base64.StdEncoding.DecodeString(string(raw))
+		if err != nil {
+			return nil, ErrInvalidClientPublicKey
+		}
+		raw = decoded
+	}
+	parsed, err := x509.ParsePKIXPublicKey(raw)
+	if err != nil {
+		return nil, ErrInvalidClientPublicKey
+	}
+	publicKey, ok := parsed.(*rsa.PublicKey)
+	if !ok || publicKey.N.BitLen() < 2048 {
+		return nil, ErrInvalidClientPublicKey
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: raw}), nil
+}
+
+func clientCredentialExpiration(value string, now time.Time) (string, error) {
+	return clientCredentialExpirationWithLimits(
+		value,
+		now,
+		defaultClientCredentialLifetime,
+		maxClientCredentialLifetime,
+	)
+}
+
+func clientCredentialExpirationWithLimits(value string, now time.Time, defaultLifetime, maxLifetime time.Duration) (string, error) {
+	if defaultLifetime == 0 {
+		defaultLifetime = defaultClientCredentialLifetime
+	}
+	if maxLifetime == 0 {
+		maxLifetime = maxClientCredentialLifetime
+	}
+	if defaultLifetime <= 0 || maxLifetime <= 0 || defaultLifetime > maxLifetime {
+		return "", ErrInvalidClientCredentialExpiry
+	}
+	expiresAt := now.UTC().Add(defaultLifetime)
+	if strings.TrimSpace(value) != "" {
+		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
+		if err != nil {
+			return "", ErrInvalidClientCredentialExpiry
+		}
+		expiresAt = parsed.UTC()
+	}
+	if !expiresAt.After(now.UTC()) || expiresAt.After(now.UTC().Add(maxLifetime)) {
+		return "", ErrInvalidClientCredentialExpiry
+	}
+	return expiresAt.Format(time.RFC3339), nil
 }
 
 func hostFromURL(raw string) string {

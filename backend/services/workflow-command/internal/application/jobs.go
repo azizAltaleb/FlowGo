@@ -15,6 +15,7 @@ import (
 const (
 	defaultJobLockDuration = 30 * time.Second
 	activationPollInterval = 100 * time.Millisecond
+	UserTaskJobType        = "flowgo:userTask"
 )
 
 func (e *Engine) ActivateJobs(ctx context.Context, jobType, worker string, maxJobs int, requestTimeout, lockDuration time.Duration) ([]model.Job, error) {
@@ -131,7 +132,7 @@ func (e *Engine) CompleteJob(ctx context.Context, jobKey int64, worker string, v
 			for k, v := range variables {
 				instance.Context[k] = v
 			}
-			if err := txEngine.persistVariables(ctx, instanceID, job.ProcessInstanceKey, instance.Context); err != nil {
+			if err := txEngine.persistVariables(ctx, instanceID, job.ProcessInstanceKey, variables); err != nil {
 				return err
 			}
 		}
@@ -254,6 +255,103 @@ func (e *Engine) ExtendJobLock(ctx context.Context, jobKey int64, worker string,
 		job.UpdatedAt = now
 		return txEngine.repo.UpdateJob(ctx, job)
 	})
+}
+
+func (e *Engine) ListUserTaskJobs(ctx context.Context, instanceID string) ([]model.Job, error) {
+	instanceKey, err := strconv.ParseInt(instanceID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid instance id: %v", err)
+	}
+	return e.repo.ListJobsByProcessInstanceAndType(ctx, instanceKey, UserTaskJobType)
+}
+
+func (e *Engine) ClaimUserTask(ctx context.Context, instanceID, executionID, owner string, force bool) (*model.Job, error) {
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return nil, fmt.Errorf("task owner is required")
+	}
+
+	var claimed *model.Job
+	err := e.withTx(ctx, func(txEngine *Engine) error {
+		job, err := txEngine.getUserTaskJob(ctx, instanceID, executionID)
+		if err != nil {
+			return err
+		}
+		if job.State == "COMPLETED" {
+			return fmt.Errorf("user task %s is already completed", executionID)
+		}
+		if job.Worker != "" && job.Worker != owner && !force {
+			return fmt.Errorf("user task %s is already claimed by %s", executionID, job.Worker)
+		}
+
+		now := time.Now()
+		job.Worker = owner
+		job.State = "ACTIVATED"
+		job.UpdatedAt = now
+		if err := txEngine.repo.UpdateJob(ctx, job); err != nil {
+			return err
+		}
+		copy := *job
+		claimed = &copy
+		return nil
+	})
+	return claimed, err
+}
+
+func (e *Engine) CompleteUserTask(ctx context.Context, instanceID, executionID, owner string, force bool) error {
+	owner = strings.TrimSpace(owner)
+	if owner == "" && !force {
+		return fmt.Errorf("task owner is required")
+	}
+
+	return e.withTx(ctx, func(txEngine *Engine) error {
+		job, err := txEngine.getUserTaskJob(ctx, instanceID, executionID)
+		if err != nil {
+			return err
+		}
+		if job.State == "COMPLETED" {
+			return nil
+		}
+		if !force {
+			if job.Worker == "" {
+				return fmt.Errorf("user task %s must be claimed before completion", executionID)
+			}
+			if job.Worker != owner {
+				return fmt.Errorf("user task %s is claimed by %s", executionID, job.Worker)
+			}
+		}
+
+		now := time.Now()
+		job.State = "COMPLETED"
+		job.LockExpirationTime = nil
+		job.UpdatedAt = now
+		if err := txEngine.repo.UpdateJob(ctx, job); err != nil {
+			return err
+		}
+		return txEngine.completeExecution(ctx, instanceID, executionID)
+	})
+}
+
+func (e *Engine) getUserTaskJob(ctx context.Context, instanceID, executionID string) (*model.Job, error) {
+	instanceKey, err := strconv.ParseInt(instanceID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid instance id: %v", err)
+	}
+	executionKey, err := strconv.ParseInt(executionID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid execution id: %v", err)
+	}
+
+	jobs, err := e.repo.ListJobsByProcessInstanceAndType(ctx, instanceKey, UserTaskJobType)
+	if err != nil {
+		return nil, err
+	}
+	for idx := range jobs {
+		if jobs[idx].ElementInstanceKey == executionKey {
+			return &jobs[idx], nil
+		}
+	}
+	return nil, fmt.Errorf("no user task job found for execution %s", executionID)
 }
 
 func ensureActiveLockOwnership(job *model.Job, worker string, now time.Time) error {
