@@ -1,6 +1,6 @@
 # BPMN Support Matrix
 
-This matrix documents the current supported BPMN feature surface for FlowGo.
+This matrix documents the current supported BPMN feature surface for ArtificialFlow.
 
 | BPMN feature | Status | Notes |
 | :--- | :--- | :--- |

@@ -1,6 +1,6 @@
-# FlowGo
+# ArtificialFlow
 
-FlowGo is an open-source BPMN workflow platform for modeling, running, and
+ArtificialFlow is an open-source BPMN workflow platform for modeling, running, and
 observing business processes. It combines a Go workflow engine, React modeler
 and operations UI, CQRS query projection, OIDC-based identity, and a Node.js
 SDK.
@@ -8,7 +8,7 @@ SDK.
 Use Docker Compose to evaluate the complete solution from published Docker Hub
 images. Use the Helm chart for production Kubernetes deployments.
 
-## What FlowGo provides
+## What ArtificialFlow provides
 
 - Browser BPMN modeler, process catalog, dashboards, and instance history
 - Command API for workflow deployment, instance mutation, messages, and signals
@@ -70,15 +70,19 @@ and [CQRS runbook](docs/RUNBOOK_CQRS_SYNC.md).
 ## Run the released solution from Docker Hub
 
 The release Compose override removes local image builds and uses the published
-`azizaltaleb/*` images:
+`artificialflow/*` images:
 
-- `azizaltaleb/workflow-command`
-- `azizaltaleb/workflow-runtime`
-- `azizaltaleb/workflow-query`
-- `azizaltaleb/sync-worker`
-- `azizaltaleb/frontend`
+- `artificialflow/workflow-command`
+- `artificialflow/workflow-runtime`
+- `artificialflow/workflow-query`
+- `artificialflow/sync-worker`
+- `artificialflow/frontend`
 
-The commands below pin release `v0.2.0`. Review available tags and image
+For one transition release, the matching `azizaltaleb/*` references point to
+the exact same manifest digests. New deployments should use the canonical
+namespace.
+
+The commands below pin release `v0.3.0`. Review available tags and image
 verification guidance in [Docker images](docs/DOCKER_IMAGES.md).
 
 ### Prerequisites
@@ -92,9 +96,9 @@ verification guidance in [Docker images](docs/DOCKER_IMAGES.md).
 Obtain the matching deployment files:
 
 ```bash
-git clone --depth 1 --branch v0.2.0 https://github.com/azizAltaleb/FlowGo.git
-cd FlowGo
-export FLOWGO_IMAGE_TAG=v0.2.0
+git clone --depth 1 --branch v0.3.0 https://github.com/artificialflow/artificialflow.git
+cd artificialflow
+export ARTIFICIALFLOW_IMAGE_TAG=v0.3.0
 ```
 
 This checkout supplies the Compose and configuration files. The release
@@ -102,7 +106,7 @@ commands pull application images from Docker Hub and do not build the source.
 
 ### Option 1: bundled ZITADEL
 
-Choose this option for a self-contained evaluation environment. FlowGo
+Choose this option for a self-contained evaluation environment. ArtificialFlow
 automatically creates the ZITADEL project, frontend client, API introspection
 client, standard roles, and initial administrator.
 
@@ -121,12 +125,12 @@ docker compose \
 Equivalent shortcut:
 
 ```bash
-FLOWGO_IMAGE_TAG=v0.2.0 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_TAG=v0.3.0 make up-zitadel-release
 ```
 
 Open:
 
-- FlowGo: <http://localhost:9100>
+- ArtificialFlow: <http://localhost:9100>
 - ZITADEL: <http://localhost:9180>
 
 Local administrator:
@@ -144,13 +148,13 @@ using this deployment model outside evaluation.
 ### Option 2: external IAM
 
 Choose this option when your organization already has an OIDC provider.
-Before starting FlowGo, the IAM administrator must create:
+Before starting ArtificialFlow, the IAM administrator must create:
 
 - Backend API audience/client `workflow-backend`
 - Public Authorization Code + PKCE client `workflow-frontend`
 - Machine-to-machine client for SDK and worker integrations
-- `flowgo admin`, `flowgo modeler`, and `flowgo client` roles
-- Token mappings that include the FlowGo audience and assigned roles
+- `artificialflow admin`, `artificialflow modeler`, and `artificialflow client` roles
+- Token mappings that include the ArtificialFlow audience and assigned roles
 
 For local browser login, register `http://localhost:9100` as the redirect,
 post-logout redirect, and allowed web origin.
@@ -178,10 +182,10 @@ docker compose \
 Equivalent shortcut:
 
 ```bash
-FLOWGO_IMAGE_TAG=v0.2.0 make up-external-iam-release
+ARTIFICIALFLOW_IMAGE_TAG=v0.3.0 make up-external-iam-release
 ```
 
-FlowGo validates and authorizes external identities but does not create or
+ArtificialFlow validates and authorizes external identities but does not create or
 manage users, roles, clients, or tokens in the external provider.
 
 ### Verify the deployment
@@ -190,8 +194,11 @@ manage users, roles, clients, or tokens in the external provider.
 curl -fsS http://localhost:9100/api/health
 curl -fsS http://localhost:9100/api/query/health
 curl -fsS http://localhost:8092/health
-curl -fsS http://localhost:8083/connectors/flowgo-postgres-connector/status
+curl -fsS http://localhost:8083/connectors/artificialflow-postgres-connector/status
 ```
+
+The connector name is a legacy wire identifier retained for rolling-upgrade
+compatibility; new product-facing names use ArtificialFlow.
 
 The command/query endpoints must report `ok`, and the Debezium connector and
 tasks must be `RUNNING`. HTTP health is process-level only; complete validation
@@ -218,12 +225,18 @@ Stop the selected stack with `make down-zitadel` or
 `make down-external-iam`. The corresponding `make clean-*` command also deletes
 all local volumes and data.
 
+Fresh Compose deployments use project name `artificialflow` and explicit
+canonical volume names. Existing FlowGo installations must set the exact old
+project and volume overrides before rendering; otherwise Compose creates empty
+canonical volumes. Follow the [deployment identity guidance](docs/deployment.md#deployment-identity-and-rename-compatibility);
+do not use a volume-deleting cleanup command during the transition.
+
 ## Production deployment
 
 Docker Compose is not production hardened: it exposes infrastructure ports,
 uses development credentials, and runs single-node stateful dependencies.
 
-For production, use the [FlowGo Helm chart](charts/flowgo) and follow the
+For production, use the [ArtificialFlow Helm chart](charts/artificialflow) and follow the
 [production deployment guide](docs/deployment.md#kubernetes-and-helm). It
 covers:
 
@@ -239,15 +252,15 @@ signature information before rollout.
 
 ## IAM and authorization
 
-FlowGo recognizes these standard roles:
+ArtificialFlow recognizes these standard roles:
 
-- `flowgo admin`: human platform administrator
-- `flowgo modeler`: human process designer
-- `flowgo client`: SDK, worker, API, and automation identity
+- `artificialflow admin`: human platform administrator
+- `artificialflow modeler`: human process designer
+- `artificialflow client`: SDK, worker, API, and automation identity
 
 External IAM administrators must create and map these roles. Bundled ZITADEL
 creates them automatically. Keep machine identities limited to
-`flowgo client`; do not grant SDK clients administrative roles.
+`artificialflow client`; do not grant SDK clients administrative roles.
 
 Audience enforcement is enabled in the supplied external deployment. Tokens
 must contain the configured backend audience, normally `workflow-backend`.
@@ -260,10 +273,10 @@ introspection, troubleshooting, and credential hardening.
 Install the SDK:
 
 ```bash
-npm install @flowgo/nodejs-sdk
+npm install @artificialflow/nodejs-sdk
 ```
 
-Both IAM modes send the resulting access token to FlowGo as a Bearer token.
+Both IAM modes send the resulting access token to ArtificialFlow as a Bearer token.
 Token acquisition differs:
 
 - **Bundled ZITADEL**: download a private-key profile from **SDK Clients** and
@@ -271,7 +284,7 @@ Token acquisition differs:
 - **External IAM**: use `auth.type="oauth-client-credentials"` or provide a
   provider-managed token callback.
 
-Every SDK identity needs `flowgo client`. Keep private profiles, client secrets,
+Every SDK identity needs `artificialflow client`. Keep private profiles, client secrets,
 and access tokens in a secret manager and never expose them to browser code.
 
 See [SDK authentication](docs/sdk-nodejs.md) and the
@@ -280,7 +293,7 @@ human-task inbox integration, rotation, and smoke testing.
 
 ## APIs and documentation
 
-- FlowGo UI and gateway: <http://localhost:9100>
+- ArtificialFlow UI and gateway: <http://localhost:9100>
 - Command API: <http://localhost:8080>
 - Query API: <http://localhost:8081>
 - OpenAPI/Swagger document: <http://localhost:8080/swagger/doc.json>
@@ -312,8 +325,8 @@ Requirements:
 Clone the development branch and install dependencies:
 
 ```bash
-git clone https://github.com/azizAltaleb/FlowGo.git
-cd FlowGo
+git clone https://github.com/artificialflow/artificialflow.git
+cd artificialflow
 
 go mod download
 npm --prefix frontend ci
@@ -397,4 +410,4 @@ Release history is in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-FlowGo is licensed under the [MIT License](LICENSE).
+ArtificialFlow is licensed under the [MIT License](LICENSE).

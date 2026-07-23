@@ -1,12 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { FlowGoClient as NodeSDKClient } from "../../../../clients/nodejs-sdk/src/Client";
+import { ArtificialFlowClient as NodeSDKClient } from "../../../../clients/nodejs-sdk/src/Client";
 import { ZitadelJwtProfileAuthProvider } from "../../../../clients/nodejs-sdk/src/Auth";
 import type { ZitadelJwtProfile } from "../../../../clients/nodejs-sdk/src/types";
 import { createServiceAccountProfile, generateServiceAccountKeyPair } from "../../../../frontend/src/lib/serviceAccount";
 import { buildBpmnFixture, type BpmnFixtureName } from "../fixtures/uat/bpmn";
 import { uatCases, type UatCase } from "../fixtures/uat/cases";
 import { loginForDeployment, type UatDeployment } from "../fixtures/uat/auth";
-import { FlowGoApi, type ActingUser, type WorkflowInstance } from "../fixtures/uat/flowgo-api";
+import { ArtificialFlowApi, type ActingUser, type WorkflowInstance } from "../fixtures/uat/artificialflow-api";
 import { runDir, writeCaseResult } from "../fixtures/uat/results";
 
 test.use({ trace: "retain-on-failure", screenshot: "only-on-failure" });
@@ -17,7 +17,7 @@ const runId = process.env.UAT_RUN_ID || new Date().toISOString().replace(/[-:.TZ
 const caseFilter = new Set((process.env.UAT_CASE_FILTER || "").split(",").map((item) => item.trim()).filter(Boolean));
 const casesToRun = uatCases.filter((uatCase) => caseFilter.size === 0 || caseFilter.has(uatCase.id));
 
-test.describe(`FlowGo UAT video suite - ${deployment}`, () => {
+test.describe(`ArtificialFlow UAT video suite - ${deployment}`, () => {
   for (const uatCase of casesToRun) {
     test(`${uatCase.id} ${uatCase.title}`, async ({ browser }, testInfo) => {
       testInfo.setTimeout(180_000);
@@ -70,7 +70,7 @@ async function runUatCase(page: Page, uatCase: UatCase, mode: UatDeployment): Pr
 
   await loginForDeployment(page, mode);
   console.log(`[uat-case] authenticated ${uatCase.id}`);
-  const api = new FlowGoApi(page);
+  const api = new ArtificialFlowApi(page);
   const created = { workflows: [] as string[], instances: [] as string[], clients: [] as string[], users: [] as string[], roles: [] as string[] };
 
   try {
@@ -126,7 +126,7 @@ async function runUatCase(page: Page, uatCase: UatCase, mode: UatDeployment): Pr
   }
 }
 
-async function runRoleBasedComplexCase(page: Page, api: FlowGoApi, uatCase: UatCase, mode: UatDeployment, created: Created): Promise<void> {
+async function runRoleBasedComplexCase(page: Page, api: ArtificialFlowApi, uatCase: UatCase, mode: UatDeployment, created: Created): Promise<void> {
   const processId = processIdFor(uatCase);
   const accountant = roleUser("accountant", mode);
   const reviewer = roleUser("reviewer", mode);
@@ -167,7 +167,7 @@ async function runRoleBasedComplexCase(page: Page, api: FlowGoApi, uatCase: UatC
 
   await assertInboxCannotSeeOrClaimTask(page, api, inboxToken, actingUserForRole(reviewer), instance.id, accountantReviewExecution.id, "accountantReview");
 
-  await completeTaskFromInbox(page, api, inboxToken, actingUserForRole(accountant), instance.id, "accountantReview", "Accountant takes and completes accountantReview through FlowGo Transaction Inbox");
+  await completeTaskFromInbox(page, api, inboxToken, actingUserForRole(accountant), instance.id, "accountantReview", "Accountant takes and completes accountantReview through ArtificialFlow Transaction Inbox");
 
   await api.waitForInstanceStatus(instance.id, (item) =>
     activeSteps(item).includes("receiveDocuments") && activeSteps(item).includes("receiveBudgetConfirmation")
@@ -179,7 +179,7 @@ async function runRoleBasedComplexCase(page: Page, api: FlowGoApi, uatCase: UatC
 
   await assertInboxCannotSeeOrClaimTask(page, api, inboxToken, actingUserForRole(accountant), instance.id, reviewerApprovalExecution.id, "reviewerApproval");
 
-  await completeTaskFromInbox(page, api, inboxToken, actingUserForRole(reviewer), instance.id, "reviewerApproval", "Reviewer takes and completes reviewerApproval through FlowGo Transaction Inbox");
+  await completeTaskFromInbox(page, api, inboxToken, actingUserForRole(reviewer), instance.id, "reviewerApproval", "Reviewer takes and completes reviewerApproval through ArtificialFlow Transaction Inbox");
 
   const completed = await api.waitForInstanceStatus(instance.id, (item) => item.status === "COMPLETED");
   expect(completed.status).toBe("COMPLETED");
@@ -189,7 +189,7 @@ async function runRoleBasedComplexCase(page: Page, api: FlowGoApi, uatCase: UatC
   await showCompletedHistoryEvidence(page, instance.id);
 }
 
-async function runIamModeCase(page: Page, api: FlowGoApi, mode: UatDeployment): Promise<void> {
+async function runIamModeCase(page: Page, api: ArtificialFlowApi, mode: UatDeployment): Promise<void> {
   const config = await api.identityConfig();
   const me = await api.identityMe();
   expect(config).toHaveProperty("deployment_mode");
@@ -215,7 +215,7 @@ async function runDashboardCase(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: /instances/i }).first()).toBeVisible();
 }
 
-async function runUserTaskUiCase(page: Page, api: FlowGoApi, uatCase: UatCase, created: Created): Promise<void> {
+async function runUserTaskUiCase(page: Page, api: ArtificialFlowApi, uatCase: UatCase, created: Created): Promise<void> {
   const { workflowId, instance } = await deployStart(page, api, uatCase, created, { amount: 250, approved: false });
   await waitForProjectionEvidence(page, api, workflowId, processIdFor(uatCase));
   await page.goto("/processes", { waitUntil: "domcontentloaded" });
@@ -242,7 +242,7 @@ async function runUserTaskUiCase(page: Page, api: FlowGoApi, uatCase: UatCase, c
   await expect(page.locator("body")).toContainText("COMPLETED");
 }
 
-async function runDeployOnlyBpmnCase(page: Page, api: FlowGoApi, uatCase: UatCase, created: Created): Promise<void> {
+async function runDeployOnlyBpmnCase(page: Page, api: ArtificialFlowApi, uatCase: UatCase, created: Created): Promise<void> {
   const workflowId = await deployBundle(api, uatCase, created);
   await waitForProjectionEvidence(page, api, workflowId, processIdFor(uatCase));
   await page.goto("/processes", { waitUntil: "domcontentloaded" });
@@ -255,7 +255,7 @@ async function runDeployOnlyBpmnCase(page: Page, api: FlowGoApi, uatCase: UatCas
   await expect(page.locator("body")).toContainText(/Modeler|Standard BPMN|Deploy Process/);
 }
 
-async function runCallBusinessManualCase(page: Page, api: FlowGoApi, uatCase: UatCase, created: Created): Promise<void> {
+async function runCallBusinessManualCase(page: Page, api: ArtificialFlowApi, uatCase: UatCase, created: Created): Promise<void> {
   const { instance } = await deployStart(page, api, uatCase, created);
   const running = await api.waitForInstanceStatus(instance.id, (item) => activeSteps(item).includes("manualReview"));
   expect(activeSteps(running)).toContain("manualReview");
@@ -266,7 +266,7 @@ async function runCallBusinessManualCase(page: Page, api: FlowGoApi, uatCase: Ua
   await api.waitForInstanceStatus(instance.id, (item) => item.status === "COMPLETED");
 }
 
-async function runEventGatewayCase(page: Page, api: FlowGoApi, uatCase: UatCase, created: Created): Promise<void> {
+async function runEventGatewayCase(page: Page, api: ArtificialFlowApi, uatCase: UatCase, created: Created): Promise<void> {
   const { instance } = await deployStart(page, api, uatCase, created);
   await api.waitForInstanceStatus(instance.id, (item) => activeSteps(item).includes("receive"));
   await page.goto(`/instances/${instance.id}`, { waitUntil: "domcontentloaded" });
@@ -278,7 +278,7 @@ async function runEventGatewayCase(page: Page, api: FlowGoApi, uatCase: UatCase,
   await addBanner(page, "Message branch won; timer branch is no longer the active path");
 }
 
-async function runBoundaryTimerCase(page: Page, api: FlowGoApi, uatCase: UatCase, created: Created): Promise<void> {
+async function runBoundaryTimerCase(page: Page, api: ArtificialFlowApi, uatCase: UatCase, created: Created): Promise<void> {
   const { instance } = await deployStart(page, api, uatCase, created);
   await page.goto(`/instances/${instance.id}`, { waitUntil: "domcontentloaded" });
   await addBanner(page, "Boundary timer starts while user task is active");
@@ -288,7 +288,7 @@ async function runBoundaryTimerCase(page: Page, api: FlowGoApi, uatCase: UatCase
   expect(activeSteps(timed).includes("userTask")).toBeFalsy();
 }
 
-async function runMessageSignalCase(page: Page, api: FlowGoApi, uatCase: UatCase, created: Created): Promise<void> {
+async function runMessageSignalCase(page: Page, api: ArtificialFlowApi, uatCase: UatCase, created: Created): Promise<void> {
   const bundle = buildBpmnFixture(uatCase.fixture as BpmnFixtureName, `${runId}_${uatCase.id}`);
   const receiver = await api.deploy(bundle.dependencies![0].xml);
   created.workflows.push(receiver.id);
@@ -308,7 +308,7 @@ async function runMessageSignalCase(page: Page, api: FlowGoApi, uatCase: UatCase
   await expect(page.locator("body")).toContainText("COMPLETED");
 }
 
-async function runServiceWorkerCase(page: Page, api: FlowGoApi, uatCase: UatCase, created: Created): Promise<void> {
+async function runServiceWorkerCase(page: Page, api: ArtificialFlowApi, uatCase: UatCase, created: Created): Promise<void> {
   const { instance } = await deployStart(page, api, uatCase, created);
   const jobs = await pollJobs(api, "uat-worker", "uat-video-worker");
   expect(jobs.length).toBeGreaterThan(0);
@@ -322,14 +322,14 @@ async function runServiceWorkerCase(page: Page, api: FlowGoApi, uatCase: UatCase
   await api.waitForInstanceStatus(instance.id, (item) => item.status === "COMPLETED");
 }
 
-async function runExpectedRejectionCase(page: Page, api: FlowGoApi, uatCase: UatCase): Promise<void> {
+async function runExpectedRejectionCase(page: Page, api: ArtificialFlowApi, uatCase: UatCase): Promise<void> {
   const bundle = buildBpmnFixture(uatCase.fixture as BpmnFixtureName, `${runId}_${uatCase.id}`);
   const rejection = await api.deployExpectingRejection(bundle.primary.xml);
   expect(rejection.status).toBeGreaterThanOrEqual(400);
   await showStandaloneCard(page, uatCase, deployment, `Expected rejection received: HTTP ${rejection.status}\n${rejection.text.slice(0, 500)}`);
 }
 
-async function runWorkerGuardrailCase(page: Page, api: FlowGoApi): Promise<void> {
+async function runWorkerGuardrailCase(page: Page, api: ArtificialFlowApi): Promise<void> {
   const capabilities = await api.jobsCapabilities();
   expect(capabilities.protocolVersion).toBe("v1");
   expect(capabilities.capabilities).toEqual(expect.arrayContaining(["activate", "complete", "fail", "extend-lock"]));
@@ -345,7 +345,7 @@ async function runWorkerGuardrailCase(page: Page, api: FlowGoApi): Promise<void>
   }, deployment, `Capabilities: ${capabilities.capabilities.join(", ")}\nUnsupported protocol rejected with HTTP ${unsupported.status}`);
 }
 
-async function runBundledIdentityManagementCase(page: Page, api: FlowGoApi, created: Created): Promise<void> {
+async function runBundledIdentityManagementCase(page: Page, api: ArtificialFlowApi, created: Created): Promise<void> {
   const users = await api.identityUsers();
   const roles = await api.identityRoles();
   expect(users.length).toBeGreaterThan(0);
@@ -357,7 +357,7 @@ async function runBundledIdentityManagementCase(page: Page, api: FlowGoApi, crea
   });
   const sdkIdentity = await sdk.getIdentity();
   expect(sdkIdentity.authenticated).toBe(true);
-  expect(sdkIdentity.principal?.roles || []).toContain("flowgo client");
+  expect(sdkIdentity.principal?.roles || []).toContain("artificialflow client");
   const sdkJobs = await sdk.activateJobs({
     type: "uat-sdk-auth-no-jobs",
     worker: `uat-official-sdk-${runId}`,
@@ -411,10 +411,10 @@ async function runBundledIdentityManagementCase(page: Page, api: FlowGoApi, crea
 
   await page.goto("/sdk-clients", { waitUntil: "domcontentloaded" });
   await addBanner(page, "Private-key JWT Profile mints short-lived tokens with overlapping key rotation");
-  await expect(page.locator("body")).toContainText(/SDK Clients|FlowGo Clients|Clients/i);
+  await expect(page.locator("body")).toContainText(/SDK Clients|ArtificialFlow Clients|Clients/i);
 }
 
-async function createBundledSDKProfile(api: FlowGoApi, name: string, created: Created) {
+async function createBundledSDKProfile(api: ArtificialFlowApi, name: string, created: Created) {
   const keyPair = await generateServiceAccountKeyPair();
   const client = await api.createClientKey(name, keyPair.publicKeyPem);
   const key = client.credentials.find((credential) => credential.type === "private_key_jwt");
@@ -458,7 +458,7 @@ function roleUser(role: "accountant" | "reviewer", mode: UatDeployment) {
 }
 
 async function provisionRoleUsers(
-  api: FlowGoApi,
+  api: ArtificialFlowApi,
   mode: UatDeployment,
   accountant: ReturnType<typeof roleUser>,
   reviewer: ReturnType<typeof roleUser>,
@@ -483,7 +483,7 @@ async function provisionRoleUsers(
         username: user.username,
         given_name: user.display.split(" ")[1] || user.role,
         family_name: "User",
-        email: `${user.username}@flowgo.local`,
+        email: `${user.username}@artificialflow.io`,
         password: user.password,
         roles: [user.role],
       });
@@ -498,13 +498,13 @@ function actingUserForRole(user: ReturnType<typeof roleUser>): ActingUser {
   return {
     subject: user.username,
     username: user.username,
-    email: `${user.username}@flowgo.local`,
+    email: `${user.username}@artificialflow.io`,
     name: user.display,
     roles: [user.role],
   };
 }
 
-async function provisionInboxClientToken(page: Page, api: FlowGoApi, mode: UatDeployment, created: Created): Promise<string> {
+async function provisionInboxClientToken(page: Page, api: ArtificialFlowApi, mode: UatDeployment, created: Created): Promise<string> {
   if (mode === "bundled-zitadel") {
     const client = await createBundledSDKProfile(api, `uat-inbox-${runId}`, created);
     return new ZitadelJwtProfileAuthProvider({
@@ -531,7 +531,7 @@ async function provisionInboxClientToken(page: Page, api: FlowGoApi, mode: UatDe
 
 async function startInstanceFromProcessesOrApi(
   page: Page,
-  api: FlowGoApi,
+  api: ArtificialFlowApi,
   workflowId: string,
   processId: string,
   mode: UatDeployment,
@@ -560,7 +560,7 @@ async function startInstanceFromProcessesOrApi(
   });
 }
 
-async function completeWorkerJob(page: Page, api: FlowGoApi, type: string, worker: string): Promise<void> {
+async function completeWorkerJob(page: Page, api: ArtificialFlowApi, type: string, worker: string): Promise<void> {
   await addBanner(page, `External worker activates and completes ${type}`);
   const jobs = await pollJobs(api, type, worker);
   expect(jobs.length).toBeGreaterThan(0);
@@ -569,7 +569,7 @@ async function completeWorkerJob(page: Page, api: FlowGoApi, type: string, worke
 
 async function completeTaskFromInbox(
   page: Page,
-  api: FlowGoApi,
+  api: ArtificialFlowApi,
   token: string,
   actingUser: ActingUser,
   instanceId: string,
@@ -582,9 +582,9 @@ async function completeTaskFromInbox(
   expect(inboxInstance.id).toBe(instanceId);
   const tasks = await api.listInboxTasks(instanceId, token, actingUser);
   const task = tasks.find((item) => item.elementId === stepId);
-  expect(task, `${actingUser.username} should see ${stepId} in FlowGo Transaction Inbox`).toBeTruthy();
+  expect(task, `${actingUser.username} should see ${stepId} in ArtificialFlow Transaction Inbox`).toBeTruthy();
   if (!task) {
-    throw new Error(`${actingUser.username} could not see ${stepId} in FlowGo Transaction Inbox`);
+    throw new Error(`${actingUser.username} could not see ${stepId} in ArtificialFlow Transaction Inbox`);
   }
   expect(task.canClaim || task.canComplete).toBeTruthy();
   const claimed = task.canClaim ? await api.claimInboxTask(instanceId, task.executionId, token, actingUser) : task;
@@ -594,7 +594,7 @@ async function completeTaskFromInbox(
 
 async function assertInboxCannotSeeOrClaimTask(
   page: Page,
-  api: FlowGoApi,
+  api: ArtificialFlowApi,
   token: string,
   actingUser: ActingUser,
   instanceId: string,
@@ -646,7 +646,7 @@ function activeExecutionForStep(instance: WorkflowInstance, stepId: string) {
   return execution;
 }
 
-async function deployStart(page: Page, api: FlowGoApi, uatCase: UatCase, created: Created, context: Record<string, unknown> = {}) {
+async function deployStart(page: Page, api: ArtificialFlowApi, uatCase: UatCase, created: Created, context: Record<string, unknown> = {}) {
   const workflowId = await deployBundle(api, uatCase, created);
   const instance = await api.startInstance(workflowId, { ...context, uatCase: uatCase.id });
   created.instances.push(instance.id);
@@ -655,7 +655,7 @@ async function deployStart(page: Page, api: FlowGoApi, uatCase: UatCase, created
   return { workflowId, instance };
 }
 
-async function waitForProjectionEvidence(page: Page, api: FlowGoApi, workflowId: string, processId: string): Promise<void> {
+async function waitForProjectionEvidence(page: Page, api: ArtificialFlowApi, workflowId: string, processId: string): Promise<void> {
   if (deployment === "external-keycloak") {
     await addBanner(page, `External Keycloak: command API validated; query projection for ${processId} is recorded as non-blocking evidence`);
     return;
@@ -667,7 +667,7 @@ async function waitForProjectionEvidence(page: Page, api: FlowGoApi, workflowId:
   }
 }
 
-async function waitForProjectionEvidenceNonBlocking(page: Page, api: FlowGoApi, workflowId: string, processId: string): Promise<void> {
+async function waitForProjectionEvidenceNonBlocking(page: Page, api: ArtificialFlowApi, workflowId: string, processId: string): Promise<void> {
   try {
     await waitForProjectionEvidence(page, api, workflowId, processId);
   } catch {
@@ -675,7 +675,7 @@ async function waitForProjectionEvidenceNonBlocking(page: Page, api: FlowGoApi, 
   }
 }
 
-async function deployBundle(api: FlowGoApi, uatCase: UatCase, created: Created): Promise<string> {
+async function deployBundle(api: ArtificialFlowApi, uatCase: UatCase, created: Created): Promise<string> {
   const bundle = buildBpmnFixture(uatCase.fixture as BpmnFixtureName, `${runId}_${uatCase.id}`);
   for (const dependency of bundle.dependencies || []) {
     const workflow = await api.deploy(dependency.xml);
@@ -686,7 +686,7 @@ async function deployBundle(api: FlowGoApi, uatCase: UatCase, created: Created):
   return workflow.id;
 }
 
-async function pollJobs(api: FlowGoApi, type: string, worker: string) {
+async function pollJobs(api: ArtificialFlowApi, type: string, worker: string) {
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
     const jobs = await api.activateJobs(type, worker);
@@ -695,7 +695,7 @@ async function pollJobs(api: FlowGoApi, type: string, worker: string) {
   return [];
 }
 
-async function completeAllActiveTasks(api: FlowGoApi, instanceId: string): Promise<void> {
+async function completeAllActiveTasks(api: ArtificialFlowApi, instanceId: string): Promise<void> {
   let instance = await api.getInstance(instanceId);
   for (const step of activeSteps(instance)) {
     await api.completeTask(instanceId, step);
@@ -750,7 +750,7 @@ async function addBanner(page: Page, text: string): Promise<void> {
   await page.waitForTimeout(1_000);
 }
 
-async function cleanup(api: FlowGoApi, created: Created): Promise<void> {
+async function cleanup(api: ArtificialFlowApi, created: Created): Promise<void> {
   if (process.env.UAT_KEEP_EVIDENCE === "true") {
     console.log("[uat-cleanup] preserving created UAT evidence because UAT_KEEP_EVIDENCE=true");
     return;

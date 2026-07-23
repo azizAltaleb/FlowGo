@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// UnaryServerInterceptor authenticates gRPC calls and enforces FlowGo roles.
+// UnaryServerInterceptor authenticates gRPC calls and enforces ArtificialFlow roles.
 func (m *Middleware) UnaryServerInterceptor(roles ...string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		cfg, err := m.provider.GetConfig(ctx)

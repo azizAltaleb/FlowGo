@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/azizAltaleb/flowgo/backend/api/v1/go"
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/domain/model"
-	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/domain/repository"
+	pb "github.com/artificialflow/artificialflow/backend/api/v1/go"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/services/sync-worker/internal/domain/model"
+	"github.com/artificialflow/artificialflow/backend/services/sync-worker/internal/domain/repository"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -24,6 +24,10 @@ type SyncService struct {
 }
 
 func NewSyncService(repo repository.SyncRepository, indexPrefix string) *SyncService {
+	indexPrefix = strings.TrimSpace(indexPrefix)
+	if indexPrefix == "" {
+		indexPrefix = "artificialflow"
+	}
 	return &SyncService{
 		repo:        repo,
 		indexPrefix: indexPrefix,
@@ -178,11 +182,7 @@ func (s *SyncService) denormalizeVariable(ctx context.Context, msg model.Debeziu
 	}
 	name := fmt.Sprint(nameVal)
 
-	// Target Index: flowgo-process_instance
-	targetIndex := "flowgo-process_instance"
-	if s.indexPrefix != "" {
-		targetIndex = s.indexPrefix + "-process_instance"
-	}
+	targetIndex := s.indexPrefix + "-process_instance"
 
 	logFields := map[string]any{
 		"process_instance_key": piKey,
@@ -277,9 +277,6 @@ func (s *SyncService) indexNameForTopic(topic string) string {
 		table = parts[len(parts)-1]
 	}
 
-	if s.indexPrefix == "" {
-		return table
-	}
 	return s.indexPrefix + "-" + table
 }
 

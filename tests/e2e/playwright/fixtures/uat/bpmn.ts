@@ -26,7 +26,7 @@ const ns = `xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowg
 
 function doc(id: string, body: string, extraDefs = ""): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions ${ns} id="Definitions_${id}" targetNamespace="http://flowgo.local/uat">
+<bpmn:definitions ${ns} id="Definitions_${id}" targetNamespace="https://artificialflow.io/uat">
 ${extraDefs}
 ${body}
 </bpmn:definitions>`;
@@ -67,11 +67,11 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
     <bpmn:endEvent id="complianceEnd" name="Compliance branch done"><bpmn:incoming>f10b</bpmn:incoming></bpmn:endEvent>
     <bpmn:subProcess id="embeddedAudit" name="Embedded audit"><bpmn:incoming>f10a</bpmn:incoming><bpmn:outgoing>f11</bpmn:outgoing></bpmn:subProcess>
     <bpmn:callActivity id="callChild" name="Parallel child validation" calledElement="${childId}"><bpmn:incoming>f11</bpmn:incoming><bpmn:outgoing>f12</bpmn:outgoing></bpmn:callActivity>
-    <bpmn:userTask id="accountantReview" name="Accountant review" flowgo:assignee="accountant" flowgo:candidateUsers="accountant,accounts.lead@flowgo.local" flowgo:candidateGroups="accountant,finance" flowgo:dueDate="PT1H">
+    <bpmn:userTask id="accountantReview" name="Accountant review" flowgo:assignee="accountant" flowgo:candidateUsers="accountant,accounts.lead@artificialflow.io" flowgo:candidateGroups="accountant,finance" flowgo:dueDate="PT1H">
       <bpmn:extensionElements>
         <flowgo:properties>
           <flowgo:property name="uat_role" value="accountant"/>
-          <flowgo:property name="candidateUsers" value="accountant,accounts.lead@flowgo.local"/>
+          <flowgo:property name="candidateUsers" value="accountant,accounts.lead@artificialflow.io"/>
           <flowgo:property name="candidateGroups" value="accountant,finance"/>
         </flowgo:properties>
       </bpmn:extensionElements>
@@ -86,11 +86,11 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
     <bpmn:endEvent id="budgetEnd" name="Budget branch done"><bpmn:incoming>f15b</bpmn:incoming></bpmn:endEvent>
     <bpmn:intermediateCatchEvent id="documentTimer" name="Document timer"><bpmn:outgoing>f18</bpmn:outgoing><bpmn:timerEventDefinition><bpmn:timeDuration>PT1H</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>
     <bpmn:manualTask id="timerManualFollowup" name="Timer manual follow-up"><bpmn:incoming>f18</bpmn:incoming><bpmn:outgoing>f19</bpmn:outgoing></bpmn:manualTask>
-    <bpmn:userTask id="reviewerApproval" name="Reviewer approval" flowgo:assignee="reviewer" flowgo:candidateUsers="reviewer,reviewer.lead@flowgo.local" flowgo:candidateGroups="reviewer,approvers" flowgo:dueDate="PT2H">
+    <bpmn:userTask id="reviewerApproval" name="Reviewer approval" flowgo:assignee="reviewer" flowgo:candidateUsers="reviewer,reviewer.lead@artificialflow.io" flowgo:candidateGroups="reviewer,approvers" flowgo:dueDate="PT2H">
       <bpmn:extensionElements>
         <flowgo:properties>
           <flowgo:property name="uat_role" value="reviewer"/>
-          <flowgo:property name="candidateUsers" value="reviewer,reviewer.lead@flowgo.local"/>
+          <flowgo:property name="candidateUsers" value="reviewer,reviewer.lead@artificialflow.io"/>
           <flowgo:property name="candidateGroups" value="reviewer,approvers"/>
         </flowgo:properties>
       </bpmn:extensionElements>

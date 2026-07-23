@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "readers": [
+    {
+      "owner": "workflow-query",
+      "surface": "Elasticsearch process and process-instance indices",
+      "legacyIdentifier": "flowgo-process, flowgo-process_instance",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "workflow-command",
+      "surface": "persisted user-task job types",
+      "legacyIdentifier": "flowgo:userTask",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "workflow-command",
+      "surface": "BPMN extension namespace and attributes",
+      "legacyIdentifier": "http://flowgo.com/schema/1.0/bpmn",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "workflow-command, workflow-query",
+      "surface": "trusted acting-principal HTTP headers",
+      "legacyIdentifier": "X-FlowGo-Acting-*",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "auth, frontend",
+      "surface": "built-in role claims",
+      "legacyIdentifier": "flowgo admin, flowgo modeler, flowgo client",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "job-worker-api",
+      "surface": "gRPC service route",
+      "legacyIdentifier": "flowgo.api.v1.JobWorkerService",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "sync-worker",
+      "surface": "Debezium topic and connector identifiers",
+      "legacyIdentifier": "flowgo.public.*, flowgo-postgres-connector",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "iam-bootstrap, nodejs-sdk",
+      "surface": "legacy environment aliases",
+      "legacyIdentifier": "FLOWGO_*",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "frontend",
+      "surface": "runtime config and pending CQRS session state",
+      "legacyIdentifier": "__FLOWGO_RUNTIME_CONFIG__, flowgo.pending*",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "observability",
+      "surface": "Prometheus outbox metric mirrors",
+      "legacyIdentifier": "flowgo_outbox_*",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "nodejs-sdk",
+      "surface": "deprecated SDK symbols and package wrapper",
+      "legacyIdentifier": "FlowGo* exports, @flowgo/nodejs-sdk",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "release",
+      "surface": "Docker Hub transition aliases",
+      "legacyIdentifier": "azizaltaleb/workflow-command, workflow-runtime, workflow-query, sync-worker, frontend",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "deployment",
+      "surface": "legacy Compose and Helm installation identities",
+      "legacyIdentifier": "flowgo resource names, selectors, volumes, Secrets, and PVCs",
+      "removalVersion": "0.4.0"
+    },
+    {
+      "owner": "iam-bootstrap",
+      "surface": "legacy saved bootstrap and client metadata",
+      "legacyIdentifier": "flowgo-zitadel state and flowgo-client: metadata",
+      "removalVersion": "0.4.0"
+    }
+  ]
+}

@@ -17,7 +17,7 @@ const packageDir = candidates.find((candidate) => {
     return false;
   }
   const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-  return pkg.name === '@flowgo/nodejs-sdk';
+  return pkg.name === '@artificialflow/nodejs-sdk';
 });
 
 if (!packageDir) {
@@ -53,7 +53,7 @@ function requireArrayIncludes(field, values, expectedValues) {
   }
 }
 
-requireEqual('name', pkg.name, '@flowgo/nodejs-sdk');
+requireEqual('name', pkg.name, '@artificialflow/nodejs-sdk');
 requireEqual('license', pkg.license, 'MIT');
 requireEqual('main', pkg.main, 'dist/index.js');
 requireEqual('types', pkg.types, 'dist/index.d.ts');
@@ -64,6 +64,7 @@ requirePresent('repository.url', pkg.repository?.url);
 requireEqual('repository.directory', pkg.repository?.directory, 'clients/nodejs-sdk');
 requirePresent('bugs.url', pkg.bugs?.url);
 requireEqual('publishConfig.access', pkg.publishConfig?.access, 'public');
+requireEqual('publishConfig.tag', pkg.publishConfig?.tag, undefined);
 
 if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(pkg.version || '')) {
   failures.push('version must be a valid SemVer value');
@@ -73,7 +74,7 @@ if (!String(pkg.engines?.node || '').includes('>=20')) {
   failures.push('engines.node must require Node.js 20 or newer');
 }
 
-requireArrayIncludes('keywords', pkg.keywords, ['flowgo', 'workflow', 'bpmn', 'worker', 'sdk', 'oidc']);
+requireArrayIncludes('keywords', pkg.keywords, ['artificialflow', 'workflow', 'bpmn', 'worker', 'sdk', 'oidc']);
 requireArrayIncludes('files', pkg.files, ['dist', 'examples', 'README.md', 'LICENSE']);
 
 const requiredScripts = ['build', 'test', 'validate:package', 'prepack'];
@@ -88,6 +89,28 @@ for (const requiredFile of requiredFiles) {
   }
 }
 
+const legacyDir = path.join(scriptDir, '..', 'clients', 'nodejs-sdk-legacy');
+const legacyPackagePath = path.join(legacyDir, 'package.json');
+if (!fs.existsSync(legacyPackagePath)) {
+  failures.push('deprecated compatibility package is missing: clients/nodejs-sdk-legacy/package.json');
+} else {
+  const legacy = JSON.parse(fs.readFileSync(legacyPackagePath, 'utf8'));
+  requireEqual('legacy.name', legacy.name, '@flowgo/nodejs-sdk');
+  requireEqual('legacy.version', legacy.version, pkg.version);
+  requireEqual(
+    'legacy.dependencies.@artificialflow/nodejs-sdk',
+    legacy.dependencies?.['@artificialflow/nodejs-sdk'],
+    pkg.version,
+  );
+  requireEqual('legacy.publishConfig.access', legacy.publishConfig?.access, 'public');
+  requireEqual('legacy.publishConfig.tag', legacy.publishConfig?.tag, undefined);
+  for (const requiredFile of ['README.md', 'LICENSE', 'index.js', 'index.d.ts']) {
+    if (!fs.existsSync(path.join(legacyDir, requiredFile))) {
+      failures.push(`required compatibility package file is missing: ${requiredFile}`);
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error('Node.js SDK package metadata validation failed:');
   for (const failure of failures) {
@@ -96,4 +119,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Node.js SDK package metadata validation passed for ${pkg.name}@${pkg.version}`);
+console.log(
+  `Node.js SDK package metadata validation passed for ${pkg.name}@${pkg.version} and its exact-version compatibility wrapper`,
+);

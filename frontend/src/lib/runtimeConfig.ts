@@ -1,4 +1,4 @@
-type RuntimeConfig = {
+export type RuntimeConfig = {
   apiUrl?: string;
   oidcAuthority?: string;
   oidcClientId?: string;
@@ -6,16 +6,30 @@ type RuntimeConfig = {
 
 declare global {
   interface Window {
+    __ARTIFICIALFLOW_RUNTIME_CONFIG__?: RuntimeConfig;
     __FLOWGO_RUNTIME_CONFIG__?: RuntimeConfig;
   }
 }
 
 const trim = (value: string | undefined | null): string => (value || "").trim();
 
-const runtime = (typeof window !== "undefined" ? window.__FLOWGO_RUNTIME_CONFIG__ : undefined) || {};
+export function resolveRuntimeConfig(
+  canonical: RuntimeConfig = {},
+  legacy: RuntimeConfig = {},
+) {
+  const preferred = (canonicalValue?: string, legacyValue?: string) =>
+    trim(canonicalValue) || trim(legacyValue);
 
-export const runtimeConfig = {
-  apiUrl: trim(runtime.apiUrl),
-  oidcAuthority: trim(runtime.oidcAuthority),
-  oidcClientId: trim(runtime.oidcClientId),
-};
+  return {
+    apiUrl: preferred(canonical.apiUrl, legacy.apiUrl),
+    oidcAuthority: preferred(canonical.oidcAuthority, legacy.oidcAuthority),
+    oidcClientId: preferred(canonical.oidcClientId, legacy.oidcClientId),
+  };
+}
+
+const canonicalRuntime =
+  (typeof window !== "undefined" ? window.__ARTIFICIALFLOW_RUNTIME_CONFIG__ : undefined) || {};
+const legacyRuntime =
+  (typeof window !== "undefined" ? window.__FLOWGO_RUNTIME_CONFIG__ : undefined) || {};
+
+export const runtimeConfig = resolveRuntimeConfig(canonicalRuntime, legacyRuntime);

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 )
 
 type InstanceResponse struct {

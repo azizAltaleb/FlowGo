@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exhaustive all-functionality tester for FlowGo.
+# Exhaustive all-functionality tester for ArtificialFlow.
 #
 # Live deployment checks run by default. Use --skip-* flags to produce explicit
 # skip entries when an environment cannot run a heavy layer.
@@ -444,7 +444,7 @@ deployment_matrix() {
   fi
   deployment_compose_model "bundled-zitadel" "-f docker-compose.zitadel.yml" "make up-zitadel" "make down-zitadel"
 
-  if [[ -n "${FLOWGO_IMAGE_TAG:-}" ]]; then
+  if [[ -n "${ARTIFICIALFLOW_IMAGE_TAG:-${FLOWGO_IMAGE_TAG:-}}" ]]; then
     if [[ "${external_iam_ready}" == "true" ]]; then
       deployment_compose_model "external-iam-release" "-f docker-compose.external-iam.yml -f docker-compose.release.yml" "make up-external-iam-release" "make down-external-iam"
     elif [[ "${ALLOW_EXTERNAL_IAM_LIVE}" == "true" ]]; then
@@ -454,13 +454,13 @@ deployment_matrix() {
     fi
     deployment_compose_model "bundled-zitadel-release" "-f docker-compose.zitadel.yml -f docker-compose.release.yml" "make up-zitadel-release" "make down-zitadel"
   else
-    warn_case "release-live-deployments" "Release image live deployments" "deployment" "FLOWGO_IMAGE_TAG is not set; release-image live checks not run."
+    warn_case "release-live-deployments" "Release image live deployments" "deployment" "ARTIFICIALFLOW_IMAGE_TAG is not set; release-image live checks not run."
   fi
 
   if [[ "${ALLOW_HELM_LIVE}" == "true" && "${SKIP_HELM_LIVE}" != "true" ]]; then
     if command -v helm >/dev/null 2>&1 && command -v kubectl >/dev/null 2>&1 && kubectl cluster-info >/dev/null 2>&1; then
-      run_case "helm-live-external-rendered" "Helm live external IAM dry-run server validation" "deployment" "false" "helm upgrade --install flowgo ./charts/flowgo -n flowgo --create-namespace -f ./charts/flowgo/values-external-iam.yaml --dry-run=server" "helm-external-iam"
-      run_case "helm-live-zitadel-rendered" "Helm live bundled ZITADEL dry-run server validation" "deployment" "false" "helm upgrade --install flowgo ./charts/flowgo -n flowgo --create-namespace -f ./charts/flowgo/values-internal-iam.yaml --dry-run=server" "helm-zitadel"
+      run_case "helm-live-external-rendered" "Helm live external IAM dry-run server validation" "deployment" "false" "helm upgrade --install artificialflow ./charts/artificialflow -n artificialflow --create-namespace -f ./charts/artificialflow/values-external-iam.yaml --dry-run=server" "helm-external-iam"
+      run_case "helm-live-zitadel-rendered" "Helm live bundled ZITADEL dry-run server validation" "deployment" "false" "helm upgrade --install artificialflow ./charts/artificialflow -n artificialflow --create-namespace -f ./charts/artificialflow/values-internal-iam.yaml --dry-run=server" "helm-zitadel"
     else
       warn_case "helm-live" "Helm live deployment checks" "deployment" "helm, kubectl, or Kubernetes cluster is unavailable."
     fi
@@ -479,10 +479,10 @@ ui_sdk_perf_security() {
 
   if [[ "${SKIP_SDK_LIVE}" == "true" ]]; then
     skip_case "sdk-live" "Live Node.js SDK smoke" "sdk" "false" "--skip-sdk-live was requested"
-  elif [[ -n "${FLOWGO_TOKEN:-}" ]]; then
-    run_case "sdk-live" "Live Node.js SDK smoke" "sdk" "false" "cd clients/nodejs-sdk && FLOWGO_BASE_URL='${FLOWGO_BASE_URL:-http://localhost:9100/api}' node examples/sdk-smoke-test.js"
+  elif [[ -n "${ARTIFICIALFLOW_TOKEN:-${FLOWGO_TOKEN:-}}" ]]; then
+    run_case "sdk-live" "Live Node.js SDK smoke" "sdk" "false" "cd clients/nodejs-sdk && ARTIFICIALFLOW_BASE_URL='${ARTIFICIALFLOW_BASE_URL:-${FLOWGO_BASE_URL:-http://localhost:9100/api}}' node examples/sdk-smoke-test.js"
   else
-    warn_case "sdk-live" "Live Node.js SDK smoke" "sdk" "FLOWGO_TOKEN is not set."
+    warn_case "sdk-live" "Live Node.js SDK smoke" "sdk" "ARTIFICIALFLOW_TOKEN is not set."
   fi
 
   run_perf_k6

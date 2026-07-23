@@ -1,4 +1,4 @@
-// package: flowgo.api.v1
+// package: artificialflow.api.v1
 // file: job_worker_service.proto
 
 /* tslint:disable */
@@ -6,7 +6,6 @@
 
 import * as grpc from "@grpc/grpc-js";
 import * as job_worker_service_pb from "./job_worker_service_pb";
-import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 
 interface IJobWorkerServiceService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     activateJobs: IJobWorkerServiceService_IActivateJobs;
@@ -15,7 +14,7 @@ interface IJobWorkerServiceService extends grpc.ServiceDefinition<grpc.UntypedSe
 }
 
 interface IJobWorkerServiceService_IActivateJobs extends grpc.MethodDefinition<job_worker_service_pb.ActivateJobsRequest, job_worker_service_pb.ActivateJobsResponse> {
-    path: "/flowgo.api.v1.JobWorkerService/ActivateJobs";
+    path: "/artificialflow.api.v1.JobWorkerService/ActivateJobs";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<job_worker_service_pb.ActivateJobsRequest>;
@@ -24,7 +23,7 @@ interface IJobWorkerServiceService_IActivateJobs extends grpc.MethodDefinition<j
     responseDeserialize: grpc.deserialize<job_worker_service_pb.ActivateJobsResponse>;
 }
 interface IJobWorkerServiceService_ICompleteJob extends grpc.MethodDefinition<job_worker_service_pb.CompleteJobRequest, job_worker_service_pb.CompleteJobResponse> {
-    path: "/flowgo.api.v1.JobWorkerService/CompleteJob";
+    path: "/artificialflow.api.v1.JobWorkerService/CompleteJob";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<job_worker_service_pb.CompleteJobRequest>;
@@ -33,7 +32,7 @@ interface IJobWorkerServiceService_ICompleteJob extends grpc.MethodDefinition<jo
     responseDeserialize: grpc.deserialize<job_worker_service_pb.CompleteJobResponse>;
 }
 interface IJobWorkerServiceService_IFailJob extends grpc.MethodDefinition<job_worker_service_pb.FailJobRequest, job_worker_service_pb.FailJobResponse> {
-    path: "/flowgo.api.v1.JobWorkerService/FailJob";
+    path: "/artificialflow.api.v1.JobWorkerService/FailJob";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<job_worker_service_pb.FailJobRequest>;

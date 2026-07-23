@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the FlowGo all-functionality QA report.
+"""Build the ArtificialFlow all-functionality QA report.
 
 The orchestrator writes one JSON object per line to an events file. This
 script normalizes those events into a durable JSON report and a concise

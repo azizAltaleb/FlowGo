@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 )
 
 var (

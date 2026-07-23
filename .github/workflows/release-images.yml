@@ -1,15 +1,27 @@
 name: Release Docker Images
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_call:
+    inputs:
+      tag:
+        description: Image tag to publish
+        required: true
+        type: string
+      publish:
+        description: Publish images instead of running a dry-run build
+        required: true
+        type: boolean
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
   workflow_dispatch:
     inputs:
       tag:
         description: Image tag to publish
         required: true
-        default: v0.2.0-rc.0
+        default: v0.3.0
       publish:
         description: Publish images instead of running a dry-run build
         required: true
@@ -18,16 +30,40 @@ on:
 
 permissions:
   contents: read
-  packages: write
   id-token: write
 
+concurrency:
+  group: release-images-${{ inputs.tag }}-${{ inputs.publish }}
+  cancel-in-progress: false
+
 jobs:
+  release-preflight:
+    name: Validate release identity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate branding, version, and alias workflow
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          node scripts/validate_legacy_branding.mjs
+          node scripts/validate_release_version.mjs
+          node scripts/validate_release_workflows.mjs
+
   docker-images:
-    name: Build, scan, sign, and publish images
+    name: Build, scan, promote, sign, and verify images
+    needs: release-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         image:
           - name: workflow-command
@@ -49,18 +85,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Resolve version
+      - name: Resolve version and deterministic candidate
         id: version
         shell: bash
         run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-            echo "publish=${{ inputs.publish }}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          tag="${{ inputs.tag }}"
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "release tag must be a v-prefixed semantic version: ${tag}" >&2
+            exit 1
           fi
-          echo "revision=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          candidate_tag="candidate-${tag}-${GITHUB_SHA}"
+          {
+            echo "tag=${tag}"
+            echo "candidate_tag=${candidate_tag}"
+            echo "candidate_reference=docker.io/artificialflow/${{ matrix.image.name }}:${candidate_tag}"
+            echo "publish=${{ inputs.publish }}"
+            echo "revision=${GITHUB_SHA}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -68,6 +110,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Registry reads happen only after authentication so authorization and
+      # transport failures cannot be mistaken for an available tag.
       - name: Login to Docker Hub
         if: ${{ steps.version.outputs.publish == 'true' }}
         uses: docker/login-action@v3
@@ -75,25 +119,73 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Inspect deterministic candidate
+        id: candidate
+        if: ${{ steps.version.outputs.publish == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          inspect_digest() {
+            local reference="$1"
+            local output status
+            set +e
+            output="$(docker buildx imagetools inspect "${reference}" \
+              --format '{{printf "%s" .Manifest.Digest}}' 2>&1)"
+            status=$?
+            set -e
+            if [[ ${status} -eq 0 ]]; then
+              if [[ ! "${output}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                echo "registry returned an invalid digest for ${reference}: ${output}" >&2
+                return 2
+              fi
+              INSPECTED_DIGEST="${output}"
+              return 0
+            fi
+            if [[ "${output}" == *"manifest unknown"* ||
+                  "${output}" == *"MANIFEST_UNKNOWN"* ||
+                  "${output}" == *": not found"* ||
+                  "${output}" == *"no such manifest"* ]]; then
+              return 1
+            fi
+            echo "operational failure inspecting ${reference}: ${output}" >&2
+            return 2
+          }
+
+          reference="${{ steps.version.outputs.candidate_reference }}"
+          if inspect_digest "${reference}"; then
+            {
+              echo "exists=true"
+              echo "digest=${INSPECTED_DIGEST}"
+            } >> "${GITHUB_OUTPUT}"
+            echo "reusing candidate ${reference}@${INSPECTED_DIGEST}"
+          else
+            status=$?
+            if [[ ${status} -ne 1 ]]; then
+              exit "${status}"
+            fi
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+            echo "candidate manifest does not exist yet: ${reference}"
+          fi
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: azizaltaleb/${{ matrix.image.name }}
-          tags: |
-            type=raw,value=${{ steps.version.outputs.tag }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.tag }}
-            type=semver,pattern={{version}},value=${{ steps.version.outputs.tag }}
+          images: docker.io/artificialflow/${{ matrix.image.name }}
+          tags: type=raw,value=${{ steps.version.outputs.tag }}
 
-      - name: Build and push
+      # A publish build writes only the deterministic candidate. No immutable
+      # release tag exists until the exact candidate digest has passed Trivy.
+      - name: Build candidate once
         id: build
+        if: ${{ steps.version.outputs.publish != 'true' || steps.candidate.outputs.exists != 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.image.context }}
           file: ${{ matrix.image.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: ${{ steps.version.outputs.publish == 'true' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.version.outputs.candidate_reference }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.version.outputs.tag }}
@@ -101,21 +193,179 @@ jobs:
           sbom: true
           provenance: true
 
-      - name: Scan published image
+      - name: Resolve candidate digest
+        id: artifact
+        if: ${{ steps.version.outputs.publish == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ steps.candidate.outputs.exists }}" == "true" ]]; then
+            digest="${{ steps.candidate.outputs.digest }}"
+          else
+            digest="${{ steps.build.outputs.digest }}"
+          fi
+          if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "candidate build did not produce a valid digest: ${digest}" >&2
+            exit 1
+          fi
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Scan candidate digest
         if: ${{ steps.version.outputs.publish == 'true' }}
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: azizaltaleb/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
+          image-ref: docker.io/artificialflow/${{ matrix.image.name }}@${{ steps.artifact.outputs.digest }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+
+      - name: Promote scanned digest to immutable final references
+        if: ${{ steps.version.outputs.publish == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          inspect_digest() {
+            local reference="$1"
+            local output status
+            set +e
+            output="$(docker buildx imagetools inspect "${reference}" \
+              --format '{{printf "%s" .Manifest.Digest}}' 2>&1)"
+            status=$?
+            set -e
+            if [[ ${status} -eq 0 ]]; then
+              if [[ ! "${output}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                echo "registry returned an invalid digest for ${reference}: ${output}" >&2
+                return 2
+              fi
+              INSPECTED_DIGEST="${output}"
+              return 0
+            fi
+            if [[ "${output}" == *"manifest unknown"* ||
+                  "${output}" == *"MANIFEST_UNKNOWN"* ||
+                  "${output}" == *": not found"* ||
+                  "${output}" == *"no such manifest"* ]]; then
+              return 1
+            fi
+            echo "operational failure inspecting ${reference}: ${output}" >&2
+            return 2
+          }
+
+          candidate_digest="${{ steps.artifact.outputs.digest }}"
+          source="docker.io/artificialflow/${{ matrix.image.name }}@${candidate_digest}"
+          tag="${{ steps.version.outputs.tag }}"
+          version_tag="${tag#v}"
+          final_tags=()
+          moving_minor_tag=""
+          add_tag() {
+            local candidate="$1" existing
+            for existing in "${final_tags[@]}"; do
+              [[ "${existing}" == "${candidate}" ]] && return
+            done
+            final_tags+=("${candidate}")
+          }
+          add_tag "${tag}"
+          add_tag "${version_tag}"
+          if [[ "${version_tag}" != *-* && "${version_tag}" =~ ^([0-9]+)\.([0-9]+)\. ]]; then
+            moving_minor_tag="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+            add_tag "${moving_minor_tag}"
+          fi
+
+          for repository in artificialflow azizaltaleb; do
+            for final_tag in "${final_tags[@]}"; do
+              reference="docker.io/${repository}/${{ matrix.image.name }}:${final_tag}"
+              if inspect_digest "${reference}"; then
+                if [[ "${INSPECTED_DIGEST}" != "${candidate_digest}" ]]; then
+                  if [[ "${final_tag}" != "${moving_minor_tag}" ]]; then
+                    echo "immutable release tag mismatch: ${reference} is ${INSPECTED_DIGEST}, candidate is ${candidate_digest}" >&2
+                    exit 1
+                  fi
+                  echo "updating moving minor alias ${reference} from ${INSPECTED_DIGEST} to ${candidate_digest}"
+                else
+                  echo "verified idempotent existing reference ${reference}@${candidate_digest}"
+                  continue
+                fi
+              else
+                status=$?
+                if [[ ${status} -ne 1 ]]; then
+                  exit "${status}"
+                fi
+              fi
+              docker buildx imagetools create --tag "${reference}" "${source}"
+              if ! inspect_digest "${reference}"; then
+                echo "promoted reference could not be inspected: ${reference}" >&2
+                exit 1
+              fi
+              if [[ "${INSPECTED_DIGEST}" != "${candidate_digest}" ]]; then
+                echo "promotion changed digest for ${reference}: ${INSPECTED_DIGEST}" >&2
+                exit 1
+              fi
+            done
+          done
+
+      - name: Verify canonical and legacy final manifest digests
+        if: ${{ steps.version.outputs.publish == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${{ steps.artifact.outputs.digest }}"
+          canonical_digest="$(docker buildx imagetools inspect \
+            "docker.io/artificialflow/${{ matrix.image.name }}:${{ steps.version.outputs.tag }}" \
+            --format '{{printf "%s" .Manifest.Digest}}')"
+          legacy_digest="$(docker buildx imagetools inspect \
+            "docker.io/azizaltaleb/${{ matrix.image.name }}:${{ steps.version.outputs.tag }}" \
+            --format '{{printf "%s" .Manifest.Digest}}')"
+          test "${canonical_digest}" = "${expected}"
+          test "${legacy_digest}" = "${canonical_digest}"
 
       - name: Install Cosign
         if: ${{ steps.version.outputs.publish == 'true' }}
         uses: sigstore/cosign-installer@v3
 
-      - name: Sign image
+      - name: Sign and verify canonical and legacy references
         if: ${{ steps.version.outputs.publish == 'true' }}
         env:
           COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign --yes azizaltaleb/${{ matrix.image.name }}@${{ steps.build.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          digest="${{ steps.artifact.outputs.digest }}"
+          canonical="docker.io/artificialflow/${{ matrix.image.name }}@${digest}"
+          legacy="docker.io/azizaltaleb/${{ matrix.image.name }}@${digest}"
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release-images.yml@${GITHUB_REF}"
+          issuer="https://token.actions.githubusercontent.com"
+          cosign sign --yes "${canonical}"
+          cosign sign --yes "${legacy}"
+          cosign verify --certificate-identity "${identity}" --certificate-oidc-issuer "${issuer}" "${canonical}"
+          cosign verify --certificate-identity "${identity}" --certificate-oidc-issuer "${issuer}" "${legacy}"
+
+  verify-release-set:
+    name: Verify complete canonical and legacy image set
+    needs: docker-images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        if: ${{ inputs.publish }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: ${{ inputs.publish }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Verify all transition aliases
+        if: ${{ inputs.publish }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in workflow-command workflow-runtime workflow-query sync-worker frontend; do
+            canonical_digest="$(docker buildx imagetools inspect \
+              "docker.io/artificialflow/${image}:${{ inputs.tag }}" \
+              --format '{{printf "%s" .Manifest.Digest}}')"
+            legacy_digest="$(docker buildx imagetools inspect \
+              "docker.io/azizaltaleb/${image}:${{ inputs.tag }}" \
+              --format '{{printf "%s" .Manifest.Digest}}')"
+            test "${legacy_digest}" = "${canonical_digest}"
+            echo "${image} ${canonical_digest}"
+          done

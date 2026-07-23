@@ -2,8 +2,8 @@ package persistence
 
 import (
 	"context"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/application"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/application"
 	"strings"
 	"testing"
 	"time"
@@ -117,7 +117,7 @@ func TestListCompletedProcessInstancesWithCompletedJobsByWorkers(t *testing.T) {
 	}
 
 	jobs := []model.Job{
-		{Key: 101, Type: application.UserTaskJobType, ProcessInstanceKey: 1, ElementInstanceKey: 1001, ElementID: "old", Worker: " Accountant@FlowGo.Local ", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-4 * time.Hour), UpdatedAt: now.Add(-3 * time.Hour)},
+		{Key: 101, Type: application.LegacyUserTaskJobType, ProcessInstanceKey: 1, ElementInstanceKey: 1001, ElementID: "old", Worker: " Accountant@FlowGo.Local ", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-4 * time.Hour), UpdatedAt: now.Add(-3 * time.Hour)},
 		{Key: 102, Type: application.UserTaskJobType, ProcessInstanceKey: 2, ElementInstanceKey: 1002, ElementID: "other", Worker: "reviewer@flowgo.local", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-3 * time.Hour), UpdatedAt: now.Add(-2 * time.Hour)},
 		{Key: 103, Type: application.UserTaskJobType, ProcessInstanceKey: 3, ElementInstanceKey: 1003, ElementID: "new", Worker: "accountant@flowgo.local", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-time.Hour)},
 		{Key: 104, Type: application.UserTaskJobType, ProcessInstanceKey: 3, ElementInstanceKey: 1004, ElementID: "duplicate", Worker: "accountant@flowgo.local", Retries: 1, State: "COMPLETED", CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-time.Hour)},
@@ -153,6 +153,41 @@ func TestListCompletedProcessInstancesWithCompletedJobsByWorkers(t *testing.T) {
 	}
 	if len(limited) != 1 || limited[0].Key != 3 {
 		t.Fatalf("expected limit after worker filtering to return newest match, got %#v", limited)
+	}
+}
+
+func TestUserTaskQueriesIncludeCanonicalAndLegacyTypes(t *testing.T) {
+	repo := setupGormRepositoryTest(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	jobs := []model.Job{
+		{Key: 201, Type: application.UserTaskJobType, ProcessInstanceKey: 20, ElementInstanceKey: 2001, Retries: 1, State: "CREATED", CreatedAt: now},
+		{Key: 202, Type: application.LegacyUserTaskJobType, ProcessInstanceKey: 20, ElementInstanceKey: 2002, Retries: 1, State: "CREATED", CreatedAt: now.Add(time.Second)},
+		{Key: 203, Type: "service", ProcessInstanceKey: 20, ElementInstanceKey: 2003, Retries: 1, State: "CREATED", CreatedAt: now.Add(2 * time.Second)},
+	}
+	for i := range jobs {
+		if err := repo.CreateJob(ctx, &jobs[i]); err != nil {
+			t.Fatalf("failed to seed job %d: %v", jobs[i].Key, err)
+		}
+	}
+
+	for _, requestedType := range []string{application.UserTaskJobType, application.LegacyUserTaskJobType} {
+		listed, err := repo.ListJobsByProcessInstanceAndType(ctx, 20, requestedType)
+		if err != nil {
+			t.Fatalf("failed to list %q jobs: %v", requestedType, err)
+		}
+		if len(listed) != 2 || listed[0].Key != 201 || listed[1].Key != 202 {
+			t.Fatalf("expected both user-task types for %q, got %#v", requestedType, listed)
+		}
+
+		activatable, err := repo.ListActivatableJobs(ctx, requestedType, 10)
+		if err != nil {
+			t.Fatalf("failed to activate %q jobs: %v", requestedType, err)
+		}
+		if len(activatable) != 2 {
+			t.Fatalf("expected both user-task types to be activatable for %q, got %#v", requestedType, activatable)
+		}
 	}
 }
 

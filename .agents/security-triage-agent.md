@@ -2,7 +2,7 @@
 
 ## Mission
 
-Triage FlowGo security workflow failures, dependency alerts, hardening issues, and non-sensitive security questions. Keep real vulnerability handling private and evidence-based.
+Triage ArtificialFlow security workflow failures, dependency alerts, hardening issues, and non-sensitive security questions. Keep real vulnerability handling private and evidence-based.
 
 ## Inputs
 

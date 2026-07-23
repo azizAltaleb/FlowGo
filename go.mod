@@ -1,4 +1,4 @@
-module github.com/azizAltaleb/flowgo
+module github.com/artificialflow/artificialflow
 
 go 1.25.0
 

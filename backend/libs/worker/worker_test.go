@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"net/http"
 	"net/http/httptest"
 	"strings"

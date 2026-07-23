@@ -1,6 +1,6 @@
-# FlowGo Node.js SDK
+# ArtificialFlow Node.js SDK
 
-TypeScript SDK for the FlowGo gateway API.
+TypeScript SDK for the ArtificialFlow gateway API.
 
 ## Build
 
@@ -9,25 +9,30 @@ npm install
 npm run build
 ```
 
+Install the public package with `npm install @artificialflow/nodejs-sdk`. For
+one transition release, the deprecated `@flowgo/nodejs-sdk` wrapper re-exports
+this package. `FlowGoClient`, `FlowGoApiError`, and the `FlowGo*Options` names
+remain deprecated aliases to the exact canonical implementations.
+
 ## Client
 
-The SDK calls FlowGo through the gateway API and needs an access token with the `flowgo client` role.
+The SDK calls ArtificialFlow through the gateway API and needs an access token with the `artificialflow client` role.
 
-External human task inbox applications should keep that `flowgo client` token on their backend-for-frontend (BFF). The BFF authenticates the signed-in user with IAM, rejects admin/client users from the app, then calls SDK inbox methods with the acting user's username/email/roles so FlowGo can filter tasks by assignee, candidate user, or candidate group.
+External human task inbox applications should keep that `artificialflow client` token on their backend-for-frontend (BFF). The BFF authenticates the signed-in user with IAM, rejects admin/client users from the app, then calls SDK inbox methods with the acting user's username/email/roles so ArtificialFlow can filter tasks by assignee, candidate user, or candidate group.
 
 ### Bundled ZITADEL mode
 
-For new clients, create a private-key credential from FlowGo's **SDK Clients** page and store the downloaded profile in a secret manager. The SDK signs a five-minute RS256 assertion and exchanges it for short-lived ZITADEL access tokens automatically:
+For new clients, create a private-key credential from ArtificialFlow's **SDK Clients** page and store the downloaded profile in a secret manager. The SDK signs a five-minute RS256 assertion and exchanges it for short-lived ZITADEL access tokens automatically:
 
 ```ts
 import fs from 'node:fs';
-import { FlowGoClient, ZitadelJwtProfile } from '@flowgo/nodejs-sdk';
+import { ArtificialFlowClient, ZitadelJwtProfile } from '@artificialflow/nodejs-sdk';
 
 const profile = JSON.parse(
-  fs.readFileSync(process.env.FLOWGO_ZITADEL_PROFILE_FILE!, 'utf8'),
+  fs.readFileSync(process.env.ARTIFICIALFLOW_ZITADEL_PROFILE_FILE!, 'utf8'),
 ) as ZitadelJwtProfile;
 
-const client = new FlowGoClient({
+const client = new ArtificialFlowClient({
   baseUrl: 'http://localhost:9100/api',
   auth: {
     type: 'zitadel-jwt-profile',
@@ -58,54 +63,54 @@ Keep the profile out of source control, logs, command-line arguments, and enviro
 
 Existing legacy clients may continue using a raw PAT during migration:
 
-- Sign in as a `flowgo admin`
+- Sign in as an `artificialflow admin`
 - Open **SDK Clients**
 - Copy the previously issued ZITADEL Personal Access Token
-- Set its raw value as `FLOWGO_TOKEN` (do not include `Bearer `)
+- Set its raw value as `ARTIFICIALFLOW_TOKEN` (do not include `Bearer `)
 
-FlowGo validates legacy PATs with authenticated ZITADEL introspection on every request. Expired or revoked PATs and PATs belonging to terminated/deleted clients return `401`. New PAT issuance and rotation may be disabled by the deployment's migration policy.
+ArtificialFlow validates legacy PATs with authenticated ZITADEL introspection on every request. Expired or revoked PATs and PATs belonging to terminated/deleted clients return `401`. New PAT issuance and rotation may be disabled by the deployment's migration policy.
 
 ### External IAM mode
 
-When FlowGo is deployed with `docker-compose.external-iam.yml`, FlowGo does not create or manage SDK tokens. The external IAM administrator must prepare the provider and issue the SDK token.
+When ArtificialFlow is deployed with `docker-compose.external-iam.yml`, ArtificialFlow does not create or manage SDK tokens. The external IAM administrator must prepare the provider and issue the SDK token.
 
 External IAM requirements:
 
-- Create or register a backend/API resource for FlowGo.
+- Create or register a backend/API resource for ArtificialFlow.
   - Default audience/client ID: `workflow-backend`
-  - Match the FlowGo backend setting `AUTH_CLIENT_ID`
-- Configure the FlowGo backend issuer settings.
+  - Match the ArtificialFlow backend setting `AUTH_CLIENT_ID`
+- Configure the ArtificialFlow backend issuer settings.
   - `AUTH_ISSUER_INTERNAL_URL`
   - `AUTH_ISSUER_PUBLIC_URL`
   - `AUTH_TOKEN_MODE=jwt` for JWT access tokens, or `AUTH_TOKEN_MODE=introspection` for opaque tokens
 - If audience validation is enabled with `AUTH_ENFORCE_AUDIENCE=true`, issue tokens whose `aud` contains `workflow-backend`.
-- Create only the FlowGo roles needed by the external IAM deployment.
-  - `flowgo admin`
-  - `flowgo modeler`
-  - `flowgo client`
+- Create only the ArtificialFlow roles needed by the external IAM deployment.
+  - `artificialflow admin`
+  - `artificialflow modeler`
+  - `artificialflow client`
 - Map roles into a token claim read by `AUTH_CLAIM_ROLES_PATH`.
   - Default paths: `roles,realm_access.roles,groups`
-  - The SDK/service account token must include `flowgo client`
+  - The SDK/service account token must include `artificialflow client`
 - Create a machine-to-machine, service-account, or client-credentials application for the SDK integration.
-  - Grant only `flowgo client`
+  - Grant only `artificialflow client`
   - Prefer short-lived tokens and rotate the client secret in the external IAM
 - Use the SDK's OAuth client-credentials provider, a custom token callback, or
-  issue a token from the external IAM and set it as `FLOWGO_TOKEN`.
+  issue a token from the external IAM and set it as `ARTIFICIALFLOW_TOKEN`.
 
 Standard client-credentials example with automatic token caching and refresh:
 
 ```ts
-import { FlowGoClient } from '@flowgo/nodejs-sdk';
+import { ArtificialFlowClient } from '@artificialflow/nodejs-sdk';
 
-const client = new FlowGoClient({
+const client = new ArtificialFlowClient({
   baseUrl: 'http://localhost:9100/api',
   auth: {
     type: 'oauth-client-credentials',
     profile: {
       type: 'oauth-client-credentials',
       tokenUrl: 'https://login.example.com/oauth2/token',
-      clientId: process.env.FLOWGO_CLIENT_ID!,
-      clientSecret: process.env.FLOWGO_CLIENT_SECRET!,
+      clientId: process.env.ARTIFICIALFLOW_CLIENT_ID!,
+      clientSecret: process.env.ARTIFICIALFLOW_CLIENT_SECRET!,
     },
   },
 });
@@ -119,7 +124,7 @@ If your provider requires HTTP Basic client authentication or a custom
 Generic client-credentials example:
 
 ```bash
-export FLOWGO_TOKEN="$(
+export ARTIFICIALFLOW_TOKEN="$(
   curl -sS -X POST "$OIDC_TOKEN_URL" \
     -H 'content-type: application/x-www-form-urlencoded' \
     -d grant_type=client_credentials \
@@ -132,11 +137,11 @@ export FLOWGO_TOKEN="$(
 Use your provider-specific token endpoint, client ID, client secret, scope, and audience/resource parameter if required.
 
 ```ts
-import { FlowGoClient } from '@flowgo/nodejs-sdk';
+import { ArtificialFlowClient } from '@artificialflow/nodejs-sdk';
 
-const client = new FlowGoClient({
+const client = new ArtificialFlowClient({
   baseUrl: 'http://localhost:9100/api',
-  token: process.env.FLOWGO_TOKEN,
+  token: process.env.ARTIFICIALFLOW_TOKEN,
 });
 
 const workflows = await client.listWorkflows({ page: 1, pageSize: 100 });
@@ -146,14 +151,14 @@ await client.publishMessage('MsgOrderPlaced', '123', { amount: 100 });
 
 ## Human task inbox
 
-Use a backend-held `flowgo client` token for external task inbox applications. Pass the signed-in user's identity to each inbox call:
+Use a backend-held `artificialflow client` token for external task inbox applications. Pass the signed-in user's identity to each inbox call:
 
 ```ts
-import { FlowGoClient } from '@flowgo/nodejs-sdk';
+import { ArtificialFlowClient } from '@artificialflow/nodejs-sdk';
 
-const client = new FlowGoClient({
-  baseUrl: process.env.FLOWGO_BASE_URL,
-  token: process.env.FLOWGO_TOKEN,
+const client = new ArtificialFlowClient({
+  baseUrl: process.env.ARTIFICIALFLOW_BASE_URL,
+  token: process.env.ARTIFICIALFLOW_TOKEN,
 });
 
 const actingUser = {
@@ -172,11 +177,11 @@ await client.completeUserTask(current.id, tasks[0].executionId, { actingUser });
 const history = await client.listMyCompletedTransactions({ actingUser, limit: 50 });
 ```
 
-Inbox methods require a `flowgo client` SDK token plus acting-user details. Do not expose the SDK token to the browser.
+Inbox methods require an `artificialflow client` SDK token plus acting-user details. Do not expose the SDK token to the browser.
 
 ## Standalone smoke test
 
-Use `examples/sdk-smoke-test.js` to verify the SDK against a running FlowGo deployment.
+Use `examples/sdk-smoke-test.js` to verify the SDK against a running ArtificialFlow deployment.
 
 Build the SDK first:
 
@@ -187,50 +192,54 @@ npm run build
 
 Required input (set exactly one authentication option):
 
-- `FLOWGO_BASE_URL`
-  - FlowGo gateway API URL.
+- `ARTIFICIALFLOW_BASE_URL`
+  - ArtificialFlow gateway API URL.
   - Local default: `http://localhost:9100/api`
-- `FLOWGO_TOKEN`
-  - Raw token text with the `flowgo client` role; never prefix it with `Bearer `.
+- `ARTIFICIALFLOW_TOKEN`
+  - Raw token text with the `artificialflow client` role; never prefix it with `Bearer `.
   - Bundled ZITADEL: use only for an existing legacy client during migration.
   - External IAM: issue it from your provider service-account/client-credentials app.
-- `FLOWGO_ZITADEL_PROFILE_FILE`
+- `ARTIFICIALFLOW_ZITADEL_PROFILE_FILE`
   - Path to a ZITADEL service-account profile downloaded from **SDK Clients**.
   - Do not print the file contents or commit the file.
 
+For one transition release, the smoke helper falls back to `FLOWGO_BASE_URL`,
+`FLOWGO_API_URL`, and the corresponding legacy `FLOWGO_*` inputs only when the
+canonical value is empty.
+
 Optional inputs:
 
-- `FLOWGO_WORKFLOW_KEY`
+- `ARTIFICIALFLOW_WORKFLOW_KEY`
   - Workflow definition key or ID to start.
-- `FLOWGO_BUSINESS_KEY`
+- `ARTIFICIALFLOW_BUSINESS_KEY`
   - Business key for the started instance.
-- `FLOWGO_MESSAGE_NAME`
+- `ARTIFICIALFLOW_MESSAGE_NAME`
   - BPMN message name to publish.
-- `FLOWGO_MESSAGE_CORRELATION_KEY`
+- `ARTIFICIALFLOW_MESSAGE_CORRELATION_KEY`
   - Correlation key for the message.
-- `FLOWGO_WORKER_JOB_TYPE`
+- `ARTIFICIALFLOW_WORKER_JOB_TYPE`
   - Service-task job type to activate and complete once.
 
 Run the minimal smoke test:
 
 ```bash
-export FLOWGO_ZITADEL_PROFILE_FILE="/run/secrets/flowgo-sdk-profile.json"
+export ARTIFICIALFLOW_ZITADEL_PROFILE_FILE="/run/secrets/artificialflow-sdk-profile.json"
 node examples/sdk-smoke-test.js
-unset FLOWGO_ZITADEL_PROFILE_FILE
+unset ARTIFICIALFLOW_ZITADEL_PROFILE_FILE
 ```
 
 Run with workflow start, message publish, and one worker activation:
 
 ```bash
-export FLOWGO_ZITADEL_PROFILE_FILE="/run/secrets/flowgo-sdk-profile.json"
-FLOWGO_BASE_URL="http://localhost:9100/api" \
-FLOWGO_WORKFLOW_KEY="order-process" \
-FLOWGO_BUSINESS_KEY="order-123" \
-FLOWGO_MESSAGE_NAME="MsgOrderPlaced" \
-FLOWGO_MESSAGE_CORRELATION_KEY="order-123" \
-FLOWGO_WORKER_JOB_TYPE="payment-service" \
+export ARTIFICIALFLOW_ZITADEL_PROFILE_FILE="/run/secrets/artificialflow-sdk-profile.json"
+ARTIFICIALFLOW_BASE_URL="http://localhost:9100/api" \
+ARTIFICIALFLOW_WORKFLOW_KEY="order-process" \
+ARTIFICIALFLOW_BUSINESS_KEY="order-123" \
+ARTIFICIALFLOW_MESSAGE_NAME="MsgOrderPlaced" \
+ARTIFICIALFLOW_MESSAGE_CORRELATION_KEY="order-123" \
+ARTIFICIALFLOW_WORKER_JOB_TYPE="payment-service" \
 node examples/sdk-smoke-test.js
-unset FLOWGO_ZITADEL_PROFILE_FILE
+unset ARTIFICIALFLOW_ZITADEL_PROFILE_FILE
 ```
 
 ## Worker

@@ -130,18 +130,18 @@ prepare_keycloak_override() {
 {
   "realm": "flowgo",
   "enabled": true,
-  "displayName": "FlowGo External IAM",
+  "displayName": "ArtificialFlow External IAM",
   "roles": {
     "realm": [
-      { "name": "flowgo admin" },
-      { "name": "flowgo modeler" },
-      { "name": "flowgo client" }
+      { "name": "artificialflow admin" },
+      { "name": "artificialflow modeler" },
+      { "name": "artificialflow client" }
     ]
   },
   "clients": [
     {
       "clientId": "flowgo-frontend",
-      "name": "FlowGo Frontend",
+      "name": "ArtificialFlow Frontend",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
@@ -154,37 +154,37 @@ prepare_keycloak_override() {
   "users": [
     {
       "username": "admin",
-      "email": "admin@flowgo.local",
-      "firstName": "FlowGo",
+      "email": "admin@artificialflow.io",
+      "firstName": "ArtificialFlow",
       "lastName": "Admin",
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
-      "realmRoles": ["flowgo admin"]
+      "realmRoles": ["artificialflow admin"]
     },
     {
       "username": "modeler",
-      "email": "modeler@flowgo.local",
-      "firstName": "FlowGo",
+      "email": "modeler@artificialflow.io",
+      "firstName": "ArtificialFlow",
       "lastName": "Modeler",
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "UatPass123!", "temporary": false }],
-      "realmRoles": ["flowgo modeler"]
+      "realmRoles": ["artificialflow modeler"]
     },
     {
       "username": "sdk-client",
-      "email": "sdk-client@flowgo.local",
-      "firstName": "FlowGo",
+      "email": "sdk-client@artificialflow.io",
+      "firstName": "ArtificialFlow",
       "lastName": "SDK Client",
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "UatPass123!", "temporary": false }],
-      "realmRoles": ["flowgo client"]
+      "realmRoles": ["artificialflow client"]
     },
     {
       "username": "accountant",
-      "email": "accountant@flowgo.local",
+      "email": "accountant@artificialflow.io",
       "firstName": "UAT",
       "lastName": "Accountant",
       "enabled": true,
@@ -194,7 +194,7 @@ prepare_keycloak_override() {
     },
     {
       "username": "reviewer",
-      "email": "reviewer@flowgo.local",
+      "email": "reviewer@artificialflow.io",
       "firstName": "UAT",
       "lastName": "Reviewer",
       "enabled": true,

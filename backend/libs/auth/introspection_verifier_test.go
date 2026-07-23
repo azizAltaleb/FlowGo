@@ -18,7 +18,7 @@ func TestIntrospectionVerifierAcceptsBrowserJWT(t *testing.T) {
 			"sub":    "user-1",
 			"exp":    time.Now().Add(time.Hour).Unix(),
 			"urn:zitadel:iam:org:project:project-1:roles": map[string]any{
-				RoleFlowGoAdmin: map[string]any{},
+				RoleArtificialFlowAdmin: map[string]any{},
 			},
 		})
 	})
@@ -27,7 +27,7 @@ func TestIntrospectionVerifierAcceptsBrowserJWT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected browser JWT to be accepted by introspection: %v", err)
 	}
-	if principal.Subject != "user-1" || !principal.HasRole(RoleFlowGoAdmin) {
+	if principal.Subject != "user-1" || !principal.HasRole(RoleArtificialFlowAdmin) {
 		t.Fatalf("unexpected principal: %#v", principal)
 	}
 	if requests() != 1 {
@@ -53,7 +53,7 @@ func TestIntrospectionVerifierAcceptsSDKClientPATWithRole(t *testing.T) {
 			"username": "orders-worker",
 			"exp":      time.Now().Add(time.Hour).Unix(),
 			"urn:zitadel:iam:org:project:project-1:roles": map[string]any{
-				RoleFlowGoClient: map[string]any{},
+				RoleArtificialFlowClient: map[string]any{},
 			},
 		})
 	})
@@ -62,7 +62,7 @@ func TestIntrospectionVerifierAcceptsSDKClientPATWithRole(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected SDK PAT to be accepted: %v", err)
 	}
-	if principal.Subject != "sdk-client-1" || !principal.HasRole(RoleFlowGoClient) {
+	if principal.Subject != "sdk-client-1" || !principal.HasRole(RoleArtificialFlowClient) {
 		t.Fatalf("expected flowgo client principal, got %#v", principal)
 	}
 	if principal.TokenMode != TokenModeIntrospection {

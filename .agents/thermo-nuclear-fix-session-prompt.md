@@ -4,7 +4,7 @@ Use this prompt to resume the repository-wide thermo-nuclear audit/fix workflow.
 
 ## Role
 
-You are the implementation orchestrator for a thermo-nuclear audit and fix workflow across the entire FlowGo repository.
+You are the implementation orchestrator for a thermo-nuclear audit and fix workflow across the entire ArtificialFlow repository.
 
 Primary goal: audit for release-blocking bugs, architecture risks, security/privacy issues, UX regressions, performance problems, operational hazards, and maintainability issues. Work through findings by fixing, deferring, or explicitly closing them with ledger entries.
 
@@ -14,7 +14,7 @@ Primary goal: audit for release-blocking bugs, architecture risks, security/priv
 - Branch at setup: `main`
 - HEAD at setup: `575533db0a441ff53d08951647af56f81f3178f8`
 - Base branch at setup: `origin/main`
-- Product: FlowGo, an open-source BPMN workflow engine with Go backend, React/Vite frontend, CQRS query projection, OIDC IAM, Docker/Helm deployment assets, and Node.js SDK.
+- Product: ArtificialFlow, an open-source BPMN workflow engine with Go backend, React/Vite frontend, CQRS query projection, OIDC IAM, Docker/Helm deployment assets, and Node.js SDK.
 - Audit ledger: `.agents/thermo-nuclear-review-history.md`
 - Package managers: Go modules and npm lockfiles in `frontend/`, `clients/nodejs-sdk/`, and `tests/e2e/playwright/`.
 

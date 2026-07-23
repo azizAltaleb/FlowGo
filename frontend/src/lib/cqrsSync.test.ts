@@ -84,4 +84,31 @@ describe("cqrs sync helpers", () => {
     expect(consumePendingInstanceSync()).toBe("instance-1");
     expect(consumePendingInstanceSync()).toBeNull();
   });
+
+  it("writes only canonical pending-sync keys", () => {
+    setPendingWorkflowSync("workflow-1");
+    setPendingInstanceSync("instance-1");
+
+    expect(window.sessionStorage.getItem("artificialflow.pendingWorkflowSync")).toBe("workflow-1");
+    expect(window.sessionStorage.getItem("artificialflow.pendingInstanceSync")).toBe("instance-1");
+    expect(window.sessionStorage.getItem("flowgo.pendingWorkflowSync")).toBeNull();
+    expect(window.sessionStorage.getItem("flowgo.pendingInstanceSync")).toBeNull();
+  });
+
+  it("migrates legacy pending-sync values on first read", () => {
+    window.sessionStorage.setItem("flowgo.pendingWorkflowSync", "legacy-workflow");
+    window.sessionStorage.setItem("flowgo.pendingInstanceSync", "legacy-instance");
+
+    expect(consumePendingWorkflowSync()).toBe("legacy-workflow");
+    expect(consumePendingInstanceSync()).toBe("legacy-instance");
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("prefers canonical pending-sync values and discards stale legacy values", () => {
+    window.sessionStorage.setItem("artificialflow.pendingWorkflowSync", "canonical-workflow");
+    window.sessionStorage.setItem("flowgo.pendingWorkflowSync", "legacy-workflow");
+
+    expect(consumePendingWorkflowSync()).toBe("canonical-workflow");
+    expect(consumePendingWorkflowSync()).toBeNull();
+  });
 });

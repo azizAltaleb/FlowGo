@@ -13,20 +13,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
 )
 
 //go:embed connector-register.default.json
 var defaultConnectorRegisterJSON []byte
 
 type connectorBootstrapOptions struct {
-	Enabled       bool
-	ConnectURL    string
-	ConnectorName string
-	ConnectorFile string
-	ConnectorJSON string
-	WaitTimeout   time.Duration
-	PollInterval  time.Duration
+	Enabled                  bool
+	ConnectURL               string
+	ConnectorName            string
+	ConnectorFile            string
+	ConnectorJSON            string
+	ConnectorTopicPrefix     string
+	ConnectorSlotName        string
+	ConnectorDatabaseUser    string
+	WaitTimeout              time.Duration
+	PollInterval             time.Duration
+	BlockedConnectorNames    []string
+	AllowParallelIdentifiers bool
 }
 
 type connectorCreateRequest struct {
@@ -91,6 +96,26 @@ func ensureConnectorBootstrap(ctx context.Context, log *logger.Logger, opts conn
 		return fmt.Errorf("timed out waiting for Kafka Connect readiness: %w", err)
 	}
 
+	if !opts.AllowParallelIdentifiers {
+		for _, blockedName := range opts.BlockedConnectorNames {
+			blockedName = strings.TrimSpace(blockedName)
+			if blockedName == "" || blockedName == opts.ConnectorName {
+				continue
+			}
+			conflicts, err := hasConnectorConflict(ctx, client, baseURL, blockedName)
+			if err != nil {
+				return fmt.Errorf("failed to verify conflicting connector %q: %w", blockedName, err)
+			}
+			if conflicts {
+				return fmt.Errorf(
+					"refusing to start connector %q while conflicting connector %q or one of its tasks may be active",
+					opts.ConnectorName,
+					blockedName,
+				)
+			}
+		}
+	}
+
 	exists, err := connectorExists(ctx, client, baseURL, opts.ConnectorName)
 	if err != nil {
 		return fmt.Errorf("failed to check connector %q existence: %w", opts.ConnectorName, err)
@@ -151,6 +176,7 @@ func buildConnectorCreateRequest(opts connectorBootstrapOptions) (connectorCreat
 		if request.Name == "" {
 			return connectorCreateRequest{}, "", fmt.Errorf("connector name cannot be empty")
 		}
+		applyConnectorConfigOverrides(request.Config, opts)
 		return request, src, nil
 	}
 
@@ -169,7 +195,20 @@ func buildConnectorCreateRequest(opts connectorBootstrapOptions) (connectorCreat
 	if request.Name == "" {
 		return connectorCreateRequest{}, "", fmt.Errorf("connector name cannot be empty")
 	}
+	applyConnectorConfigOverrides(request.Config, opts)
 	return request, src, nil
+}
+
+func applyConnectorConfigOverrides(config map[string]any, opts connectorBootstrapOptions) {
+	for key, value := range map[string]string{
+		"topic.prefix":  opts.ConnectorTopicPrefix,
+		"slot.name":     opts.ConnectorSlotName,
+		"database.user": opts.ConnectorDatabaseUser,
+	} {
+		if value = strings.TrimSpace(value); value != "" {
+			config[key] = value
+		}
+	}
 }
 
 func waitUntil(ctx context.Context, deadline time.Time, pollInterval time.Duration, check func() (bool, error)) error {
@@ -250,20 +289,9 @@ func createConnector(ctx context.Context, client *http.Client, baseURL string, p
 }
 
 func isConnectorRunning(ctx context.Context, client *http.Client, baseURL, connectorName string) (bool, error) {
-	status, body, err := httpGet(ctx, client, connectorStatusURL(baseURL, connectorName))
-	if err != nil {
+	parsed, exists, err := getConnectorStatus(ctx, client, baseURL, connectorName)
+	if err != nil || !exists {
 		return false, err
-	}
-	if status == http.StatusNotFound {
-		return false, nil
-	}
-	if status != http.StatusOK {
-		return false, fmt.Errorf("unexpected status=%d body=%s", status, body)
-	}
-
-	parsed := connectorStatusResponse{}
-	if err := json.Unmarshal([]byte(body), &parsed); err != nil {
-		return false, fmt.Errorf("decode connector status: %w", err)
 	}
 
 	if len(parsed.Tasks) == 0 {
@@ -277,6 +305,59 @@ func isConnectorRunning(ctx context.Context, client *http.Client, baseURL, conne
 
 	connectorState := strings.ToUpper(strings.TrimSpace(parsed.Connector.State))
 	return connectorState == "RUNNING" || connectorState == "UNASSIGNED", nil
+}
+
+func hasConnectorConflict(ctx context.Context, client *http.Client, baseURL, connectorName string) (bool, error) {
+	parsed, exists, err := getConnectorStatus(ctx, client, baseURL, connectorName)
+	if err != nil || !exists {
+		return false, err
+	}
+
+	if connectorStateMayBeActive(parsed.Connector.State) {
+		return true, nil
+	}
+	for _, task := range parsed.Tasks {
+		if connectorStateMayBeActive(task.State) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func connectorStateMayBeActive(state string) bool {
+	switch strings.ToUpper(strings.TrimSpace(state)) {
+	case "FAILED", "PAUSED", "STOPPED":
+		return false
+	default:
+		// RUNNING and UNASSIGNED are active. Unknown or omitted states are also
+		// treated as active because starting both connector generations can
+		// duplicate the same database changes.
+		return true
+	}
+}
+
+func getConnectorStatus(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+	connectorName string,
+) (connectorStatusResponse, bool, error) {
+	status, body, err := httpGet(ctx, client, connectorStatusURL(baseURL, connectorName))
+	if err != nil {
+		return connectorStatusResponse{}, false, err
+	}
+	if status == http.StatusNotFound {
+		return connectorStatusResponse{}, false, nil
+	}
+	if status != http.StatusOK {
+		return connectorStatusResponse{}, false, fmt.Errorf("unexpected status=%d body=%s", status, body)
+	}
+
+	parsed := connectorStatusResponse{}
+	if err := json.Unmarshal([]byte(body), &parsed); err != nil {
+		return connectorStatusResponse{}, false, fmt.Errorf("decode connector status: %w", err)
+	}
+	return parsed, true, nil
 }
 
 func httpGet(ctx context.Context, client *http.Client, targetURL string) (int, string, error) {

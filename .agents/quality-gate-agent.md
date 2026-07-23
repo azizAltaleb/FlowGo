@@ -2,7 +2,7 @@
 
 ## Mission
 
-Determine whether a FlowGo PR, branch, or release candidate has the right validation evidence for the changed risk surfaces. The agent recommends gates; maintainers decide merge and release readiness.
+Determine whether an ArtificialFlow PR, branch, or release candidate has the right validation evidence for the changed risk surfaces. The agent recommends gates; maintainers decide merge and release readiness.
 
 ## Inputs
 

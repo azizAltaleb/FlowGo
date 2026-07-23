@@ -3,8 +3,8 @@ package application
 import (
 	"context"
 	"fmt"
-	pb "github.com/azizAltaleb/flowgo/backend/api/v1/go"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	pb "github.com/artificialflow/artificialflow/backend/api/v1/go"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"strconv"
 	"strings"
 	"time"
@@ -15,7 +15,8 @@ import (
 const (
 	defaultJobLockDuration = 30 * time.Second
 	activationPollInterval = 100 * time.Millisecond
-	UserTaskJobType        = "flowgo:userTask"
+	UserTaskJobType        = "artificialflow:userTask"
+	LegacyUserTaskJobType  = "flowgo:userTask"
 )
 
 func (e *Engine) ActivateJobs(ctx context.Context, jobType, worker string, maxJobs int, requestTimeout, lockDuration time.Duration) ([]model.Job, error) {

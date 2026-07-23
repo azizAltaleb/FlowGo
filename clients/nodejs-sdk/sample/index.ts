@@ -1,8 +1,9 @@
-import { FlowGoClient } from '../src';
+import { ArtificialFlowClient, resolveArtificialFlowEnvironment } from '../src';
 
-const client = new FlowGoClient({
-    baseUrl: process.env.FLOWGO_API_URL || 'http://localhost:9100/api',
-    token: process.env.FLOWGO_TOKEN || '',
+const environment = resolveArtificialFlowEnvironment();
+const client = new ArtificialFlowClient({
+    baseUrl: environment.baseUrl,
+    token: environment.token,
 });
 
 const worker = client.createWorker('payment-service', async (job) => {

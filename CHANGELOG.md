@@ -1,10 +1,17 @@
 # Changelog
 
-All notable changes to FlowGo will be documented in this file.
+All notable changes to ArtificialFlow will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning while it remains pre-1.0.
 
 ## [Unreleased]
+
+## [0.3.0] - 2026-07-22
+
+### Changed
+
+- Moved the coordinated ArtificialFlow transition release to an unpublished version across npm, container, Compose, and Helm artifacts.
+- Hardened release collision checks, ZITADEL migration pagination, and persistent-state migration guidance.
 
 ## [0.2.0] - 2026-07-22
 

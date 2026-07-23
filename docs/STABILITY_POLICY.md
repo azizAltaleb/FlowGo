@@ -1,6 +1,6 @@
 # Stability Policy
 
-FlowGo is pre-1.0 software.
+ArtificialFlow is pre-1.0 software.
 
 ## Versioning
 
