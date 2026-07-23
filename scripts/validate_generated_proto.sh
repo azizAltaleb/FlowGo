@@ -3,7 +3,15 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "${TMP_DIR}"' EXIT
+cleanup() {
+  # Docker may write root-owned files into TMP_DIR; best-effort host cleanup first.
+  rm -rf "${TMP_DIR}" 2>/dev/null || true
+  if [[ -d "${TMP_DIR}" ]] && command -v docker >/dev/null 2>&1; then
+    docker run --rm -v "${TMP_DIR}:/tmp/out" alpine:3.20 rm -rf /tmp/out >/dev/null 2>&1 || true
+    rm -rf "${TMP_DIR}" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
 
 compare_generated() {
   local expected="$1"
@@ -22,6 +30,7 @@ command -v docker >/dev/null 2>&1 || {
 
 mkdir -p "${TMP_DIR}/go"
 docker run --rm \
+  --user "$(id -u):$(id -g)" \
   -v "${ROOT}:/workspace:ro" \
   -v "${TMP_DIR}/go:/out" \
   -w /workspace \
