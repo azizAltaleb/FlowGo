@@ -5,18 +5,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
-	"github.com/azizAltaleb/flowgo/backend/libs/iam"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
-	workerSDK "github.com/azizAltaleb/flowgo/backend/libs/worker"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/messaging"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/persistence"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/interfaces/http/dto"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/iam"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
+	workerSDK "github.com/artificialflow/artificialflow/backend/libs/worker"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/infrastructure/messaging"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/infrastructure/persistence"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/interfaces/http/dto"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -33,8 +34,8 @@ func setupTestHandler(t *testing.T) *Handler {
 		ProviderName:        "Corporate OIDC",
 		ConfigurationSource: "docker-compose",
 		AuthConfig: auth.Config{
-			InternalIssuerURL:   "http://identity.internal/realms/flowgo",
-			ExternalIssuerURL:   "https://identity.example.com/realms/flowgo",
+			InternalIssuerURL:   "http://identity.internal/realms/artificialflow",
+			ExternalIssuerURL:   "https://identity.example.com/realms/artificialflow",
 			ClientID:            "workflow-backend",
 			TokenValidationMode: auth.TokenModeJWT,
 			EnforceAudience:     false,
@@ -48,7 +49,7 @@ func setupTestHandler(t *testing.T) *Handler {
 		},
 		FrontendConfig: iam.FrontendAuthConfig{
 			Enabled:       true,
-			OIDCAuthority: "https://identity.example.com/realms/flowgo",
+			OIDCAuthority: "https://identity.example.com/realms/artificialflow",
 			OIDCClientID:  "workflow-frontend",
 		},
 	})
@@ -97,7 +98,7 @@ func registerTestRoutes(r *mux.Router, h *Handler) {
 			if _, ok := auth.PrincipalFromContext(req.Context()); !ok {
 				principal := auth.Principal{
 					Subject: "test-admin",
-					Roles:   []string{auth.RoleFlowGoAdmin},
+					Roles:   []string{auth.RoleArtificialFlowAdmin},
 				}
 				req = req.WithContext(auth.WithPrincipal(req.Context(), principal))
 			}
@@ -144,22 +145,22 @@ func TestIdentityConfigAPI(t *testing.T) {
 	if config.TokenValidationMode != auth.TokenModeJWT {
 		t.Fatalf("Expected token mode %q, got %q", auth.TokenModeJWT, config.TokenValidationMode)
 	}
-	if config.InternalIssuerURL != "http://identity.internal/realms/flowgo" {
+	if config.InternalIssuerURL != "http://identity.internal/realms/artificialflow" {
 		t.Fatalf("Unexpected internal issuer %q", config.InternalIssuerURL)
 	}
-	if config.ExternalIssuerURL != "https://identity.example.com/realms/flowgo" {
+	if config.ExternalIssuerURL != "https://identity.example.com/realms/artificialflow" {
 		t.Fatalf("Unexpected external issuer %q", config.ExternalIssuerURL)
 	}
 	if config.ClientID != "workflow-backend" {
 		t.Fatalf("Expected client ID workflow-backend, got %q", config.ClientID)
 	}
-	if config.FrontendOIDCAuthority != "https://identity.example.com/realms/flowgo" {
+	if config.FrontendOIDCAuthority != "https://identity.example.com/realms/artificialflow" {
 		t.Fatalf("Unexpected frontend authority %q", config.FrontendOIDCAuthority)
 	}
 	if config.FrontendOIDCClientID != "workflow-frontend" {
 		t.Fatalf("Unexpected frontend client id %q", config.FrontendOIDCClientID)
 	}
-	expectedRoles := []string{auth.RoleFlowGoAdmin, auth.RoleFlowGoModeler, auth.RoleFlowGoClient}
+	expectedRoles := []string{auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowModeler, auth.RoleArtificialFlowClient}
 	if len(config.StandardRoles) != len(expectedRoles) {
 		t.Fatalf("Expected %d standard roles, got %#v", len(expectedRoles), config.StandardRoles)
 	}
@@ -175,7 +176,7 @@ func TestIdentityManagementRoutesExternalModeReturnNotFound(t *testing.T) {
 	r := mux.NewRouter()
 	registerTestRoutes(r, h)
 	req := httptest.NewRequest(http.MethodGet, "/identity/management/users", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}))
 	rec := httptest.NewRecorder()
 
 	r.ServeHTTP(rec, req)
@@ -202,7 +203,7 @@ func TestIdentityManagementRoutesBundledRequireAdmin(t *testing.T) {
 
 func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 	tokenFile := t.TempDir() + "/owner.pat"
-	stateFile := t.TempDir() + "/flowgo-zitadel.json"
+	stateFile := t.TempDir() + "/artificialflow-zitadel.json"
 	if err := os.WriteFile(tokenFile, []byte("owner-token"), 0600); err != nil {
 		t.Fatalf("Failed to write owner token: %v", err)
 	}
@@ -217,9 +218,9 @@ func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/zitadel.user.v2.UserService/ListUsers":
-			_, _ = w.Write([]byte(`{"result":[{"userId":"user-1","username":"admin@example.com","preferredLoginName":"admin@example.com","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-01T00:00:00Z"},"human":{"profile":{"givenName":"Admin","familyName":"User","displayName":"Admin User"},"email":{"email":"admin@example.com","isVerified":true}}},{"userId":"user-2","username":"flowgo-bootstrap","preferredLoginName":"flowgo-bootstrap","state":"USER_STATE_ACTIVE","machine":{"name":"flowgo-bootstrap"}},{"userId":"user-3","username":"login-client","preferredLoginName":"login-client","state":"USER_STATE_ACTIVE","machine":{"name":"workflow-login-client"}}]}`))
+			_, _ = w.Write([]byte(`{"result":[{"userId":"user-1","username":"admin@example.com","preferredLoginName":"admin@example.com","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-01T00:00:00Z"},"human":{"profile":{"givenName":"Admin","familyName":"User","displayName":"Admin User"},"email":{"email":"admin@example.com","isVerified":true}}},{"userId":"user-2","username":"artificialflow-bootstrap","preferredLoginName":"artificialflow-bootstrap","state":"USER_STATE_ACTIVE","machine":{"name":"artificialflow-bootstrap"}},{"userId":"user-3","username":"login-client","preferredLoginName":"login-client","state":"USER_STATE_ACTIVE","machine":{"name":"workflow-login-client"}}]}`))
 		case "/zitadel.authorization.v2.AuthorizationService/ListAuthorizations":
-			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"user-1"},"roles":[{"key":"flowgo admin","displayName":"FlowGo Admin","group":"FlowGo"}]}]}`))
+			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"user-1"},"roles":[{"key":"artificialflow admin","displayName":"ArtificialFlow Admin","group":"ArtificialFlow"}]}]}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -237,7 +238,7 @@ func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 	r := mux.NewRouter()
 	registerTestRoutes(r, h)
 	req := httptest.NewRequest(http.MethodGet, "/identity/management/users", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}))
 	rec := httptest.NewRecorder()
 
 	r.ServeHTTP(rec, req)
@@ -249,7 +250,7 @@ func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode users response: %v", err)
 	}
-	hiddenIdentities := []string{"workflow-login-client", "login-client", "flowgo-bootstrap"}
+	hiddenIdentities := []string{"workflow-login-client", "login-client", "artificialflow-bootstrap"}
 	for _, user := range response.Users {
 		userIdentities := []string{user.Username, user.PreferredLoginName, user.DisplayName, user.Email}
 		for _, userIdentity := range userIdentities {
@@ -266,14 +267,14 @@ func TestIdentityManagementRoutesBundledAdminListsUsers(t *testing.T) {
 	if response.Users[0].Email != "admin@example.com" {
 		t.Fatalf("Unexpected user email %q", response.Users[0].Email)
 	}
-	if len(response.Users[0].Roles) != 1 || response.Users[0].Roles[0] != auth.RoleFlowGoAdmin {
+	if len(response.Users[0].Roles) != 1 || response.Users[0].Roles[0] != auth.RoleArtificialFlowAdmin {
 		t.Fatalf("Unexpected user roles %#v", response.Users[0].Roles)
 	}
 }
 
 func TestIdentityManagementReactivateUserRequiresBundledAdmin(t *testing.T) {
 	tokenFile := t.TempDir() + "/owner.pat"
-	stateFile := t.TempDir() + "/flowgo-zitadel.json"
+	stateFile := t.TempDir() + "/artificialflow-zitadel.json"
 	if err := os.WriteFile(tokenFile, []byte("owner-token"), 0600); err != nil {
 		t.Fatalf("Failed to write owner token: %v", err)
 	}
@@ -325,7 +326,7 @@ func TestIdentityManagementReactivateUserRequiresBundledAdmin(t *testing.T) {
 	}
 
 	adminReq := httptest.NewRequest(http.MethodPost, "/identity/management/users/user-1/reactivate", nil)
-	adminReq = adminReq.WithContext(auth.WithPrincipal(adminReq.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}))
+	adminReq = adminReq.WithContext(auth.WithPrincipal(adminReq.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}))
 	adminRec := httptest.NewRecorder()
 	r.ServeHTTP(adminRec, adminReq)
 	if adminRec.Code != http.StatusNoContent {
@@ -336,11 +337,11 @@ func TestIdentityManagementReactivateUserRequiresBundledAdmin(t *testing.T) {
 	}
 }
 
-func TestIdentityManagementProtectsFlowGoPlatformRoles(t *testing.T) {
+func TestIdentityManagementProtectsArtificialFlowPlatformRoles(t *testing.T) {
 	h := setupTestHandlerWithIdentityConfig(t, iam.DeploymentConfig{Mode: iam.DeploymentModeZITADEL})
 	r := mux.NewRouter()
 	registerTestRoutes(r, h)
-	admin := auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}
+	admin := auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}
 
 	requests := []struct {
 		name   string
@@ -352,23 +353,23 @@ func TestIdentityManagementProtectsFlowGoPlatformRoles(t *testing.T) {
 			name:   "create viewer",
 			method: http.MethodPost,
 			path:   "/identity/management/roles",
-			body:   `{"key":"flowgo viewer","display_name":"FlowGo Viewer","group":"FlowGo"}`,
+			body:   `{"key":"artificialflow viewer","display_name":"ArtificialFlow Viewer","group":"ArtificialFlow"}`,
 		},
 		{
 			name:   "update admin",
 			method: http.MethodPut,
-			path:   "/identity/management/roles/flowgo%20admin",
-			body:   `{"display_name":"Changed Admin","group":"FlowGo"}`,
+			path:   "/identity/management/roles/artificialflow%20admin",
+			body:   `{"display_name":"Changed Admin","group":"ArtificialFlow"}`,
 		},
 		{
 			name:   "delete modeler",
 			method: http.MethodDelete,
-			path:   "/identity/management/roles/flowgo%20modeler",
+			path:   "/identity/management/roles/artificialflow%20modeler",
 		},
 		{
 			name:   "delete client",
 			method: http.MethodDelete,
-			path:   "/identity/management/roles/flowgo%20client",
+			path:   "/identity/management/roles/artificialflow%20client",
 		},
 	}
 
@@ -389,7 +390,7 @@ func TestIdentityManagementProtectsFlowGoPlatformRoles(t *testing.T) {
 
 func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 	tokenFile := t.TempDir() + "/owner.pat"
-	stateFile := t.TempDir() + "/flowgo-zitadel.json"
+	stateFile := t.TempDir() + "/artificialflow-zitadel.json"
 	if err := os.WriteFile(tokenFile, []byte("owner-token"), 0600); err != nil {
 		t.Fatalf("Failed to write owner token: %v", err)
 	}
@@ -442,7 +443,7 @@ func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 	registerTestRoutes(r, h)
 	body := `{"username":"sdk-orders","name":"Orders SDK","description":"Order system","environment":"production","owner_email":"platform@example.com","purpose":"Order worker","token_expires_at":"2027-01-01T00:00:00Z"}`
 	req := httptest.NewRequest(http.MethodPost, "/identity/management/clients", strings.NewReader(body))
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}))
 	rec := httptest.NewRecorder()
 
 	r.ServeHTTP(rec, req)
@@ -460,8 +461,8 @@ func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 	if response.ClientID != "client-user-1" || response.TokenID != "pat-1" || response.Token != "sdk-token" {
 		t.Fatalf("Unexpected client token response: %#v", response)
 	}
-	if response.Role != auth.RoleFlowGoClient {
-		t.Fatalf("Expected client role %q, got %q", auth.RoleFlowGoClient, response.Role)
+	if response.Role != auth.RoleArtificialFlowClient {
+		t.Fatalf("Expected client role %q, got %q", auth.RoleArtificialFlowClient, response.Role)
 	}
 	if createUserPayload["organizationId"] != "org-1" || createUserPayload["username"] != "sdk-orders" {
 		t.Fatalf("Unexpected create user payload: %#v", createUserPayload)
@@ -478,7 +479,7 @@ func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 		t.Fatalf("Unexpected machine payload: %#v", machine)
 	}
 	roleKeys, ok := createAuthorizationPayload["roleKeys"].([]any)
-	if !ok || len(roleKeys) != 1 || roleKeys[0] != auth.RoleFlowGoClient {
+	if !ok || len(roleKeys) != 1 || roleKeys[0] != auth.RoleArtificialFlowClient {
 		t.Fatalf("Unexpected authorization payload: %#v", createAuthorizationPayload)
 	}
 	if tokenPayload["userId"] != "client-user-1" || tokenPayload["expirationDate"] != "2027-01-01T00:00:00Z" {
@@ -488,7 +489,7 @@ func TestIdentityManagementRoutesBundledAdminCreatesClientToken(t *testing.T) {
 
 func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 	tokenFile := t.TempDir() + "/owner.pat"
-	stateFile := t.TempDir() + "/flowgo-zitadel.json"
+	stateFile := t.TempDir() + "/artificialflow-zitadel.json"
 	if err := os.WriteFile(tokenFile, []byte("owner-token"), 0600); err != nil {
 		t.Fatalf("Failed to write owner token: %v", err)
 	}
@@ -506,15 +507,15 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/zitadel.user.v2.UserService/ListUsers":
-			_, _ = w.Write([]byte(`{"result":[{"userId":"client-user-1","username":"sdk-orders","preferredLoginName":"sdk-orders","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-02T00:00:00Z"},"machine":{"name":"Orders SDK","description":"flowgo-client:{\"description\":\"Order system\",\"environment\":\"production\",\"owner_email\":\"platform@example.com\",\"purpose\":\"Order worker\"}"}},{"userId":"bootstrap","username":"flowgo-bootstrap","state":"USER_STATE_ACTIVE","machine":{"name":"flowgo-bootstrap"}}]}`))
+			_, _ = w.Write([]byte(`{"result":[{"userId":"client-user-1","username":"sdk-orders","preferredLoginName":"sdk-orders","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-02T00:00:00Z"},"machine":{"name":"Orders SDK","description":"artificialflow-client:{\"description\":\"Order system\",\"environment\":\"production\",\"owner_email\":\"platform@example.com\",\"purpose\":\"Order worker\"}"}},{"userId":"bootstrap","username":"artificialflow-bootstrap","state":"USER_STATE_ACTIVE","machine":{"name":"artificialflow-bootstrap"}}]}`))
 		case "/zitadel.authorization.v2.AuthorizationService/ListAuthorizations":
-			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-user-1"},"roles":[{"key":"flowgo client"}]}]}`))
+			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-user-1"},"roles":[{"key":"artificialflow client"}]}]}`))
 		case "/zitadel.user.v2.UserService/ListPersonalAccessTokens":
 			_, _ = w.Write([]byte(`{"result":[{"id":"pat-1","userId":"client-user-1","organizationId":"org-1","creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-01T00:00:00Z","expirationDate":"2027-01-01T00:00:00Z"}]}`))
 		case "/zitadel.user.v2.UserService/ListKeys":
 			_, _ = w.Write([]byte(`{"keys":[]}`))
 		case "/zitadel.user.v2.UserService/GetUserByID":
-			_, _ = w.Write([]byte(`{"user":{"userId":"client-user-1","username":"sdk-orders","preferredLoginName":"sdk-orders","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-02T00:00:00Z"},"machine":{"name":"Orders SDK","description":"flowgo-client:{\"description\":\"Order system\",\"environment\":\"production\",\"owner_email\":\"platform@example.com\",\"purpose\":\"Order worker\"}"}}}`))
+			_, _ = w.Write([]byte(`{"user":{"userId":"client-user-1","username":"sdk-orders","preferredLoginName":"sdk-orders","state":"USER_STATE_ACTIVE","details":{"creationDate":"2026-01-01T00:00:00Z","changeDate":"2026-01-02T00:00:00Z"},"machine":{"name":"Orders SDK","description":"artificialflow-client:{\"description\":\"Order system\",\"environment\":\"production\",\"owner_email\":\"platform@example.com\",\"purpose\":\"Order worker\"}"}}}`))
 		case "/zitadel.user.v2.UserService/AddPersonalAccessToken":
 			if err := json.NewDecoder(r.Body).Decode(&rotatePayload); err != nil {
 				t.Fatalf("failed to decode rotate payload: %v", err)
@@ -549,7 +550,7 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 	registerTestRoutes(r, h)
 
 	req := httptest.NewRequest(http.MethodGet, "/identity/management/clients", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}))
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -568,7 +569,7 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 
 	rotateBody := `{"token_expires_at":"2028-01-01T00:00:00Z"}`
 	req = httptest.NewRequest(http.MethodPost, "/identity/management/clients/client-user-1/tokens", strings.NewReader(rotateBody))
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}))
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -589,7 +590,7 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodDelete, "/identity/management/clients/client-user-1/tokens/pat-1", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}))
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
@@ -600,7 +601,7 @@ func TestIdentityManagementRoutesBundledAdminManagesClients(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodDelete, "/identity/management/clients/client-user-1", nil)
-	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}))
+	req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}))
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
@@ -874,9 +875,9 @@ func TestModelerRoleCanDeployAndReadProcessesOnly(t *testing.T) {
 	r := mux.NewRouter()
 	registerTestRoutes(r, h)
 
-	modeler := auth.Principal{Subject: "modeler", Roles: []string{auth.RoleFlowGoModeler}}
+	modeler := auth.Principal{Subject: "modeler", Roles: []string{auth.RoleArtificialFlowModeler}}
 	bpmnXML := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_ModelerOnly" targetNamespace="http://flowgo.local/test">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_ModelerOnly" targetNamespace="http://artificialflow.local/test">
   <bpmn:process id="ModelerOnly" name="Modeler Only" isExecutable="true">
     <bpmn:startEvent id="start"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
     <bpmn:endEvent id="end"><bpmn:incoming>f1</bpmn:incoming></bpmn:endEvent>
@@ -1166,10 +1167,10 @@ func TestUserTaskOwnershipRequiresEligibleRoleAndClaim(t *testing.T) {
 	registerTestRoutes(r, h)
 
 	bpmn := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn" id="Definitions_TaskOwnership" targetNamespace="http://flowgo.local/test">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_TaskOwnership" targetNamespace="http://artificialflow.local/test">
   <bpmn:process id="TaskOwnership" name="Task Ownership" isExecutable="true">
     <bpmn:startEvent id="start"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
-    <bpmn:userTask id="accountantReview" name="Accountant Review" flowgo:assignee="accountant" flowgo:candidateGroups="accountant"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:userTask>
+    <bpmn:userTask id="accountantReview" name="Accountant Review" artificialflow:assignee="accountant" artificialflow:candidateGroups="accountant"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:userTask>
     <bpmn:endEvent id="end"><bpmn:incoming>f2</bpmn:incoming></bpmn:endEvent>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="accountantReview"/>
     <bpmn:sequenceFlow id="f2" sourceRef="accountantReview" targetRef="end"/>
@@ -1201,10 +1202,10 @@ func TestUserTaskOwnershipRequiresEligibleRoleAndClaim(t *testing.T) {
 		t.Fatalf("failed to decode instance: %v", err)
 	}
 
-	accountant := auth.Principal{Subject: "accountant", Email: "accountant@flowgo.local", Roles: []string{"accountant"}}
-	reviewer := auth.Principal{Subject: "reviewer", Email: "reviewer@flowgo.local", Roles: []string{"reviewer"}}
-	modeler := auth.Principal{Subject: "modeler", Roles: []string{auth.RoleFlowGoModeler}}
-	integrationClient := auth.Principal{Subject: "sdk-client", Roles: []string{auth.RoleFlowGoClient}}
+	accountant := auth.Principal{Subject: "accountant", Email: "accountant@artificialflow.local", Roles: []string{"accountant"}}
+	reviewer := auth.Principal{Subject: "reviewer", Email: "reviewer@artificialflow.local", Roles: []string{"reviewer"}}
+	modeler := auth.Principal{Subject: "modeler", Roles: []string{auth.RoleArtificialFlowModeler}}
+	integrationClient := auth.Principal{Subject: "sdk-client", Roles: []string{auth.RoleArtificialFlowClient}}
 
 	reviewerInstancesReq := requestAs(http.MethodGet, "/instances", nil, reviewer)
 	reviewerInstancesRec := httptest.NewRecorder()
@@ -1391,7 +1392,7 @@ func TestUserTaskOwnershipRequiresEligibleRoleAndClaim(t *testing.T) {
 		t.Fatalf("reviewer should not see accountant-owned completed instance %s, got %#v", instance.ID, reviewerCompletedInstances)
 	}
 
-	adminHistoryReq := requestAs(http.MethodGet, "/instances/history/completed", nil, auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}})
+	adminHistoryReq := requestAs(http.MethodGet, "/instances/history/completed", nil, auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}})
 	adminHistoryRec := httptest.NewRecorder()
 	r.ServeHTTP(adminHistoryRec, adminHistoryReq)
 	if adminHistoryRec.Code != http.StatusOK {
@@ -1407,15 +1408,19 @@ func TestUserTaskOwnershipRequiresEligibleRoleAndClaim(t *testing.T) {
 }
 
 func TestTaskInboxRequiresClientIntegrationAndExcludesAdminClientHistory(t *testing.T) {
-	h := setupTestHandler(t)
+	h, repo := setupTestHandlerWithRepository(t, iam.DeploymentConfig{
+		Mode:                iam.DeploymentModeExternal,
+		ProviderName:        "Corporate OIDC",
+		ConfigurationSource: "test",
+	})
 	r := mux.NewRouter()
 	registerTestRoutes(r, h)
 
 	bpmn := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn" id="Definitions_Inbox" targetNamespace="http://flowgo.local/test">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_Inbox" targetNamespace="http://artificialflow.local/test">
   <bpmn:process id="InboxTask" name="Inbox Task" isExecutable="true">
     <bpmn:startEvent id="start"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
-    <bpmn:userTask id="accountantReview" name="Accountant Review" flowgo:candidateGroups="accountant"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:userTask>
+    <bpmn:userTask id="accountantReview" name="Accountant Review" artificialflow:candidateGroups="accountant"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:userTask>
     <bpmn:endEvent id="end"><bpmn:incoming>f2</bpmn:incoming></bpmn:endEvent>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="accountantReview"/>
     <bpmn:sequenceFlow id="f2" sourceRef="accountantReview" targetRef="end"/>
@@ -1446,23 +1451,34 @@ func TestTaskInboxRequiresClientIntegrationAndExcludesAdminClientHistory(t *test
 	if err := json.NewDecoder(startRec.Body).Decode(&instance); err != nil {
 		t.Fatalf("failed to decode instance: %v", err)
 	}
+	instanceKey, err := strconv.ParseInt(instance.ID, 10, 64)
+	if err != nil {
+		t.Fatalf("failed to parse instance id: %v", err)
+	}
+	createdJobs, err := repo.ListJobsByProcessInstanceAndType(context.Background(), instanceKey, application.UserTaskJobType)
+	if err != nil || len(createdJobs) != 1 {
+		t.Fatalf("expected one newly written user task, got jobs=%#v err=%v", createdJobs, err)
+	}
+	if createdJobs[0].Type != application.UserTaskJobType {
+		t.Fatalf("new user-task writes must use %q, got %q", application.UserTaskJobType, createdJobs[0].Type)
+	}
 
-	integrationClient := auth.Principal{Subject: "sdk-client", Roles: []string{auth.RoleFlowGoClient}}
+	integrationClient := auth.Principal{Subject: "sdk-client", Roles: []string{auth.RoleArtificialFlowClient}}
 	actingUser := auth.Principal{
 		Subject: "accountant",
-		Email:   "accountant@flowgo.local",
+		Email:   "accountant@artificialflow.local",
 		Roles:   []string{"accountant"},
 		Claims:  map[string]any{"username": "accountant"},
 	}
 
-	nonClientReq := requestAsInbox(http.MethodGet, "/inbox", nil, auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}, actingUser)
+	nonClientReq := requestAsInbox(http.MethodGet, "/inbox", nil, auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}, actingUser)
 	nonClientRec := httptest.NewRecorder()
 	r.ServeHTTP(nonClientRec, nonClientReq)
 	if nonClientRec.Code != http.StatusForbidden {
 		t.Fatalf("expected non-client integration principal to be denied, got %d: %s", nonClientRec.Code, nonClientRec.Body.String())
 	}
 
-	adminIntegrationReq := requestAsInbox(http.MethodGet, "/inbox", nil, auth.Principal{Subject: "admin-client", Roles: []string{auth.RoleFlowGoAdmin, auth.RoleFlowGoClient}}, actingUser)
+	adminIntegrationReq := requestAsInbox(http.MethodGet, "/inbox", nil, auth.Principal{Subject: "admin-client", Roles: []string{auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient}}, actingUser)
 	adminIntegrationRec := httptest.NewRecorder()
 	r.ServeHTTP(adminIntegrationRec, adminIntegrationReq)
 	if adminIntegrationRec.Code != http.StatusForbidden {
@@ -1476,7 +1492,7 @@ func TestTaskInboxRequiresClientIntegrationAndExcludesAdminClientHistory(t *test
 		t.Fatalf("expected missing acting user to be rejected, got %d: %s", missingActingRec.Code, missingActingRec.Body.String())
 	}
 
-	actingAdminReq := requestAsInbox(http.MethodGet, "/inbox", nil, integrationClient, auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin, "accountant"}})
+	actingAdminReq := requestAsInbox(http.MethodGet, "/inbox", nil, integrationClient, auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin, "accountant"}})
 	actingAdminRec := httptest.NewRecorder()
 	r.ServeHTTP(actingAdminRec, actingAdminReq)
 	if actingAdminRec.Code != http.StatusForbidden {
@@ -1576,10 +1592,10 @@ func TestTaskInboxFiltersSiblingTasksForActingUser(t *testing.T) {
 		t.Fatalf("failed to start instance: %v", err)
 	}
 
-	integrationClient := auth.Principal{Subject: "sdk-client", Roles: []string{auth.RoleFlowGoClient}}
+	integrationClient := auth.Principal{Subject: "sdk-client", Roles: []string{auth.RoleArtificialFlowClient}}
 	actingAccountant := auth.Principal{
 		Subject: "accountant",
-		Email:   "accountant@flowgo.local",
+		Email:   "accountant@artificialflow.local",
 		Roles:   []string{"accountant"},
 		Claims:  map[string]any{"username": "accountant"},
 	}
@@ -1649,7 +1665,7 @@ func TestTaskInboxHistoryFindsSparseOlderCompletedTask(t *testing.T) {
 		ProcessInstanceKey: target.Key,
 		ElementInstanceKey: 29001,
 		ElementID:          "accountantReview",
-		Worker:             " accountant@flowgo.local ",
+		Worker:             " accountant@artificialflow.local ",
 		Retries:            1,
 		State:              "COMPLETED",
 		CreatedAt:          target.CreatedAt,
@@ -1679,7 +1695,7 @@ func TestTaskInboxHistoryFindsSparseOlderCompletedTask(t *testing.T) {
 			ProcessInstanceKey: key,
 			ElementInstanceKey: int64(29100 + i),
 			ElementID:          "reviewerReview",
-			Worker:             "reviewer@flowgo.local",
+			Worker:             "reviewer@artificialflow.local",
 			Retries:            1,
 			State:              "COMPLETED",
 			CreatedAt:          instance.CreatedAt,
@@ -1689,10 +1705,10 @@ func TestTaskInboxHistoryFindsSparseOlderCompletedTask(t *testing.T) {
 		}
 	}
 
-	integrationClient := auth.Principal{Subject: "sdk-client", Roles: []string{auth.RoleFlowGoClient}}
+	integrationClient := auth.Principal{Subject: "sdk-client", Roles: []string{auth.RoleArtificialFlowClient}}
 	actingAccountant := auth.Principal{
 		Subject: "accountant",
-		Email:   "accountant@flowgo.local",
+		Email:   "accountant@artificialflow.local",
 		Roles:   []string{"accountant"},
 		Claims:  map[string]any{"username": "accountant"},
 	}
@@ -1708,6 +1724,47 @@ func TestTaskInboxHistoryFindsSparseOlderCompletedTask(t *testing.T) {
 	}
 	if len(history) != 1 || history[0].ID != strconv.FormatInt(target.Key, 10) {
 		t.Fatalf("expected sparse history to return target instance %d, got %#v", target.Key, history)
+	}
+}
+
+func TestActingPrincipalFromRequestReadsCanonicalHeaders(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/inbox", nil)
+	req.Header.Set(actingSubjectHeader, "canonical-subject")
+	req.Header.Set(actingUsernameHeader, "canonical-user")
+	req.Header.Set(actingEmailHeader, "canonical@artificialflow.io")
+	req.Header.Set(actingNameHeader, "Canonical User")
+	req.Header.Set(actingRolesHeader, "artificialflow admin, Finance Reviewer")
+
+	principal, err := actingPrincipalFromRequest(req)
+	if err != nil {
+		t.Fatalf("acting principal: %v", err)
+	}
+	if principal.Subject != "canonical-subject" || principal.Email != "canonical@artificialflow.io" || principal.Name != "Canonical User" {
+		t.Fatalf("expected canonical identity headers, got %#v", principal)
+	}
+	if username := principal.Claims["username"]; username != "canonical-user" {
+		t.Fatalf("expected canonical username, got %#v", username)
+	}
+	expectedRoles := []string{auth.RoleArtificialFlowAdmin, "Finance Reviewer"}
+	if !reflect.DeepEqual(principal.Roles, expectedRoles) {
+		t.Fatalf("expected canonical roles %#v, got %#v", expectedRoles, principal.Roles)
+	}
+}
+
+func TestActingPrincipalFromRequestFallsBackToUsername(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/inbox", nil)
+	req.Header.Set(actingUsernameHeader, "acting-user")
+	req.Header.Set(actingRolesHeader, "artificialflow modeler")
+
+	principal, err := actingPrincipalFromRequest(req)
+	if err != nil {
+		t.Fatalf("acting principal: %v", err)
+	}
+	if principal.Subject != "acting-user" {
+		t.Fatalf("expected username fallback subject, got %#v", principal)
+	}
+	if !reflect.DeepEqual(principal.Roles, []string{auth.RoleArtificialFlowModeler}) {
+		t.Fatalf("expected modeler role, got %#v", principal.Roles)
 	}
 }
 

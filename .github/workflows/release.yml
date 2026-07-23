@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to validate or publish
+        required: true
+        default: v0.3.0
+      publish:
+        description: Publish Docker images and npm packages
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  images:
+    name: Build, scan, verify, and sign release images
+    uses: ./.github/workflows/release-images.yml
+    with:
+      tag: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+      publish: ${{ github.event_name == 'push' || inputs.publish }}
+    secrets: inherit
+
+  npm:
+    name: Validate and publish npm packages
+    needs: images
+    uses: ./.github/workflows/release-npm.yml
+    with:
+      tag: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+      publish: ${{ github.event_name == 'push' || inputs.publish }}
+      images_verified: true
+    secrets: inherit

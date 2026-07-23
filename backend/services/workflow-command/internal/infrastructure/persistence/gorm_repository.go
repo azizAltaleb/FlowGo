@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/domain/repository"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/domain/repository"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -21,6 +21,10 @@ type GormRepository struct {
 }
 
 const outboxProcessingLease = 5 * time.Minute
+
+const (
+	canonicalUserTaskJobType = "artificialflow:userTask"
+)
 
 // Ensure GormRepository implements repository.Repository
 var _ repository.Repository = &GormRepository{}
@@ -237,7 +241,7 @@ func (s *GormRepository) ListActivatableJobs(ctx context.Context, jobType string
 		Where("(state = ? OR (state = ? AND lock_expiration_time IS NOT NULL AND lock_expiration_time <= ?)) AND retries > 0", "CREATED", "ACTIVATED", now)
 
 	if jobType != "" {
-		query = query.Where("type = ?", jobType)
+		query = query.Where("type IN ?", compatibleJobTypes(jobType))
 	}
 
 	if s.DB.Dialector.Name() != "sqlite" {
@@ -256,7 +260,7 @@ func (s *GormRepository) ListJobsByProcessInstanceAndType(ctx context.Context, p
 	query := s.DB.WithContext(ctx).
 		Where("process_instance_key = ?", processInstanceKey)
 	if jobType != "" {
-		query = query.Where("type = ?", jobType)
+		query = query.Where("type IN ?", compatibleJobTypes(jobType))
 	}
 
 	var jobs []model.Job
@@ -598,7 +602,7 @@ func (s *GormRepository) ListCompletedProcessInstancesWithCompletedJobsByWorkers
 		Distinct("process_instance.*").
 		Joins("JOIN job ON job.process_instance_key = process_instance.key").
 		Where("process_instance.state = ?", "COMPLETED").
-		Where("job.type = ?", jobType).
+		Where("job.type IN ?", compatibleJobTypes(jobType)).
 		Where("job.state = ?", "COMPLETED").
 		Where("LOWER(TRIM(job.worker)) IN ?", normalizedWorkers).
 		Order("process_instance.end_time desc, process_instance.created_at desc").
@@ -608,6 +612,13 @@ func (s *GormRepository) ListCompletedProcessInstancesWithCompletedJobsByWorkers
 		return nil, err
 	}
 	return instances, nil
+}
+
+func compatibleJobTypes(jobType string) []string {
+	switch strings.TrimSpace(jobType) {
+	default:
+		return []string{jobType}
+	}
 }
 
 func normalizeQueryValues(values []string) []string {

@@ -1,10 +1,8 @@
 syntax = "proto3";
 
-package flowgo.api.v1;
+package artificialflow.api.v1;
 
-option go_package = "github.com/azizAltaleb/flowgo/backend/api/v1/go;workflowapi";
-
-import "google/protobuf/timestamp.proto";
+option go_package = "github.com/artificialflow/artificialflow/backend/api/v1/go;workflowapi";
 
 service JobWorkerService {
   // ActivateJobs polls for jobs available for a specific worker/type.

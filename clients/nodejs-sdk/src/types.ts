@@ -42,11 +42,11 @@ export interface OAuthClientCredentialsAuthOptions {
     fetch?: FetchLike;
 }
 
-export type FlowGoAuthOptions =
+export type ArtificialFlowAuthOptions =
     | ZitadelJwtProfileAuthOptions
     | OAuthClientCredentialsAuthOptions;
 
-export interface FlowGoClientBaseOptions {
+export interface ArtificialFlowClientBaseOptions {
     baseUrl?: string;
     queryBaseUrl?: string;
     headers?: Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>);
@@ -54,10 +54,11 @@ export interface FlowGoClientBaseOptions {
     fetch?: FetchLike;
 }
 
-export type FlowGoClientOptions = FlowGoClientBaseOptions & (
+export type ArtificialFlowClientOptions = ArtificialFlowClientBaseOptions & (
     | { token?: TokenProvider; auth?: never }
-    | { token?: never; auth?: FlowGoAuthOptions }
+    | { token?: never; auth?: ArtificialFlowAuthOptions }
 );
+
 
 export interface RequestOptions {
     correlationId?: string;

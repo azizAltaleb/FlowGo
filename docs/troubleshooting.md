@@ -26,8 +26,8 @@ make cqrs-e2e-smoke
 
 ## SDK Calls Are Unauthorized
 
-- Confirm the service-account profile belongs to an active machine user with `flowgo client`.
-- Confirm its scopes include `openid`, `urn:zitadel:iam:org:projects:roles`, and the FlowGo project audience scope.
+- Confirm the service-account profile belongs to an active machine user with `artificialflow client`.
+- Confirm its scopes include `openid`, `urn:zitadel:iam:org:projects:roles`, and the ArtificialFlow project audience scope.
 - Confirm clocks are synchronized; JWT Profile assertions are valid for only five minutes.
 - Confirm the profile issuer and `/oauth/v2/token` URL use HTTPS outside loopback development.
 - Confirm the role claim path matches `AUTH_CLAIM_ROLES_PATH`.
@@ -35,7 +35,7 @@ make cqrs-e2e-smoke
   `AUTH_ISSUER_PUBLIC_URL`. In introspection mode, confirm the configured
   introspection endpoint accepts the token and returns `active=true`, a
   subject, the expected audience, and the required role claims.
-- In bundled ZITADEL mode, confirm command and query use `AUTH_TOKEN_MODE=introspection`, `AUTH_INTROSPECTION_URL` ends in `/oauth/v2/introspect`, and the generated `/flowgo/auth/flowgo-api-client-id` and `flowgo-api-client-secret` files are mounted and readable.
+- In bundled ZITADEL mode, confirm command and query use `AUTH_TOKEN_MODE=introspection`, `AUTH_INTROSPECTION_URL` ends in `/oauth/v2/introspect`, and the generated `/artificialflow/auth/artificialflow-api-client-id` and `artificialflow-api-client-secret` files are mounted and readable. Those legacy internal mount paths remain stable during the branding transition.
 - A removed key cannot mint new access tokens. Already-minted tokens remain valid until their short expiry unless the client is terminated/deleted.
 - During migration, legacy PATs remain accepted until explicitly revoked, but issuance and rotation are disabled by default.
 
@@ -44,9 +44,9 @@ make cqrs-e2e-smoke
 - Render templates locally:
 
 ```bash
-helm lint ./charts/flowgo
-helm template flowgo ./charts/flowgo -f ./charts/flowgo/values-external-iam.yaml
-helm template flowgo ./charts/flowgo -f ./charts/flowgo/values-internal-iam.yaml
+helm lint ./charts/artificialflow
+helm template artificialflow ./charts/artificialflow -f ./charts/artificialflow/values-external-iam.yaml
+helm template artificialflow ./charts/artificialflow -f ./charts/artificialflow/values-internal-iam.yaml
 ```
 
 - Verify required external secrets exist.

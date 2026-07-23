@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/domain/repository"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-query/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-query/internal/domain/repository"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -85,7 +85,7 @@ func registerTestRoutes(r *mux.Router, h *Handler) {
 			if _, ok := auth.PrincipalFromContext(req.Context()); !ok {
 				principal := auth.Principal{
 					Subject: "test-admin",
-					Roles:   []string{auth.RoleFlowGoAdmin},
+					Roles:   []string{auth.RoleArtificialFlowAdmin},
 				}
 				req = req.WithContext(auth.WithPrincipal(req.Context(), principal))
 			}
@@ -165,7 +165,7 @@ func TestModelerReadsWorkflowProjectionOnly(t *testing.T) {
 	h := setupTestHandler()
 	r := mux.NewRouter()
 	registerTestRoutes(r, h)
-	modeler := auth.Principal{Subject: "modeler", Roles: []string{auth.RoleFlowGoModeler}}
+	modeler := auth.Principal{Subject: "modeler", Roles: []string{auth.RoleArtificialFlowModeler}}
 
 	workflowsReq, _ := http.NewRequest("GET", "/workflows", nil)
 	workflowsReq = workflowsReq.WithContext(auth.WithPrincipal(workflowsReq.Context(), modeler))

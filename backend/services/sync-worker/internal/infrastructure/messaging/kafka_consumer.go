@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/domain/model"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/services/sync-worker/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/sync-worker/internal/domain/model"
 
 	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel"
@@ -65,6 +66,13 @@ func NewKafkaConsumer(cfg Config, service *application.SyncService) *KafkaConsum
 	}
 }
 
+var errConsumerNeedsRestart = errors.New("kafka consumer needs restart after empty assignment")
+
+const (
+	assignmentRecoveryTimeout = 15 * time.Second
+	assignmentRecoveryBackoff = 2 * time.Second
+)
+
 func (c *KafkaConsumer) Start(ctx context.Context) error {
 	if len(c.cfg.Brokers) == 0 {
 		return fmt.Errorf("kafka brokers are required")
@@ -90,10 +98,77 @@ func (c *KafkaConsumer) Start(ctx context.Context) error {
 		}()
 	}
 
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := c.runGeneration(ctx)
+		if err == nil || errors.Is(err, context.Canceled) {
+			return err
+		}
+		if !errors.Is(err, errConsumerNeedsRestart) {
+			return err
+		}
+		c.log.Warn(ctx, "recreating kafka consumer after empty group assignment", map[string]any{
+			"group":  c.cfg.GroupID,
+			"topics": c.cfg.Topics,
+		})
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(assignmentRecoveryBackoff):
+		}
+	}
+}
+
+func (c *KafkaConsumer) runGeneration(ctx context.Context) error {
+	generationCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	reader := kafka.NewReader(c.readerConfig())
 	c.readers = []*kafka.Reader{reader}
 
-	return c.consumeLoop(ctx, reader)
+	startProcessed := c.processedCount.Load()
+	watchdogDone := make(chan struct{})
+	go func() {
+		timer := time.NewTimer(assignmentRecoveryTimeout)
+		defer timer.Stop()
+		select {
+		case <-generationCtx.Done():
+		case <-watchdogDone:
+		case <-timer.C:
+			if c.processedCount.Load() != startProcessed {
+				return
+			}
+			hasBacklog, err := TopicsHaveBacklog(generationCtx, c.cfg.Brokers, c.cfg.Topics)
+			if err != nil {
+				c.log.Warn(generationCtx, "failed to inspect kafka backlog for assignment recovery", map[string]any{
+					"error": err.Error(),
+				})
+				return
+			}
+			if hasBacklog {
+				c.log.Warn(generationCtx, "kafka consumer has backlog but no messages processed; forcing rejoin", map[string]any{
+					"group":  c.cfg.GroupID,
+					"topics": c.cfg.Topics,
+				})
+				cancel()
+			}
+		}
+	}()
+
+	err := c.consumeLoop(generationCtx, reader)
+	close(watchdogDone)
+	if errors.Is(err, context.Canceled) {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if c.processedCount.Load() == startProcessed {
+			return errConsumerNeedsRestart
+		}
+		return nil
+	}
+	return err
 }
 
 func (c *KafkaConsumer) readerConfig() kafka.ReaderConfig {

@@ -1,6 +1,6 @@
 # Agentic QA
 
-FlowGo QA agents translate repository changes into a practical validation plan. They recommend what to run, collect evidence, identify missing coverage, and call out residual risk. They do not decide that a release is ready without maintainer review.
+ArtificialFlow QA agents translate repository changes into a practical validation plan. They recommend what to run, collect evidence, identify missing coverage, and call out residual risk. They do not decide that a release is ready without maintainer review.
 
 Use this document with `docs/QUALITY_GATES.md`, `docs/STABILITY_POLICY.md`, and `docs/COMPATIBILITY_MATRIX.md`.
 

@@ -3,8 +3,8 @@ package application
 import (
 	"context"
 	"fmt"
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"strings"
 	"time"
 )

@@ -1,4 +1,4 @@
-.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-base smoke-core smoke-full smoke-release-base smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles validate-helm release-dry-run cqrs-parity-check cqrs-e2e-smoke worker-conformance test-bpmn-matrix test-bpmn-exhaustive test-deployment-matrix test-uat-videos test-unit test-integration test-e2e test-frontend test-perf test-security test-report test-all test-all-functionality
+.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-base smoke-core smoke-full smoke-release-base smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles validate-helm validate-legacy-branding validate-release-version validate-migration-release release-dry-run cqrs-parity-check cqrs-e2e-smoke worker-conformance test-bpmn-matrix test-bpmn-exhaustive test-deployment-matrix test-uat-videos test-unit test-integration test-e2e test-frontend test-perf test-security test-report test-all test-all-functionality
 
 
 # Docker Compose Commands
@@ -56,6 +56,15 @@ smoke-release-profiles: smoke-release-base smoke-release-core smoke-release-full
 
 validate-helm:
 	bash scripts/validate_helm.sh
+
+validate-legacy-branding:
+	node scripts/validate_legacy_branding.mjs
+
+validate-release-version:
+	node scripts/validate_release_version.mjs
+
+validate-migration-release:
+	bash scripts/validate_migration_release.sh
 
 release-dry-run:
 	bash scripts/release_dry_run.sh

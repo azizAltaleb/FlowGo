@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
 )
 
 type zitadelUser struct {
@@ -238,10 +238,10 @@ func (c *ZITADELManagementClient) ListClients(ctx context.Context) ([]ManagedCli
 			continue
 		}
 		roles := normalizeRoleKeys(rolesByUser[managed.ClientID])
-		if !roleKeysContain(roles, auth.RoleFlowGoClient) {
+		if !roleKeysContain(roles, auth.RoleArtificialFlowClient) {
 			continue
 		}
-		managed.Role = auth.RoleFlowGoClient
+		managed.Role = auth.RoleArtificialFlowClient
 		managed.Tokens = tokensByUser[managed.ClientID]
 		sort.Slice(managed.Tokens, func(i, j int) bool {
 			return managed.Tokens[i].TokenCreatedAt > managed.Tokens[j].TokenCreatedAt
@@ -305,7 +305,7 @@ func (c *ZITADELManagementClient) CreateClientKey(ctx context.Context, input Man
 	if err := c.connect(ctx, "/zitadel.user.v2.UserService/CreateUser", payload, &createResponse); err != nil {
 		return ManagedClient{}, err
 	}
-	if err := c.setUserRoles(ctx, state, createResponse.ID, []string{auth.RoleFlowGoClient}); err != nil {
+	if err := c.setUserRoles(ctx, state, createResponse.ID, []string{auth.RoleArtificialFlowClient}); err != nil {
 		_ = c.DeleteUser(ctx, createResponse.ID)
 		return ManagedClient{}, err
 	}
@@ -322,7 +322,7 @@ func (c *ZITADELManagementClient) CreateClientKey(ctx context.Context, input Man
 		Environment: clientMetadata.Environment,
 		OwnerEmail:  clientMetadata.OwnerEmail,
 		Purpose:     clientMetadata.Purpose,
-		Role:        auth.RoleFlowGoClient,
+		Role:        auth.RoleArtificialFlowClient,
 		Credentials: []ManagedClientCredentialSummary{key},
 	}, nil
 }
@@ -406,7 +406,7 @@ func (c *ZITADELManagementClient) CreateClientToken(ctx context.Context, input M
 	if err := c.connect(ctx, "/zitadel.user.v2.UserService/CreateUser", payload, &createResponse); err != nil {
 		return ManagedClientToken{}, err
 	}
-	if err := c.setUserRoles(ctx, state, createResponse.ID, []string{auth.RoleFlowGoClient}); err != nil {
+	if err := c.setUserRoles(ctx, state, createResponse.ID, []string{auth.RoleArtificialFlowClient}); err != nil {
 		_ = c.DeleteUser(ctx, createResponse.ID)
 		return ManagedClientToken{}, err
 	}
@@ -431,7 +431,7 @@ func (c *ZITADELManagementClient) CreateClientToken(ctx context.Context, input M
 		Environment:    strings.TrimSpace(input.Environment),
 		OwnerEmail:     strings.TrimSpace(input.OwnerEmail),
 		Purpose:        strings.TrimSpace(input.Purpose),
-		Role:           auth.RoleFlowGoClient,
+		Role:           auth.RoleArtificialFlowClient,
 		TokenID:        tokenResponse.TokenID,
 		Token:          tokenResponse.Token,
 		TokenCreatedAt: tokenResponse.CreationDate,
@@ -467,7 +467,7 @@ func (c *ZITADELManagementClient) RotateClientToken(ctx context.Context, clientI
 		Environment:    client.Environment,
 		OwnerEmail:     client.OwnerEmail,
 		Purpose:        client.Purpose,
-		Role:           auth.RoleFlowGoClient,
+		Role:           auth.RoleArtificialFlowClient,
 		TokenID:        tokenResponse.TokenID,
 		Token:          tokenResponse.Token,
 		TokenCreatedAt: tokenResponse.CreationDate,
@@ -603,9 +603,21 @@ func (c *ZITADELManagementClient) ListRoles(ctx context.Context) ([]ManagedRole,
 	}, &response); err != nil {
 		return nil, err
 	}
-	roles := make([]ManagedRole, 0, len(response.ProjectRoles))
+	rolesByKey := make(map[string]ManagedRole, len(response.ProjectRoles))
+	canonicalDefinitions := make(map[string]bool, len(response.ProjectRoles))
 	for _, role := range response.ProjectRoles {
-		roles = append(roles, ManagedRole{Key: role.Key, DisplayName: role.DisplayName, Group: role.Group})
+		key := auth.CanonicalRole(role.Key)
+		normalizedKey := strings.ToLower(key)
+		isCanonicalDefinition := strings.EqualFold(strings.TrimSpace(role.Key), key)
+		if canonicalDefinitions[normalizedKey] && !isCanonicalDefinition {
+			continue
+		}
+		rolesByKey[normalizedKey] = ManagedRole{Key: key, DisplayName: role.DisplayName, Group: role.Group}
+		canonicalDefinitions[normalizedKey] = isCanonicalDefinition
+	}
+	roles := make([]ManagedRole, 0, len(rolesByKey))
+	for _, role := range rolesByKey {
+		roles = append(roles, role)
 	}
 	sort.Slice(roles, func(i, j int) bool {
 		return strings.ToLower(roles[i].Key) < strings.ToLower(roles[j].Key)
@@ -620,7 +632,7 @@ func (c *ZITADELManagementClient) CreateRole(ctx context.Context, input ManagedR
 	}
 	role := ManagedRole{Key: strings.TrimSpace(input.Key), DisplayName: strings.TrimSpace(input.DisplayName), Group: strings.TrimSpace(input.Group)}
 	if role.Group == "" {
-		role.Group = "FlowGo"
+		role.Group = "ArtificialFlow"
 	}
 	if err := c.connect(ctx, "/zitadel.project.v2.ProjectService/AddProjectRole", map[string]any{
 		"projectId":   state.ProjectID,
@@ -748,10 +760,10 @@ func (c *ZITADELManagementClient) getClient(ctx context.Context, clientID string
 	for _, role := range authorization.Roles {
 		roles = append(roles, role.Key)
 	}
-	if !roleKeysContain(normalizeRoleKeys(roles), auth.RoleFlowGoClient) {
+	if !roleKeysContain(normalizeRoleKeys(roles), auth.RoleArtificialFlowClient) {
 		return ManagedClient{}, ErrZITADELManagedClientNotFound
 	}
-	client.Role = auth.RoleFlowGoClient
+	client.Role = auth.RoleArtificialFlowClient
 	return client, nil
 }
 
@@ -855,7 +867,7 @@ func managedUserIsVisible(user ManagedUser) bool {
 	if user.Type == "machine" {
 		return false
 	}
-	hiddenIdentities := []string{"workflow-login-client", "login-client", "flowgo-bootstrap"}
+	hiddenIdentities := []string{"workflow-login-client", "login-client", "artificialflow-bootstrap"}
 	userIdentities := []string{user.Username, user.PreferredLoginName, user.DisplayName, user.Email}
 	for _, userIdentity := range userIdentities {
 		for _, hiddenIdentity := range hiddenIdentities {
@@ -871,7 +883,7 @@ func managedClientIsVisible(client ManagedClient) bool {
 	if strings.TrimSpace(client.ClientID) == "" {
 		return false
 	}
-	hiddenIdentities := []string{"workflow-login-client", "login-client", "flowgo-bootstrap"}
+	hiddenIdentities := []string{"workflow-login-client", "login-client", "artificialflow-bootstrap"}
 	clientIdentities := []string{client.Username, client.Name}
 	for _, clientIdentity := range clientIdentities {
 		for _, hiddenIdentity := range hiddenIdentities {
@@ -938,7 +950,7 @@ func encodeClientDescription(client ManagedClient) string {
 	if err != nil {
 		return strings.TrimSpace(client.Description)
 	}
-	return "flowgo-client:" + string(encoded)
+	return "artificialflow-client:" + string(encoded)
 }
 
 func decodeClientDescription(value string) (string, string, string, string) {
@@ -946,7 +958,13 @@ func decodeClientDescription(value string) (string, string, string, string) {
 	if trimmed == "" {
 		return "", "", "", ""
 	}
-	raw := strings.TrimPrefix(trimmed, "flowgo-client:")
+	raw := trimmed
+	for _, prefix := range []string{"artificialflow-client:"} {
+		if strings.HasPrefix(strings.ToLower(raw), prefix) {
+			raw = raw[len(prefix):]
+			break
+		}
+	}
 	if !strings.HasPrefix(raw, "{") {
 		return trimmed, "", "", ""
 	}
@@ -963,8 +981,9 @@ func decodeClientDescription(value string) (string, string, string, string) {
 }
 
 func roleKeysContain(values []string, role string) bool {
+	required := auth.CanonicalRole(role)
 	for _, value := range values {
-		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(role)) {
+		if strings.EqualFold(auth.CanonicalRole(value), required) {
 			return true
 		}
 	}
@@ -972,20 +991,7 @@ func roleKeysContain(values []string, role string) bool {
 }
 
 func normalizeRoleKeys(values []string) []string {
-	seen := map[string]bool{}
-	roles := make([]string, 0, len(values))
-	for _, value := range values {
-		role := strings.TrimSpace(value)
-		if role == "" {
-			continue
-		}
-		key := strings.ToLower(role)
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		roles = append(roles, role)
-	}
+	roles := auth.CanonicalizeRoles(values)
 	sort.Strings(roles)
 	return roles
 }

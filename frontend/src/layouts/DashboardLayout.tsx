@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
 import { api, type IdentityConfigResponse, type IdentityResponse } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
-  FLOWGO_ADMIN_ROLE,
-  FLOWGO_CLIENT_ROLE,
-  FLOWGO_MODELER_ROLE,
+  ARTIFICIALFLOW_ADMIN_ROLE,
+  ARTIFICIALFLOW_CLIENT_ROLE,
+  ARTIFICIALFLOW_MODELER_ROLE,
   hasFlexRole,
   isAdmin,
   isClientOnly,
@@ -95,8 +95,8 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
         <div className="max-w-lg rounded-lg border bg-card p-6 text-center shadow-sm">
           <h1 className="text-2xl font-bold">Machine Client Access</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            The {FLOWGO_CLIENT_ROLE} role is reserved for SDK, API, worker, and transaction inbox integrations.
-            Use a human account with {FLOWGO_ADMIN_ROLE}, {FLOWGO_MODELER_ROLE}, or a business role for console access.
+            The {ARTIFICIALFLOW_CLIENT_ROLE} role is reserved for SDK, API, worker, and transaction inbox integrations.
+            Use a human account with {ARTIFICIALFLOW_ADMIN_ROLE}, {ARTIFICIALFLOW_MODELER_ROLE}, or a business role for console access.
           </p>
           {onLogout && (
             <Button className="mt-6" variant="outline" onClick={onLogout}>
@@ -126,7 +126,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
         <div className="max-w-lg rounded-lg border bg-card p-6 text-center shadow-sm">
           <h1 className="text-2xl font-bold">Access Not Allowed</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Your FlowGo role does not allow this page. Administrators have full access,
+            Your ArtificialFlow role does not allow this page. Administrators have full access,
             modelers can use Processes and Modeler, and business users can use Instances and History.
           </p>
           {firstAllowedPath ? (
@@ -155,7 +155,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
         )}
       >
         <div className="h-16 flex items-center justify-between px-4 border-b">
-          {isSidebarOpen && <span className="font-bold text-lg">Workflow SA</span>}
+          {isSidebarOpen && <span className="font-bold text-lg">ArtificialFlow</span>}
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="p-1 hover:bg-accent rounded-md"

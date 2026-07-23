@@ -1,12 +1,17 @@
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
 import { type Edge, type Node } from "@xyflow/react";
+import {
+  ARTIFICIALFLOW_BPMN_NAMESPACE,
+  ARTIFICIALFLOW_BPMN_PREFIX,
+  bpmnNamespaceContext,
+  getArtificialFlowAttribute,
+  normalizeBpmnData,
+} from "./bpmn-namespaces";
 
 const BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL";
 const BPMNDI_NS = "http://www.omg.org/spec/BPMN/20100524/DI";
 const DC_NS = "http://www.omg.org/spec/DD/20100524/DC";
 const DI_NS = "http://www.omg.org/spec/DD/20100524/DI";
-const FLOWGO_NS = "http://flowgo.com/schema/1.0/bpmn";
-
 const DEFAULT_OPTIONS = {
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
@@ -154,6 +159,7 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
   if (!definitions) {
     throw new Error("Invalid BPMN XML: Missing definitions");
   }
+  const namespaceContext = bpmnNamespaceContext(definitions);
 
   const process = definitions["bpmn:process"];
   if (!process) {
@@ -231,9 +237,10 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
             }
 
             // Extract properties
-            const data: Record<string, unknown> = { 
-                label: el["@_name"] || "",
-                ...el 
+            const normalizedElement = normalizeBpmnData(el, namespaceContext);
+            const data: Record<string, unknown> = {
+                label: normalizedElement["@_name"] || "",
+                ...normalizedElement
             };
             // Clean up attributes from data for cleaner usage
             delete data["@_id"];
@@ -272,18 +279,18 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
       if (flows) {
         const list = Array.isArray(flows) ? flows : [flows];
         list.forEach((flow: BPMNFlow) => {
+          const normalizedFlow = normalizeBpmnData(flow, namespaceContext);
           // Parse handles from extension elements if available
           let extSourceHandle: string | undefined;
           let extTargetHandle: string | undefined;
           
-          if (flow["bpmn:extensionElements"]) {
-              const extEl = flow["bpmn:extensionElements"];
+          if (normalizedFlow["bpmn:extensionElements"]) {
+              const extEl = normalizedFlow["bpmn:extensionElements"];
               // Handle potential array (though unlikely for extensionElements container)
               const extensions = Array.isArray(extEl) ? extEl[0] : extEl;
               
               if (extensions) {
-                  // Check for connector with or without namespace, and handle array
-                  const connectorRaw = extensions["flowgo:connector"] || extensions["connector"];
+                  const connectorRaw = extensions[`${ARTIFICIALFLOW_BPMN_PREFIX}:connector`];
                   
                   if (connectorRaw) {
                       const connector = Array.isArray(connectorRaw) ? connectorRaw[0] : connectorRaw;
@@ -294,8 +301,8 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
           }
 
           // Determine handles with immediate fallback
-          const sourceHandle = extSourceHandle || (flow["@_flowgo:sourceHandle"] || flow["@_flowgo_sourceHandle"] || flow["@_sourceHandle"]) as string || 'right';
-          const targetHandle = extTargetHandle || (flow["@_flowgo:targetHandle"] || flow["@_flowgo_targetHandle"] || flow["@_targetHandle"]) as string || 'left';
+          const sourceHandle = extSourceHandle || getArtificialFlowAttribute(normalizedFlow, "sourceHandle") as string || 'right';
+          const targetHandle = extTargetHandle || getArtificialFlowAttribute(normalizedFlow, "targetHandle") as string || 'left';
 
           edges.push({
             id: String(flow["@_id"]),
@@ -312,7 +319,7 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
                 height: 20,
                 color: '#334155',
             },
-            data: { ...flow }
+            data: normalizedFlow
           });
         });
       }
@@ -526,10 +533,12 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       "@_name": node.data.label || "",
     };
 
+    const normalizedData = normalizeBpmnData(node.data);
+
     // Add other properties
-    Object.keys(node.data).forEach(key => {
+    Object.keys(normalizedData).forEach(key => {
         if (key !== 'originalType' && key !== 'label' && key !== 'width' && key !== 'height') {
-             const value = node.data[key];
+             const value = normalizedData[key];
              if (typeof value === 'object' && value !== null) {
                  // It's a child element (like extensionElements)
                  nodeEl[key] = value;
@@ -569,7 +578,7 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       
       if (edge.sourceHandle || edge.targetHandle) {
           flow["bpmn:extensionElements"] = {
-              "flowgo:connector": {
+              [`${ARTIFICIALFLOW_BPMN_PREFIX}:connector`]: {
                   "@_sourceHandle": edge.sourceHandle,
                   "@_targetHandle": edge.targetHandle
               }
@@ -577,23 +586,23 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       }
       
       if (edge.sourceHandle) {
-          flow["@_flowgo:sourceHandle"] = edge.sourceHandle;
-          flow["@_flowgo_sourceHandle"] = edge.sourceHandle;
+          flow[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:sourceHandle`] = edge.sourceHandle;
       }
       if (edge.targetHandle) {
-          flow["@_flowgo:targetHandle"] = edge.targetHandle;
-          flow["@_flowgo_targetHandle"] = edge.targetHandle;
+          flow[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:targetHandle`] = edge.targetHandle;
       }
 
       if (edge.data) {
-        const data = edge.data;
+        const data = normalizeBpmnData(edge.data);
         Object.keys(data).forEach(key => {
             // Skip keys we explicitly handle or that are internal
             if ([
                 '@_id', '@_name', '@_sourceRef', '@_targetRef', 'label',
                 'bpmn:extensionElements',
-                '@_flowgo:sourceHandle', '@_flowgo_sourceHandle', '@_sourceHandle',
-                '@_flowgo:targetHandle', '@_flowgo_targetHandle', '@_targetHandle'
+                '@_artificialflow:sourceHandle',
+                '@_sourceHandle',
+                '@_artificialflow:targetHandle',
+                '@_targetHandle'
             ].includes(key)) return;
             
             const value = data[key];
@@ -660,7 +669,7 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       "@_xmlns:bpmndi": BPMNDI_NS,
       "@_xmlns:dc": DC_NS,
       "@_xmlns:di": DI_NS,
-      "@_xmlns:flowgo": FLOWGO_NS,
+      [`@_xmlns:${ARTIFICIALFLOW_BPMN_PREFIX}`]: ARTIFICIALFLOW_BPMN_NAMESPACE,
       "@_xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
       "@_id": "Definitions_1",
       "@_targetNamespace": "http://bpmn.org/schema/bpmn",

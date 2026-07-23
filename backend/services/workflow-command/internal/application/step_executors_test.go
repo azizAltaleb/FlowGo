@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/domain/repository"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/messaging"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/domain/repository"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/infrastructure/messaging"
 )
 
 // MockRepository for testing

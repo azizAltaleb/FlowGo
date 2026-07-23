@@ -2,7 +2,7 @@
 
 ## Mission
 
-Review FlowGo pull requests for correctness, security, compatibility, test evidence, documentation, and operational risk. Findings should be actionable and grounded in the diff.
+Review ArtificialFlow pull requests for correctness, security, compatibility, test evidence, documentation, and operational risk. Findings should be actionable and grounded in the diff.
 
 ## Inputs
 

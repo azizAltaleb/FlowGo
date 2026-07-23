@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
 )
 
 var ErrZITADELManagementNotConfigured = errors.New("zitadel management is not configured")
@@ -211,18 +211,18 @@ func ResolveZITADELManagementConfigFromEnv(authConfig auth.Config, frontendConfi
 	if ownerPATFile == "" {
 		ownerPATFile = "/zitadel/bootstrap/owner.pat"
 	}
-	bootstrapStateFile := strings.TrimSpace(os.Getenv("FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE"))
+	bootstrapStateFile := envValue("ARTIFICIALFLOW_ZITADEL_BOOTSTRAP_STATE_FILE")
 	if bootstrapStateFile == "" {
-		bootstrapStateFile = "/flowgo/bootstrap/flowgo-zitadel.json"
+		bootstrapStateFile = "/artificialflow/bootstrap/artificialflow-zitadel.json"
 	}
 	defaultKeyLifetime := boundedDurationEnv(
-		"FLOWGO_IAM_CLIENT_KEY_DEFAULT_LIFETIME",
+		"ARTIFICIALFLOW_IAM_CLIENT_KEY_DEFAULT_LIFETIME",
 		defaultClientCredentialLifetime,
 		time.Hour,
 		maxClientCredentialLifetime,
 	)
 	maxKeyLifetime := boundedDurationEnv(
-		"FLOWGO_IAM_CLIENT_KEY_MAX_LIFETIME",
+		"ARTIFICIALFLOW_IAM_CLIENT_KEY_MAX_LIFETIME",
 		maxClientCredentialLifetime,
 		defaultKeyLifetime,
 		maxClientCredentialLifetime,
@@ -234,13 +234,17 @@ func ResolveZITADELManagementConfigFromEnv(authConfig auth.Config, frontendConfi
 		BootstrapStateFile:       bootstrapStateFile,
 		ClientKeyDefaultLifetime: defaultKeyLifetime,
 		ClientKeyMaxLifetime:     maxKeyLifetime,
-		EnableLegacyPATCreation:  envBool("FLOWGO_IAM_ENABLE_LEGACY_PAT_CREATION"),
-		EnableLegacyPATRotation:  envBool("FLOWGO_IAM_ENABLE_LEGACY_PAT_ROTATION"),
+		EnableLegacyPATCreation:  envBool("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_CREATION"),
+		EnableLegacyPATRotation:  envBool("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_ROTATION"),
 	}
 }
 
+func envValue(name string) string {
+	return strings.TrimSpace(os.Getenv(name))
+}
+
 func boundedDurationEnv(name string, fallback, minimum, maximum time.Duration) time.Duration {
-	value := strings.TrimSpace(os.Getenv(name))
+	value := envValue(name)
 	if value == "" {
 		return fallback
 	}
@@ -252,7 +256,7 @@ func boundedDurationEnv(name string, fallback, minimum, maximum time.Duration) t
 }
 
 func envBool(name string) bool {
-	value := strings.TrimSpace(os.Getenv(name))
+	value := envValue(name)
 	return strings.EqualFold(value, "true") || value == "1"
 }
 

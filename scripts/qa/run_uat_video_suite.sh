@@ -100,7 +100,7 @@ start_external_keycloak() {
     build_args=(--build)
   fi
   docker compose -f docker-compose.external-iam.yml -f "${REPORT_DIR}/keycloak/docker-compose.keycloak.override.yml" up -d ${build_args[@]+"${build_args[@]}"}
-  wait_for_http_200 "http://localhost:9181/realms/flowgo/.well-known/openid-configuration"
+  wait_for_http_200 "http://localhost:9181/realms/artificialflow/.well-known/openid-configuration"
   wait_for_http_200 "http://localhost:8080/health"
   wait_for_http_200 "http://localhost:8081/health"
   wait_for_http_200 "http://localhost:8092/health"
@@ -128,20 +128,20 @@ prepare_keycloak_override() {
   mkdir -p "${REPORT_DIR}/keycloak"
   cat >"${REPORT_DIR}/keycloak/keycloak-realm.json" <<'JSON'
 {
-  "realm": "flowgo",
+  "realm": "artificialflow",
   "enabled": true,
-  "displayName": "FlowGo External IAM",
+  "displayName": "ArtificialFlow External IAM",
   "roles": {
     "realm": [
-      { "name": "flowgo admin" },
-      { "name": "flowgo modeler" },
-      { "name": "flowgo client" }
+      { "name": "artificialflow admin" },
+      { "name": "artificialflow modeler" },
+      { "name": "artificialflow client" }
     ]
   },
   "clients": [
     {
-      "clientId": "flowgo-frontend",
-      "name": "FlowGo Frontend",
+      "clientId": "artificialflow-frontend",
+      "name": "ArtificialFlow Frontend",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
@@ -154,37 +154,37 @@ prepare_keycloak_override() {
   "users": [
     {
       "username": "admin",
-      "email": "admin@flowgo.local",
-      "firstName": "FlowGo",
+      "email": "admin@artificialflow.io",
+      "firstName": "ArtificialFlow",
       "lastName": "Admin",
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
-      "realmRoles": ["flowgo admin"]
+      "realmRoles": ["artificialflow admin"]
     },
     {
       "username": "modeler",
-      "email": "modeler@flowgo.local",
-      "firstName": "FlowGo",
+      "email": "modeler@artificialflow.io",
+      "firstName": "ArtificialFlow",
       "lastName": "Modeler",
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "UatPass123!", "temporary": false }],
-      "realmRoles": ["flowgo modeler"]
+      "realmRoles": ["artificialflow modeler"]
     },
     {
       "username": "sdk-client",
-      "email": "sdk-client@flowgo.local",
-      "firstName": "FlowGo",
+      "email": "sdk-client@artificialflow.io",
+      "firstName": "ArtificialFlow",
       "lastName": "SDK Client",
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "UatPass123!", "temporary": false }],
-      "realmRoles": ["flowgo client"]
+      "realmRoles": ["artificialflow client"]
     },
     {
       "username": "accountant",
-      "email": "accountant@flowgo.local",
+      "email": "accountant@artificialflow.io",
       "firstName": "UAT",
       "lastName": "Accountant",
       "enabled": true,
@@ -194,7 +194,7 @@ prepare_keycloak_override() {
     },
     {
       "username": "reviewer",
-      "email": "reviewer@flowgo.local",
+      "email": "reviewer@artificialflow.io",
       "firstName": "UAT",
       "lastName": "Reviewer",
       "enabled": true,
@@ -225,21 +225,21 @@ services:
     ports:
       - "9181:8080"
     volumes:
-      - ${REPORT_DIR}/keycloak/keycloak-realm.json:/opt/keycloak/data/import/flowgo-realm.json:ro
+      - ${REPORT_DIR}/keycloak/keycloak-realm.json:/opt/keycloak/data/import/artificialflow-realm.json:ro
 
   app:
     environment:
       IAM_DEPLOYMENT_MODE: external
       IAM_PROVIDER_NAME: Keycloak
-      AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/flowgo
-      AUTH_ISSUER_PUBLIC_URL: http://localhost:9181/realms/flowgo
-      AUTH_CLIENT_ID: flowgo-frontend
+      AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/artificialflow
+      AUTH_ISSUER_PUBLIC_URL: http://localhost:9181/realms/artificialflow
+      AUTH_CLIENT_ID: artificialflow-frontend
       AUTH_TOKEN_MODE: jwt
       AUTH_CLAIM_ROLES_PATH: roles,realm_access.roles,groups
       AUTH_ENFORCE_AUDIENCE: "false"
       AUTH_ALLOW_INSECURE_ISSUER: "true"
-      FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9181/realms/flowgo
-      FRONTEND_AUTH_OIDC_CLIENT_ID: flowgo-frontend
+      FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9181/realms/artificialflow
+      FRONTEND_AUTH_OIDC_CLIENT_ID: artificialflow-frontend
     depends_on:
       keycloak:
         condition: service_started
@@ -248,15 +248,15 @@ services:
     environment:
       IAM_DEPLOYMENT_MODE: external
       IAM_PROVIDER_NAME: Keycloak
-      AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/flowgo
-      AUTH_ISSUER_PUBLIC_URL: http://localhost:9181/realms/flowgo
-      AUTH_CLIENT_ID: flowgo-frontend
+      AUTH_ISSUER_INTERNAL_URL: http://keycloak:8080/realms/artificialflow
+      AUTH_ISSUER_PUBLIC_URL: http://localhost:9181/realms/artificialflow
+      AUTH_CLIENT_ID: artificialflow-frontend
       AUTH_TOKEN_MODE: jwt
       AUTH_CLAIM_ROLES_PATH: roles,realm_access.roles,groups
       AUTH_ENFORCE_AUDIENCE: "false"
       AUTH_ALLOW_INSECURE_ISSUER: "true"
-      FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9181/realms/flowgo
-      FRONTEND_AUTH_OIDC_CLIENT_ID: flowgo-frontend
+      FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9181/realms/artificialflow
+      FRONTEND_AUTH_OIDC_CLIENT_ID: artificialflow-frontend
     depends_on:
       keycloak:
         condition: service_started
@@ -264,12 +264,12 @@ services:
   frontend:
     build:
       args:
-        VITE_OIDC_AUTHORITY: http://localhost:9181/realms/flowgo
-        VITE_OIDC_CLIENT_ID: flowgo-frontend
+        VITE_OIDC_AUTHORITY: http://localhost:9181/realms/artificialflow
+        VITE_OIDC_CLIENT_ID: artificialflow-frontend
     environment:
       IAM_DEPLOYMENT_MODE: external
-      FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9181/realms/flowgo
-      FRONTEND_AUTH_OIDC_CLIENT_ID: flowgo-frontend
+      FRONTEND_AUTH_OIDC_AUTHORITY: http://localhost:9181/realms/artificialflow
+      FRONTEND_AUTH_OIDC_CLIENT_ID: artificialflow-frontend
     depends_on:
       keycloak:
         condition: service_started

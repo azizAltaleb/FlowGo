@@ -1,24 +1,34 @@
 # Node.js SDK
 
-The Node.js SDK package is `@flowgo/nodejs-sdk`.
+The Node.js SDK package is `@artificialflow/nodejs-sdk`.
 
 ## Prerequisites
 
 - Node.js 20 or newer.
-- A running FlowGo gateway.
-- A non-human IAM identity with only the `flowgo client` role.
-- An access token whose issuer and audience match the FlowGo deployment.
+- A running ArtificialFlow gateway.
+- A non-human IAM identity with only the `artificialflow client` role.
+- An access token whose issuer and audience match the ArtificialFlow deployment.
 - `curl` and `jq` only when using the shell-based external-IAM smoke example.
 
-The SDK always calls FlowGo with `Authorization: Bearer <access-token>`. The
+The SDK always calls ArtificialFlow with `Authorization: Bearer <access-token>`. The
 difference between bundled and external IAM is how that access token is
 obtained and refreshed.
 
 ## Installation
 
 ```bash
-npm install @flowgo/nodejs-sdk
+npm install @artificialflow/nodejs-sdk
 ```
+
+The wrapper version and its `@artificialflow/nodejs-sdk` dependency must exactly
+match the canonical package version.
+
+Release tags publish prerelease versions such as `0.3.0-rc.1` with npm dist-tag
+`next`; stable versions publish with `latest`. The release workflow publishes
+the canonical package first and publishes the deprecated wrapper only after
+that succeeds. Both use `npm publish --provenance` on a GitHub-hosted runner
+with `id-token: write`; local `npm pack --dry-run` validation does not publish
+or create registry provenance.
 
 For local development from the repository:
 
@@ -38,15 +48,15 @@ npm run validate:package
 ## Common client configuration
 
 ```ts
-import { FlowGoClient } from '@flowgo/nodejs-sdk';
+import { ArtificialFlowClient } from '@artificialflow/nodejs-sdk';
 
-const client = new FlowGoClient({
-  baseUrl: 'https://flowgo.example.com/api',
+const client = new ArtificialFlowClient({
+  baseUrl: 'https://app.artificialflow.example.io/api',
 });
 ```
 
 `baseUrl` defaults to `http://localhost:9100/api`. The query URL defaults to
-`${baseUrl}/query`, which matches the FlowGo gateway route. Set `queryBaseUrl`
+`${baseUrl}/query`, which matches the ArtificialFlow gateway route. Set `queryBaseUrl`
 only when calling the query service through a different address.
 
 Configure exactly one of `auth` or `token`. The SDK rejects a client configured
@@ -58,29 +68,29 @@ Bundled IAM uses a ZITADEL JWT Profile service-account credential.
 
 ### Create the credential
 
-1. Sign in to FlowGo as a `flowgo admin`.
+1. Sign in to ArtificialFlow as an `artificialflow admin`.
 2. Open **SDK Clients**.
-3. Create a client. FlowGo assigns only `flowgo client`.
+3. Create a client. ArtificialFlow assigns only `artificialflow client`.
 4. Generate/download the service-account profile. The browser generates an
    RSA-2048 key pair and uploads only the public key.
 5. Move the downloaded JSON directly into a secret manager. The private key is
-   shown only once and cannot be recovered from FlowGo.
+   shown only once and cannot be recovered from ArtificialFlow.
 
 ### Configure the SDK
 
 ```ts
 import fs from 'node:fs';
 import {
-  FlowGoClient,
+  ArtificialFlowClient,
   type ZitadelJwtProfile,
-} from '@flowgo/nodejs-sdk';
+} from '@artificialflow/nodejs-sdk';
 
 const profile = JSON.parse(
-  fs.readFileSync('/run/secrets/flowgo-sdk-profile.json', 'utf8'),
+  fs.readFileSync('/run/secrets/artificialflow-sdk-profile.json', 'utf8'),
 ) as ZitadelJwtProfile;
 
-const client = new FlowGoClient({
-  baseUrl: 'https://flowgo.example.com/api',
+const client = new ArtificialFlowClient({
+  baseUrl: 'https://app.artificialflow.example.io/api',
   auth: {
     type: 'zitadel-jwt-profile',
     profile,
@@ -98,8 +108,8 @@ The downloaded profile contains:
   "keyId": "key-id",
   "key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
   "userId": "machine-user-id",
-  "issuer": "https://iam.flowgo.example.com",
-  "tokenUrl": "https://iam.flowgo.example.com/oauth/v2/token",
+  "issuer": "https://iam.artificialflow.example.io",
+  "tokenUrl": "https://iam.artificialflow.example.io/oauth/v2/token",
   "scopes": [
     "openid",
     "urn:zitadel:iam:org:projects:roles",
@@ -121,7 +131,7 @@ minutes and cannot exceed five minutes. Both automatic providers keep one token
 in process memory, do not use refresh tokens, and do not automatically retry or
 back off after a rejected exchange. Recreating the client loses the cache.
 
-The private key is used locally to sign assertions and is never sent to FlowGo.
+The private key is used locally to sign assertions and is never sent to ArtificialFlow.
 Do not put the JSON profile in source control, logs, command-line arguments,
 frontend storage, or a plain environment variable.
 
@@ -145,10 +155,10 @@ In the external provider:
 
 1. Create a confidential machine-to-machine application.
 2. Enable the OAuth 2.0 client-credentials grant.
-3. Assign only `flowgo client`.
-4. Include the role in the claim configured by FlowGo's
+3. Assign only `artificialflow client`.
+4. Include the role in the claim configured by ArtificialFlow's
    `AUTH_CLAIM_ROLES_PATH`.
-5. Include the FlowGo backend audience, normally `workflow-backend`.
+5. Include the ArtificialFlow backend audience, normally `workflow-backend`.
 6. Use short access-token lifetimes and establish a secret-rotation procedure.
 
 ### SDK-managed client credentials
@@ -156,17 +166,17 @@ In the external provider:
 The SDK can acquire, cache, and refresh a standard client-credentials token:
 
 ```ts
-import { FlowGoClient } from '@flowgo/nodejs-sdk';
+import { ArtificialFlowClient } from '@artificialflow/nodejs-sdk';
 
-const client = new FlowGoClient({
-  baseUrl: 'https://flowgo.example.com/api',
+const client = new ArtificialFlowClient({
+  baseUrl: 'https://app.artificialflow.example.io/api',
   auth: {
     type: 'oauth-client-credentials',
     profile: {
       type: 'oauth-client-credentials',
       tokenUrl: 'https://login.example.com/oauth2/token',
-      clientId: process.env.FLOWGO_CLIENT_ID!,
-      clientSecret: process.env.FLOWGO_CLIENT_SECRET!,
+      clientId: process.env.ARTIFICIALFLOW_CLIENT_ID!,
+      clientSecret: process.env.ARTIFICIALFLOW_CLIENT_SECRET!,
     },
     refreshSkewMs: 30_000,
   },
@@ -176,7 +186,7 @@ const client = new FlowGoClient({
 For local Keycloak with the SDK running on the host, the token URL is typically:
 
 ```text
-http://localhost:8180/realms/flowgo/protocol/openid-connect/token
+http://localhost:8180/realms/artificialflow/protocol/openid-connect/token
 ```
 
 The provider must accept `client_id` and `client_secret` in the form body and
@@ -190,8 +200,8 @@ Some providers require HTTP Basic client authentication or additional
 library and pass a token callback:
 
 ```ts
-const client = new FlowGoClient({
-  baseUrl: 'https://flowgo.example.com/api',
+const client = new ArtificialFlowClient({
+  baseUrl: 'https://app.artificialflow.example.io/api',
   token: () => getProviderAccessToken(),
 });
 ```
@@ -205,9 +215,9 @@ only the token text, without the `Bearer ` prefix.
 A static token is convenient for a short smoke test:
 
 ```ts
-const client = new FlowGoClient({
+const client = new ArtificialFlowClient({
   baseUrl: 'http://localhost:9100/api',
-  token: process.env.FLOWGO_TOKEN,
+  token: process.env.ARTIFICIALFLOW_TOKEN,
 });
 ```
 
@@ -234,15 +244,15 @@ Set exactly one authentication input.
 Bundled ZITADEL:
 
 ```bash
-FLOWGO_ZITADEL_PROFILE_FILE=/run/secrets/flowgo-service-account.json \
-  FLOWGO_BASE_URL=http://localhost:9100/api \
+ARTIFICIALFLOW_ZITADEL_PROFILE_FILE=/run/secrets/artificialflow-service-account.json \
+  ARTIFICIALFLOW_BASE_URL=http://localhost:9100/api \
   node examples/sdk-smoke-test.js
 ```
 
 External IAM:
 
 ```bash
-export FLOWGO_TOKEN="$(
+export ARTIFICIALFLOW_TOKEN="$(
   curl -fsS -X POST "${OIDC_TOKEN_URL}" \
     -H 'content-type: application/x-www-form-urlencoded' \
     -d grant_type=client_credentials \
@@ -251,30 +261,31 @@ export FLOWGO_TOKEN="$(
   jq -er '.access_token'
 )"
 
-FLOWGO_BASE_URL=http://localhost:9100/api \
+ARTIFICIALFLOW_BASE_URL=http://localhost:9100/api \
   node examples/sdk-smoke-test.js
 
-unset FLOWGO_TOKEN
+unset ARTIFICIALFLOW_TOKEN
 ```
 
 Add provider-specific scopes and audience/resource parameters when required.
-Never include `Bearer ` in `FLOWGO_TOKEN`.
+Never include `Bearer ` in `ARTIFICIALFLOW_TOKEN`.
+`ARTIFICIALFLOW_*` equivalents.
 
 Optional smoke-test inputs:
 
-- `FLOWGO_WORKFLOW_KEY`: workflow definition key or ID to start.
-- `FLOWGO_BUSINESS_KEY`: business key for the new instance.
-- `FLOWGO_MESSAGE_NAME` and `FLOWGO_MESSAGE_CORRELATION_KEY`: message to
+- `ARTIFICIALFLOW_WORKFLOW_KEY`: workflow definition key or ID to start.
+- `ARTIFICIALFLOW_BUSINESS_KEY`: business key for the new instance.
+- `ARTIFICIALFLOW_MESSAGE_NAME` and `ARTIFICIALFLOW_MESSAGE_CORRELATION_KEY`: message to
   publish.
-- `FLOWGO_WORKER_JOB_TYPE`: activate and complete one service job.
+- `ARTIFICIALFLOW_WORKER_JOB_TYPE`: activate and complete one service job.
 
 The smoke test is successful when it retrieves the authenticated principal,
 lists workflows, and completes every optional operation that was configured.
-The principal must contain `flowgo client` and the expected audience.
+The principal must contain `artificialflow client` and the expected audience.
 
 ## Human task inbox applications
 
-Keep the `flowgo client` credential in a trusted backend-for-frontend. Never
+Keep the `artificialflow client` credential in a trusted backend-for-frontend. Never
 send it to browser code. Authenticate the human user separately, reject
 admin/client identities from the end-user inbox, and pass the acting identity
 on each inbox request:
@@ -295,7 +306,7 @@ const inbox = await client.listInboxItems({ actingUser });
 
 - Store external client secrets and bundled service-account profiles in a
   secret manager.
-- Keep machine identities limited to `flowgo client`.
+- Keep machine identities limited to `artificialflow client`.
 - Use separate credentials per application or worker.
 - Rotate credentials with overlap and test the replacement before revocation.
 - Do not log tokens, client secrets, JWT assertions, or private profiles.

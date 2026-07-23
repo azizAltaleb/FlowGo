@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/domain/repository"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-query/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-query/internal/domain/repository"
 
 	"github.com/gorilla/mux"
 )
@@ -28,8 +28,8 @@ func NewHandler(service *application.QueryService) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r *mux.Router) {
-	instanceRead := auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)
-	workflowRead := auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoModeler, auth.RoleFlowGoClient)
+	instanceRead := auth.RequireAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient)
+	workflowRead := auth.RequireAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowModeler, auth.RoleArtificialFlowClient)
 
 	r.Handle("/instances", instanceRead(http.HandlerFunc(h.searchInstances))).Methods("GET")
 	r.Handle("/instances/{id}", instanceRead(http.HandlerFunc(h.getInstance))).Methods("GET")
@@ -139,7 +139,7 @@ func (h *Handler) searchInstances(w http.ResponseWriter, r *http.Request) {
 
 func canReadProjectedInstances(r *http.Request) bool {
 	principal, ok := auth.PrincipalFromContext(r.Context())
-	return ok && principal.HasAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)
+	return ok && principal.HasAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient)
 }
 
 func normalizeInstanceStateFilter(state string) string {

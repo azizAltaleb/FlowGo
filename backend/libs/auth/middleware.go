@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
 )
 
 type Middleware struct {

@@ -1,16 +1,10 @@
 const fs = require('node:fs');
-const { FlowGoClient } = require('../dist');
+const {
+  ArtificialFlowClient,
+  resolveArtificialFlowEnvironment,
+} = require('../dist');
 
-const config = {
-  baseUrl: process.env.FLOWGO_BASE_URL || 'http://localhost:9100/api',
-  token: process.env.FLOWGO_TOKEN || '',
-  zitadelProfileFile: process.env.FLOWGO_ZITADEL_PROFILE_FILE || '',
-  workflowKey: process.env.FLOWGO_WORKFLOW_KEY || '<WORKFLOW_DEFINITION_KEY_OR_ID_TO_START>',
-  businessKey: process.env.FLOWGO_BUSINESS_KEY || `sdk-smoke-${Date.now()}`,
-  messageName: process.env.FLOWGO_MESSAGE_NAME || '<OPTIONAL_BPMN_MESSAGE_NAME>',
-  messageCorrelationKey: process.env.FLOWGO_MESSAGE_CORRELATION_KEY || '<OPTIONAL_MESSAGE_CORRELATION_KEY>',
-  workerJobType: process.env.FLOWGO_WORKER_JOB_TYPE || '<OPTIONAL_SERVICE_TASK_JOB_TYPE>',
-};
+const config = resolveArtificialFlowEnvironment();
 
 function optionalValue(value) {
   return value && !value.startsWith('<') ? value : '';
@@ -20,13 +14,13 @@ function loadZitadelProfile(filename) {
   try {
     return JSON.parse(fs.readFileSync(filename, 'utf8'));
   } catch {
-    throw new Error('Unable to load FLOWGO_ZITADEL_PROFILE_FILE.');
+    throw new Error('Unable to load ARTIFICIALFLOW_ZITADEL_PROFILE_FILE.');
   }
 }
 
 async function main() {
   if (Boolean(config.token) === Boolean(config.zitadelProfileFile)) {
-    throw new Error('Set exactly one of FLOWGO_TOKEN or FLOWGO_ZITADEL_PROFILE_FILE.');
+    throw new Error('Set exactly one of ARTIFICIALFLOW_TOKEN or ARTIFICIALFLOW_ZITADEL_PROFILE_FILE.');
   }
 
   const auth = config.zitadelProfileFile
@@ -36,7 +30,7 @@ async function main() {
     }
     : undefined;
 
-  const client = new FlowGoClient({
+  const client = new ArtificialFlowClient({
     baseUrl: config.baseUrl,
     ...(auth ? { auth } : { token: config.token }),
   });
@@ -57,7 +51,7 @@ async function main() {
     });
     console.log(JSON.stringify(instance, null, 2));
   } else {
-    console.log('3. Skipping startInstance. Set FLOWGO_WORKFLOW_KEY to test workflow start.');
+    console.log('3. Skipping startInstance. Set ARTIFICIALFLOW_WORKFLOW_KEY to test workflow start.');
   }
 
   if (optionalValue(config.messageName) && optionalValue(config.messageCorrelationKey)) {
@@ -67,7 +61,7 @@ async function main() {
     });
     console.log(JSON.stringify(response, null, 2));
   } else {
-    console.log('4. Skipping publishMessage. Set FLOWGO_MESSAGE_NAME and FLOWGO_MESSAGE_CORRELATION_KEY to test messages.');
+    console.log('4. Skipping publishMessage. Set ARTIFICIALFLOW_MESSAGE_NAME and ARTIFICIALFLOW_MESSAGE_CORRELATION_KEY to test messages.');
   }
 
   if (optionalValue(config.workerJobType)) {
@@ -87,7 +81,7 @@ async function main() {
     const completedJobs = await worker.runOnce();
     console.log(`Completed jobs: ${completedJobs}`);
   } else {
-    console.log('5. Skipping worker test. Set FLOWGO_WORKER_JOB_TYPE to activate and complete one job.');
+    console.log('5. Skipping worker test. Set ARTIFICIALFLOW_WORKER_JOB_TYPE to activate and complete one job.');
   }
 
   console.log('SDK smoke test completed.');

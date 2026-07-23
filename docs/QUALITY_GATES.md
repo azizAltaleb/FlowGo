@@ -1,6 +1,6 @@
 # Quality Gates
 
-This document defines FlowGo quality gates for pull requests, deep validation, releases, security review, and compatibility-sensitive changes. Agents use this policy to recommend checks and summarize evidence; maintainers decide whether advisory findings become merge-blocking.
+This document defines ArtificialFlow quality gates for pull requests, deep validation, releases, security review, and compatibility-sensitive changes. Agents use this policy to recommend checks and summarize evidence; maintainers decide whether advisory findings become merge-blocking.
 
 ## Gate Levels
 
@@ -21,9 +21,9 @@ Recommended required checks for default branch protection:
 | Go unit tests | `make test-unit` or CI Go Tests. | `reports/unit-raw.json`, `reports/coverage.out`, `reports/coverage.txt` when run locally. |
 | BPMN matrix | `make test-bpmn-matrix`. | CI job output or local command output. |
 | Frontend lint/test/build | `make test-frontend` for tests; CI also runs `npm --prefix frontend run lint` and `npm --prefix frontend run build`. | `reports/frontend-vitest.json`, `reports/frontend-vitest.txt`, build output. |
-| Node.js SDK validation | `npm --prefix clients/nodejs-sdk test`, `npm --prefix clients/nodejs-sdk run validate:package`, `npm pack --dry-run`. | SDK test output, package validation output, dry-run package listing. |
-| Compose profiles | `make smoke-profiles`. | Compose config validation output. |
-| Helm validation | `make validate-helm`. | Helm lint/template output when Helm is installed; YAML parse validation otherwise. |
+| Node.js SDK validation | `npm --prefix clients/nodejs-sdk test`, `npm --prefix clients/nodejs-sdk run validate:package`, and dry-run packs for both canonical and legacy packages. | SDK test output, exact-version wrapper validation, dry-run package listings. |
+| Compose profiles | `make smoke-profiles` and `bash scripts/validate_compose_identities.sh`. | Canonical/legacy project, volume, image, and config validation output. |
+| Helm validation | `make validate-helm`. | Helm lint/templates plus fresh/legacy resource identity and immutable-selector assertions when Helm is installed; YAML parse validation otherwise. |
 | Docker build and image scan | CI Docker Build Dry Run and Trivy image scan. | Docker build logs and Trivy results. |
 | Security baseline | `.github/workflows/security.yml`. | Gitleaks, govulncheck, npm audit, gosec, Trivy filesystem, CodeQL where available. |
 
@@ -66,14 +66,16 @@ Before a release candidate:
 make smoke-profiles
 make smoke-release-profiles
 make validate-helm
+make validate-migration-release
 make release-dry-run
 ```
 
 Also verify:
 
 - CI and Security workflows pass on the release commit.
-- Node SDK tests, package validation, `npm pack --dry-run`, and SBOM generation pass.
-- Docker image release workflow produces build metadata, scan results, SBOM/provenance, and signatures when publishing is enabled.
+- Legacy-brand allowlisting, release-version consistency, generated protobuf drift, and release-workflow assertions pass.
+- Node SDK tests, exact canonical/wrapper version validation, pack/install checks, both `npm pack --dry-run` checks, and SBOM generation pass.
+- Docker image release workflow produces one build per image, matching canonical/legacy manifest digests, scan results, SBOM/provenance, and signatures when publishing is enabled.
 - Release notes include changelog summary, known limitations, compatibility notes, upgrade notes, Docker image references, npm package version, and security notes.
 
 Release gates are blocking for release publication. A maintainer may accept a known limitation only if it is documented in release notes and does not violate the security policy.
