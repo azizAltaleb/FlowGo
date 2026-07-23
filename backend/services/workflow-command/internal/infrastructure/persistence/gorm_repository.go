@@ -24,7 +24,6 @@ const outboxProcessingLease = 5 * time.Minute
 
 const (
 	canonicalUserTaskJobType = "artificialflow:userTask"
-	legacyUserTaskJobType    = "flowgo:userTask"
 )
 
 // Ensure GormRepository implements repository.Repository
@@ -617,8 +616,6 @@ func (s *GormRepository) ListCompletedProcessInstancesWithCompletedJobsByWorkers
 
 func compatibleJobTypes(jobType string) []string {
 	switch strings.TrimSpace(jobType) {
-	case canonicalUserTaskJobType, legacyUserTaskJobType:
-		return []string{canonicalUserTaskJobType, legacyUserTaskJobType}
 	default:
 		return []string{jobType}
 	}

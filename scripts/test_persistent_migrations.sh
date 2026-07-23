@@ -3,9 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 scripts=(
-  "${ROOT}/scripts/migrate_es_prefix.sh"
   "${ROOT}/scripts/migrate_streaming_identifiers.sh"
-  "${ROOT}/scripts/migrate_database_and_state.sh"
 )
 
 for script in "${scripts[@]}"; do
@@ -99,7 +97,7 @@ done
 if [[ "${reset}" == "true" ]]; then
   printf '%s\n' "${arguments}" >>"${MOCK_KAFKA_LOG}"
   printf 'reset complete\n'
-elif [[ "${describe}" == "true" && "${group}" == "${OLD_GROUP:-flowgo-sync-worker-v8}" ]]; then
+elif [[ "${describe}" == "true" && "${group}" == "${OLD_GROUP:-legacy-sync-worker-v8}" ]]; then
   printf '%s\n' "${MOCK_OLD_DESCRIBE}"
 elif [[ "${describe}" == "true" && "${group}" == "${NEW_GROUP:-artificialflow-sync-worker-v8}" ]]; then
   printf '%s\n' "${MOCK_NEW_DESCRIBE:-}"
@@ -113,7 +111,7 @@ cat >"${MOCK_BIN}/psql" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'slot_name,active,restart_lsn,confirmed_flush_lsn\n'
-printf 'flowgo_slot,f,0/1,0/1\n'
+printf 'legacy_slot,f,0/1,0/1\n'
 EOF
 
 chmod +x "${MOCK_BIN}/curl" "${MOCK_BIN}/kafka-consumer-groups" "${MOCK_BIN}/psql"
@@ -171,8 +169,8 @@ expect_failure() {
 success_state="${TEST_ROOT}/success"
 reordered_header="TOPIC PARTITION GROUP LOG-END-OFFSET LAG CURRENT-OFFSET CONSUMER-ID HOST CLIENT-ID"
 success_source="${reordered_header}
-workflow.events.v1 0 flowgo-sync-worker-v8 10 0 10 consumer /host client
-flowgo.public.process 0 flowgo-sync-worker-v8 33 0 33 consumer /host client"
+workflow.events.v1 0 legacy-sync-worker-v8 10 0 10 consumer /host client
+legacy.public.process 0 legacy-sync-worker-v8 33 0 33 consumer /host client"
 success_destination="${consumer_header}
 artificialflow-sync-worker-v8 workflow.events.v1 0 10 10 0 consumer /host client"
 run_capture "${success_state}" "${success_source}"
@@ -181,14 +179,14 @@ if ! grep -F -- "--topic workflow.events.v1:0 --reset-offsets --to-offset 10" "$
   echo "zero-lag migration did not reset the unchanged topic offset" >&2
   exit 1
 fi
-if grep -F -- "flowgo.public.process" "${success_state}/kafka.log" >/dev/null; then
-  echo "Debezium flowgo.* offsets must not be copied" >&2
+if grep -F -- "legacy.public.process" "${success_state}/kafka.log" >/dev/null; then
+  echo "Debezium legacy.* offsets must not be copied" >&2
   exit 1
 fi
 
 unknown_lag_state="${TEST_ROOT}/unknown-lag"
 unknown_lag="${consumer_header}
-flowgo-sync-worker-v8 workflow.events.v1 0 10 10 - consumer /host client"
+legacy-sync-worker-v8 workflow.events.v1 0 10 10 - consumer /host client"
 run_capture "${unknown_lag_state}" "${success_source}"
 expect_failure "unknown-lag" run_capture "${unknown_lag_state}" "${unknown_lag}"
 if [[ -e "${unknown_lag_state}/old-consumer-group.txt" || -e "${unknown_lag_state}/old-consumer-group.tsv" ]]; then
@@ -198,13 +196,13 @@ fi
 
 malformed_state="${TEST_ROOT}/malformed"
 malformed="${consumer_header}
-flowgo-sync-worker-v8 workflow.events.v1 0 10"
+legacy-sync-worker-v8 workflow.events.v1 0 10"
 expect_failure "malformed-output" run_capture "${malformed_state}" "${malformed}"
 
 missing_partition_state="${TEST_ROOT}/missing-partition"
 missing_partition_source="${consumer_header}
-flowgo-sync-worker-v8 workflow.events.v1 0 10 10 0 consumer /host client
-flowgo-sync-worker-v8 workflow.events.v1 1 20 20 0 consumer /host client"
+legacy-sync-worker-v8 workflow.events.v1 0 10 10 0 consumer /host client
+legacy-sync-worker-v8 workflow.events.v1 1 20 20 0 consumer /host client"
 missing_partition_destination="${consumer_header}
 artificialflow-sync-worker-v8 workflow.events.v1 0 10 10 0 consumer /host client"
 run_capture "${missing_partition_state}" "${missing_partition_source}"

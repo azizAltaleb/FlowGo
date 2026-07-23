@@ -121,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${{ steps.release.outputs.version }}"
-          for package in @artificialflow/nodejs-sdk @flowgo/nodejs-sdk; do
+          for package in @artificialflow/nodejs-sdk; do
             set +e
             result="$(npm view "${package}@${version}" version --json 2>&1)"
             status=$?
@@ -150,7 +150,7 @@ jobs:
         working-directory: .
         run: bash scripts/validate_generated_proto.sh
 
-      - name: Validate clean canonical and wrapper installation
+      - name: Validate clean canonical installation
         working-directory: .
         run: bash scripts/validate_nodejs_sdk_install.sh
 
@@ -170,32 +170,3 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-legacy-wrapper:
-    name: Publish deprecated @flowgo/nodejs-sdk wrapper
-    needs: publish-nodejs-sdk
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          registry-url: https://registry.npmjs.org
-
-      - name: Verify wrapper tracks canonical version
-        run: node scripts/validate_nodejs_sdk_package.mjs
-
-      - name: Package wrapper dry run
-        working-directory: clients/nodejs-sdk-legacy
-        run: npm pack --dry-run
-
-      # This job cannot run until the canonical publish job succeeds. A failed
-      # canonical publish therefore cannot leave a newer legacy wrapper behind.
-      - name: Publish compatibility wrapper
-        if: ${{ needs.publish-nodejs-sdk.outputs.publish == 'true' }}
-        working-directory: clients/nodejs-sdk-legacy
-        run: npm publish --access public --provenance --tag "${{ needs.publish-nodejs-sdk.outputs.dist_tag }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

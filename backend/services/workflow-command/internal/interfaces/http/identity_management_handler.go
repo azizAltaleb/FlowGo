@@ -283,7 +283,7 @@ func (h *Handler) createIdentityManagementRole(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if isReservedPlatformRole(request.Key) {
-		http.Error(w, "artificialflow admin, artificialflow modeler, and artificialflow client are built-in platform roles; the legacy flowgo roles are reserved during migration", http.StatusBadRequest)
+		http.Error(w, "artificialflow admin, artificialflow modeler, artificialflow client, and artificialflow viewer are reserved platform roles", http.StatusBadRequest)
 		return
 	}
 	role, err := h.identityManager.CreateRole(r.Context(), iam.ManagedRoleCreate{Key: request.Key, DisplayName: request.DisplayName, Group: request.Group})
@@ -333,7 +333,6 @@ func isProtectedPlatformRole(role string) bool {
 func isReservedPlatformRole(role string) bool {
 	normalized := strings.TrimSpace(role)
 	return isProtectedPlatformRole(normalized) ||
-		strings.EqualFold(normalized, "flowgo viewer") ||
 		strings.EqualFold(normalized, "artificialflow viewer")
 }
 

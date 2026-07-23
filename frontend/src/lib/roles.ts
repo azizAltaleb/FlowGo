@@ -4,10 +4,6 @@ export const ARTIFICIALFLOW_ADMIN_ROLE = "artificialflow admin";
 export const ARTIFICIALFLOW_MODELER_ROLE = "artificialflow modeler";
 export const ARTIFICIALFLOW_CLIENT_ROLE = "artificialflow client";
 
-export const LEGACY_FLOWGO_ADMIN_ROLE = "flowgo admin";
-export const LEGACY_FLOWGO_MODELER_ROLE = "flowgo modeler";
-export const LEGACY_FLOWGO_CLIENT_ROLE = "flowgo client";
-
 export const STATIC_ARTIFICIALFLOW_ROLES = [
   ARTIFICIALFLOW_ADMIN_ROLE,
   ARTIFICIALFLOW_MODELER_ROLE,
@@ -22,13 +18,10 @@ export function canonicalizeRole(role: string): string {
   const normalized = normalizeRole(role);
   switch (normalized) {
     case ARTIFICIALFLOW_ADMIN_ROLE:
-    case LEGACY_FLOWGO_ADMIN_ROLE:
       return ARTIFICIALFLOW_ADMIN_ROLE;
     case ARTIFICIALFLOW_MODELER_ROLE:
-    case LEGACY_FLOWGO_MODELER_ROLE:
       return ARTIFICIALFLOW_MODELER_ROLE;
     case ARTIFICIALFLOW_CLIENT_ROLE:
-    case LEGACY_FLOWGO_CLIENT_ROLE:
       return ARTIFICIALFLOW_CLIENT_ROLE;
     default:
       return role.trim();
@@ -76,9 +69,3 @@ export function isModeler(identity: IdentityResponse | null): boolean {
 export function isClientOnly(identity: IdentityResponse | null): boolean {
   return hasRole(identity, ARTIFICIALFLOW_CLIENT_ROLE) && !isAdmin(identity) && !isModeler(identity);
 }
-
-// Deprecated compatibility aliases for callers migrating with this release.
-export const FLOWGO_ADMIN_ROLE = ARTIFICIALFLOW_ADMIN_ROLE;
-export const FLOWGO_MODELER_ROLE = ARTIFICIALFLOW_MODELER_ROLE;
-export const FLOWGO_CLIENT_ROLE = ARTIFICIALFLOW_CLIENT_ROLE;
-export const STATIC_FLOWGO_ROLES = STATIC_ARTIFICIALFLOW_ROLES;

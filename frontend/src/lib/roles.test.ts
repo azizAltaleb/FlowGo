@@ -4,11 +4,6 @@ import {
   ARTIFICIALFLOW_ADMIN_ROLE,
   ARTIFICIALFLOW_CLIENT_ROLE,
   ARTIFICIALFLOW_MODELER_ROLE,
-  FLOWGO_ADMIN_ROLE,
-  FLOWGO_CLIENT_ROLE,
-  FLOWGO_MODELER_ROLE,
-  STATIC_ARTIFICIALFLOW_ROLES,
-  STATIC_FLOWGO_ROLES,
   canonicalizeRoles,
   hasFlexRole,
   isAdmin,
@@ -25,21 +20,14 @@ function identity(roles: string[]): IdentityResponse {
   };
 }
 
-describe("role compatibility", () => {
-  it("keeps deprecated aliases canonical for public callers", () => {
-    expect(FLOWGO_ADMIN_ROLE).toBe(ARTIFICIALFLOW_ADMIN_ROLE);
-    expect(FLOWGO_MODELER_ROLE).toBe(ARTIFICIALFLOW_MODELER_ROLE);
-    expect(FLOWGO_CLIENT_ROLE).toBe(ARTIFICIALFLOW_CLIENT_ROLE);
-    expect(STATIC_FLOWGO_ROLES).toBe(STATIC_ARTIFICIALFLOW_ROLES);
-  });
-
-  it("canonicalizes legacy standard roles and keeps custom roles", () => {
+describe("role helpers", () => {
+  it("canonicalizes standard roles and keeps custom roles", () => {
     expect(
       canonicalizeRoles([
-        " FlowGo Admin ",
+        " ArtificialFlow Admin ",
         ARTIFICIALFLOW_ADMIN_ROLE,
-        "flowgo modeler",
-        "flowgo client",
+        "artificialflow modeler",
+        "artificialflow client",
         "Finance Reviewer",
       ]),
     ).toEqual([
@@ -50,10 +38,10 @@ describe("role compatibility", () => {
     ]);
   });
 
-  it("authorizes legacy claims through canonical role helpers", () => {
-    expect(isAdmin(identity(["flowgo admin"]))).toBe(true);
-    expect(isClientOnly(identity(["FLOWGO CLIENT"]))).toBe(true);
-    expect(hasFlexRole(identity(["flowgo modeler"]))).toBe(false);
+  it("authorizes claims through canonical role helpers", () => {
+    expect(isAdmin(identity(["artificialflow admin"]))).toBe(true);
+    expect(isClientOnly(identity(["ARTIFICIALFLOW CLIENT"]))).toBe(true);
+    expect(hasFlexRole(identity(["artificialflow modeler"]))).toBe(false);
     expect(hasFlexRole(identity(["finance reviewer"]))).toBe(true);
   });
 });

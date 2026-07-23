@@ -9,11 +9,11 @@ import (
 )
 
 func TestParseTopicsEnv_DeduplicatesAndTrims(t *testing.T) {
-	topics := parseTopicsEnv("  a.b.c , flowgo.public.job, a.b.c , , flowgo.public.variable ")
+	topics := parseTopicsEnv("  a.b.c , artificialflow.public.job, a.b.c , , artificialflow.public.variable ")
 	if len(topics) != 3 {
 		t.Fatalf("expected 3 unique topics, got %d (%v)", len(topics), topics)
 	}
-	if topics[0] != "a.b.c" || topics[1] != "flowgo.public.job" || topics[2] != "flowgo.public.variable" {
+	if topics[0] != "a.b.c" || topics[1] != "artificialflow.public.job" || topics[2] != "artificialflow.public.variable" {
 		t.Fatalf("unexpected topic ordering/content: %v", topics)
 	}
 }
@@ -177,7 +177,7 @@ func TestValidateProjectionContract(t *testing.T) {
 		{
 			name:     "hybrid accepts event plus debezium",
 			contract: "hybrid",
-			topics:   []string{"workflow.events.v1", "flowgo.public.process_instance"},
+			topics:   []string{"workflow.events.v1", "artificialflow.public.process_instance"},
 			event:    "workflow.events.v1",
 		},
 		{
@@ -190,7 +190,7 @@ func TestValidateProjectionContract(t *testing.T) {
 		{
 			name:     "hybrid rejects missing event topic",
 			contract: "hybrid",
-			topics:   []string{"flowgo.public.process_instance"},
+			topics:   []string{"artificialflow.public.process_instance"},
 			event:    "workflow.events.v1",
 			wantErr:  "requires event topic",
 		},
@@ -203,14 +203,14 @@ func TestValidateProjectionContract(t *testing.T) {
 		{
 			name:     "event first rejects debezium topics",
 			contract: "event-first",
-			topics:   []string{"workflow.events.v1", "flowgo.public.variable"},
+			topics:   []string{"workflow.events.v1", "artificialflow.public.variable"},
 			event:    "workflow.events.v1",
 			wantErr:  "does not allow Debezium",
 		},
 		{
 			name:     "debezium contract accepts debezium only",
 			contract: "debezium",
-			topics:   []string{"flowgo.public.process"},
+			topics:   []string{"artificialflow.public.process"},
 			event:    "workflow.events.v1",
 		},
 		{
@@ -223,7 +223,7 @@ func TestValidateProjectionContract(t *testing.T) {
 		{
 			name:     "unsupported contract is rejected",
 			contract: "something-else",
-			topics:   []string{"workflow.events.v1", "flowgo.public.process"},
+			topics:   []string{"workflow.events.v1", "artificialflow.public.process"},
 			event:    "workflow.events.v1",
 			wantErr:  "unsupported SYNC_PROJECTION_CONTRACT",
 		},
@@ -256,29 +256,19 @@ func TestValidateDebeziumIdentifierTransition(t *testing.T) {
 	}, false); err != nil {
 		t.Fatalf("canonical topics should be accepted: %v", err)
 	}
-	if err := validateDebeziumIdentifierTransition([]string{
-		"workflow.events.v1",
-		"flowgo.public.process",
-		"flowgo.public.job",
-	}, false); err != nil {
-		t.Fatalf("explicit legacy topics should be accepted: %v", err)
-	}
 
-	mixed := []string{"artificialflow.public.process", "flowgo.public.process"}
-	if err := validateDebeziumIdentifierTransition(mixed, false); err == nil {
-		t.Fatal("mixed canonical and legacy topics must be rejected by default")
+	unsupported := []string{"other.public.process"}
+	if err := validateDebeziumIdentifierTransition(unsupported, false); err == nil {
+		t.Fatal("unsupported Debezium prefixes must be rejected")
 	}
-	if err := validateDebeziumIdentifierTransition(mixed, true); err != nil {
-		t.Fatalf("controlled recovery override should allow mixed topics: %v", err)
+	if err := validateDebeziumIdentifierTransition(unsupported, true); err == nil {
+		t.Fatal("unsupported Debezium prefixes must be rejected even when allowMixed is set")
 	}
 }
 
 func TestConflictingConnectorNames(t *testing.T) {
-	if got := conflictingConnectorNames("artificialflow-postgres-connector"); len(got) != 1 || got[0] != "flowgo-postgres-connector" {
-		t.Fatalf("unexpected canonical conflict set: %v", got)
-	}
-	if got := conflictingConnectorNames("flowgo-postgres-connector"); len(got) != 1 || got[0] != "artificialflow-postgres-connector" {
-		t.Fatalf("unexpected legacy conflict set: %v", got)
+	if got := conflictingConnectorNames("artificialflow-postgres-connector"); len(got) != 0 {
+		t.Fatalf("artificialflow-only mode should not infer connector conflicts: %v", got)
 	}
 	if got := conflictingConnectorNames("custom"); len(got) != 0 {
 		t.Fatalf("custom connector should not infer conflicts: %v", got)

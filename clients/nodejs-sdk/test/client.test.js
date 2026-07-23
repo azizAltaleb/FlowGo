@@ -3,8 +3,6 @@ const {
   ArtificialFlowApiError,
   ArtificialFlowClient,
   HeaderWorkerProtocolVersion,
-  FlowGoApiError,
-  FlowGoClient,
   WorkerProtocolVersion,
   resolveArtificialFlowEnvironment,
 } = require('../dist');
@@ -41,7 +39,7 @@ function createClient(responses) {
   };
   // Keep one legacy deployment URL fixture to verify endpoint compatibility.
   const client = new ArtificialFlowClient({
-    baseUrl: 'http://flowgo.local/api',
+    baseUrl: 'http://artificialflow.local/api',
     token: async () => 'token-1',
     fetch,
   });
@@ -64,13 +62,13 @@ async function testHealthAuthHeaders() {
   ]);
 
   await client.health();
-  assert.strictEqual(calls[0].url, 'http://flowgo.local/api/health');
+  assert.strictEqual(calls[0].url, 'http://artificialflow.local/api/health');
   assert.strictEqual(calls[0].init.method, 'GET');
   assert.strictEqual(calls[0].init.headers.Authorization, 'Bearer token-1');
   assert.ok(calls[0].init.headers['X-Correlation-ID']);
 
   await client.queryHealth();
-  assert.strictEqual(calls[1].url, 'http://flowgo.local/api/query/health');
+  assert.strictEqual(calls[1].url, 'http://artificialflow.local/api/query/health');
 
   client.setToken('token-2');
   await client.health({ correlationId: 'corr-1', headers: { 'X-Custom': 'yes' } });
@@ -91,25 +89,25 @@ async function testAllWorkflowOperations() {
   ]);
 
   await client.deployWorkflow('<definitions />');
-  assert.strictEqual(calls[0].url, 'http://flowgo.local/api/workflows');
+  assert.strictEqual(calls[0].url, 'http://artificialflow.local/api/workflows');
   assert.strictEqual(calls[0].init.method, 'POST');
   assert.strictEqual(calls[0].init.body, '<definitions />');
 
   await client.listWorkflows({ source: 'command' });
-  assert.strictEqual(calls[1].url, 'http://flowgo.local/api/workflows');
+  assert.strictEqual(calls[1].url, 'http://artificialflow.local/api/workflows');
   assert.strictEqual(calls[1].init.method, 'GET');
 
   await client.listWorkflows({ page: 1, pageSize: 10 });
-  assert.strictEqual(calls[2].url, 'http://flowgo.local/api/query/workflows?page=1&pageSize=10');
+  assert.strictEqual(calls[2].url, 'http://artificialflow.local/api/query/workflows?page=1&pageSize=10');
 
   await client.getWorkflows({ page: 2, pageSize: 20 });
-  assert.strictEqual(calls[3].url, 'http://flowgo.local/api/query/workflows?page=2&pageSize=20');
+  assert.strictEqual(calls[3].url, 'http://artificialflow.local/api/query/workflows?page=2&pageSize=20');
 
   await client.getWorkflow('1');
-  assert.strictEqual(calls[4].url, 'http://flowgo.local/api/workflows/1');
+  assert.strictEqual(calls[4].url, 'http://artificialflow.local/api/workflows/1');
 
   await client.deleteWorkflow('1');
-  assert.strictEqual(calls[5].url, 'http://flowgo.local/api/workflows/1');
+  assert.strictEqual(calls[5].url, 'http://artificialflow.local/api/workflows/1');
   assert.strictEqual(calls[5].init.method, 'DELETE');
 }
 
@@ -129,39 +127,39 @@ async function testAllInstanceOperations() {
   ]);
 
   await client.startInstance('1', { orderId: 'A1' });
-  assert.strictEqual(calls[0].url, 'http://flowgo.local/api/instances');
+  assert.strictEqual(calls[0].url, 'http://artificialflow.local/api/instances');
   assert.deepStrictEqual(body(calls[0]), { workflow_id: '1', context: { orderId: 'A1' } });
 
   await client.startInstance({ workflow_id: '1', context: { orderId: 'A2' } }, { idempotencyKey: 'idem-instance-2' });
-  assert.strictEqual(calls[1].url, 'http://flowgo.local/api/instances');
+  assert.strictEqual(calls[1].url, 'http://artificialflow.local/api/instances');
   assert.strictEqual(calls[1].init.headers['Idempotency-Key'], 'idem-instance-2');
   assert.deepStrictEqual(body(calls[1]), { workflow_id: '1', context: { orderId: 'A2' } });
 
   await client.listActiveInstances();
-  assert.strictEqual(calls[2].url, 'http://flowgo.local/api/instances');
+  assert.strictEqual(calls[2].url, 'http://artificialflow.local/api/instances');
 
   await client.getInstances({ workflowId: '1', state: 'RUNNING', page: 1, pageSize: 50 });
-  assert.strictEqual(calls[3].url, 'http://flowgo.local/api/query/instances?workflowId=1&state=RUNNING&page=1&pageSize=50');
+  assert.strictEqual(calls[3].url, 'http://artificialflow.local/api/query/instances?workflowId=1&state=RUNNING&page=1&pageSize=50');
 
   await client.searchInstances({ workflowId: '1' });
-  assert.strictEqual(calls[4].url, 'http://flowgo.local/api/query/instances?workflowId=1');
+  assert.strictEqual(calls[4].url, 'http://artificialflow.local/api/query/instances?workflowId=1');
 
   await client.getInstance('99');
-  assert.strictEqual(calls[5].url, 'http://flowgo.local/api/instances/99');
+  assert.strictEqual(calls[5].url, 'http://artificialflow.local/api/instances/99');
 
   await client.getInstance('99', { source: 'query' });
-  assert.strictEqual(calls[6].url, 'http://flowgo.local/api/query/instances/99');
+  assert.strictEqual(calls[6].url, 'http://artificialflow.local/api/query/instances/99');
 
   await client.updateInstanceVariables('99', { approved: true });
-  assert.strictEqual(calls[7].url, 'http://flowgo.local/api/instances/99/variables');
+  assert.strictEqual(calls[7].url, 'http://artificialflow.local/api/instances/99/variables');
   assert.deepStrictEqual(body(calls[7]), { variables: { approved: true } });
 
   await client.completeTask('99', 'approve-task');
-  assert.strictEqual(calls[8].url, 'http://flowgo.local/api/instances/99/complete');
+  assert.strictEqual(calls[8].url, 'http://artificialflow.local/api/instances/99/complete');
   assert.deepStrictEqual(body(calls[8]), { step_id: 'approve-task' });
 
   await client.deleteInstance('99');
-  assert.strictEqual(calls[9].url, 'http://flowgo.local/api/instances/99');
+  assert.strictEqual(calls[9].url, 'http://artificialflow.local/api/instances/99');
   assert.strictEqual(calls[9].init.method, 'DELETE');
 }
 
@@ -199,34 +197,33 @@ async function testInboxOperations() {
   ]);
 
   await client.listInboxItems({ actingUser });
-  assert.strictEqual(calls[0].url, 'http://flowgo.local/api/inbox');
+  assert.strictEqual(calls[0].url, 'http://artificialflow.local/api/inbox');
   assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Subject'], 'user-123');
   assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Username'], 'accountant');
   assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Email'], 'accountant@artificialflow.io');
   assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Name'], 'Accounting User');
   assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Roles'], 'accountant');
-  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Subject'], undefined);
 
   await client.listVisibleActiveInstances({ actingUser });
-  assert.strictEqual(calls[1].url, 'http://flowgo.local/api/inbox');
+  assert.strictEqual(calls[1].url, 'http://artificialflow.local/api/inbox');
 
   await client.getInboxInstance('99', { actingUser, includeCompleted: true });
-  assert.strictEqual(calls[2].url, 'http://flowgo.local/api/inbox/instances/99?includeCompleted=true');
+  assert.strictEqual(calls[2].url, 'http://artificialflow.local/api/inbox/instances/99?includeCompleted=true');
 
   const tasks = await client.listUserTasks('99', { actingUser, includeCompleted: true });
-  assert.strictEqual(calls[3].url, 'http://flowgo.local/api/inbox/instances/99/tasks?includeCompleted=true');
+  assert.strictEqual(calls[3].url, 'http://artificialflow.local/api/inbox/instances/99/tasks?includeCompleted=true');
   assert.deepStrictEqual(tasks, [task]);
 
   await client.claimUserTask('99', '601', { actingUser });
-  assert.strictEqual(calls[4].url, 'http://flowgo.local/api/inbox/instances/99/tasks/601/claim');
+  assert.strictEqual(calls[4].url, 'http://artificialflow.local/api/inbox/instances/99/tasks/601/claim');
   assert.strictEqual(calls[4].init.method, 'POST');
 
   await client.completeUserTask('99', '601', { actingUser });
-  assert.strictEqual(calls[5].url, 'http://flowgo.local/api/inbox/instances/99/tasks/601/complete');
+  assert.strictEqual(calls[5].url, 'http://artificialflow.local/api/inbox/instances/99/tasks/601/complete');
   assert.strictEqual(calls[5].init.method, 'POST');
 
   await client.listMyCompletedTransactions({ actingUser, limit: 25 });
-  assert.strictEqual(calls[6].url, 'http://flowgo.local/api/inbox/history?limit=25');
+  assert.strictEqual(calls[6].url, 'http://artificialflow.local/api/inbox/history?limit=25');
 }
 
 async function testInboxRequiresActingUser() {
@@ -252,38 +249,38 @@ async function testMessagingAndWorkerRequests() {
   ]);
 
   await client.publishSignal('OrderApproved', { orderId: 'A1' });
-  assert.strictEqual(calls[0].url, 'http://flowgo.local/api/signals');
+  assert.strictEqual(calls[0].url, 'http://artificialflow.local/api/signals');
   assert.deepStrictEqual(body(calls[0]), { signal_name: 'OrderApproved', payload: { orderId: 'A1' } });
 
   await client.publishSignal({ signal_name: 'OrderCanceled', payload: { orderId: 'A2' } });
-  assert.strictEqual(calls[1].url, 'http://flowgo.local/api/signals');
+  assert.strictEqual(calls[1].url, 'http://artificialflow.local/api/signals');
   assert.deepStrictEqual(body(calls[1]), { signal_name: 'OrderCanceled', payload: { orderId: 'A2' } });
 
   await client.publishMessage('MsgOrderPlaced', 'A1', { amount: 10 });
-  assert.strictEqual(calls[2].url, 'http://flowgo.local/api/messages');
+  assert.strictEqual(calls[2].url, 'http://artificialflow.local/api/messages');
   assert.deepStrictEqual(body(calls[2]), { message_name: 'MsgOrderPlaced', correlation_key: 'A1', payload: { amount: 10 } });
 
   await client.activateJobs({ type: 'payment', worker: 'worker-1', maxJobs: 2, timeoutMs: 500, lockDurationMs: 30000 });
-  assert.strictEqual(calls[3].url, 'http://flowgo.local/api/jobs/activate');
+  assert.strictEqual(calls[3].url, 'http://artificialflow.local/api/jobs/activate');
   assert.strictEqual(calls[3].init.headers.Authorization, 'Bearer token-1');
   assert.strictEqual(calls[3].init.headers[HeaderWorkerProtocolVersion], WorkerProtocolVersion);
   assert.deepStrictEqual(body(calls[3]), { type: 'payment', worker: 'worker-1', maxJobs: 2, timeoutMs: 500, lockDurationMs: 30000 });
 
   await client.completeJob('101', { worker: 'worker-1', variables: { ok: true } });
-  assert.strictEqual(calls[4].url, 'http://flowgo.local/api/jobs/101/complete');
+  assert.strictEqual(calls[4].url, 'http://artificialflow.local/api/jobs/101/complete');
   assert.strictEqual(calls[4].init.headers[HeaderWorkerProtocolVersion], WorkerProtocolVersion);
   assert.deepStrictEqual(body(calls[4]), { worker: 'worker-1', variables: { ok: true } });
 
   await client.failJob('101', { worker: 'worker-1', errorMessage: 'failed', retries: 1 });
-  assert.strictEqual(calls[5].url, 'http://flowgo.local/api/jobs/101/fail');
+  assert.strictEqual(calls[5].url, 'http://artificialflow.local/api/jobs/101/fail');
   assert.deepStrictEqual(body(calls[5]), { worker: 'worker-1', errorMessage: 'failed', retries: 1 });
 
   await client.extendJobLock('101', { worker: 'worker-1', lockDurationMs: 45000 });
-  assert.strictEqual(calls[6].url, 'http://flowgo.local/api/jobs/101/extend-lock');
+  assert.strictEqual(calls[6].url, 'http://artificialflow.local/api/jobs/101/extend-lock');
   assert.deepStrictEqual(body(calls[6]), { worker: 'worker-1', lockDurationMs: 45000 });
 
   await client.getWorkerCapabilities();
-  assert.strictEqual(calls[7].url, 'http://flowgo.local/api/jobs/capabilities');
+  assert.strictEqual(calls[7].url, 'http://artificialflow.local/api/jobs/capabilities');
 }
 
 async function testMessageObjectOverload() {
@@ -292,7 +289,7 @@ async function testMessageObjectOverload() {
   ]);
 
   await client.publishMessage({ message_name: 'MsgOrderPlaced', correlation_key: 'A1', payload: { amount: 10 } });
-  assert.strictEqual(calls[0].url, 'http://flowgo.local/api/messages');
+  assert.strictEqual(calls[0].url, 'http://artificialflow.local/api/messages');
   assert.deepStrictEqual(body(calls[0]), { message_name: 'MsgOrderPlaced', correlation_key: 'A1', payload: { amount: 10 } });
 }
 
@@ -304,14 +301,14 @@ async function testPlatformReadOperations() {
   ]);
 
   await client.getEngineMetrics();
-  assert.strictEqual(calls[0].url, 'http://flowgo.local/api/internal/metrics');
+  assert.strictEqual(calls[0].url, 'http://artificialflow.local/api/internal/metrics');
 
   await client.getIdentity();
-  assert.strictEqual(calls[1].url, 'http://flowgo.local/api/identity/me');
+  assert.strictEqual(calls[1].url, 'http://artificialflow.local/api/identity/me');
   assert.strictEqual(calls[1].init.headers.Authorization, 'Bearer token-1');
 
   await client.getIdentityConfig();
-  assert.strictEqual(calls[2].url, 'http://flowgo.local/api/identity/config');
+  assert.strictEqual(calls[2].url, 'http://artificialflow.local/api/identity/config');
 }
 
 async function testIdentityManagementRequests() {
@@ -355,10 +352,10 @@ async function testIdentityManagementRequests() {
   ]);
 
   await client.listIdentityUsers();
-  assert.strictEqual(calls[0].url, 'http://flowgo.local/api/identity/management/users');
+  assert.strictEqual(calls[0].url, 'http://artificialflow.local/api/identity/management/users');
 
   await client.getIdentityManagementUsers();
-  assert.strictEqual(calls[1].url, 'http://flowgo.local/api/identity/management/users');
+  assert.strictEqual(calls[1].url, 'http://artificialflow.local/api/identity/management/users');
 
   await client.createIdentityUser({ given_name: 'User', family_name: 'One', email: 'user@example.com', password: 'secret' });
   assert.deepStrictEqual(body(calls[2]), { given_name: 'User', family_name: 'One', email: 'user@example.com', password: 'secret', username: '', password_change_required: false, roles: [] });
@@ -367,7 +364,7 @@ async function testIdentityManagementRequests() {
   assert.deepStrictEqual(body(calls[3]), { username: 'user', given_name: 'User', family_name: 'One', email: 'user@example.com', password: 'secret', password_change_required: true, roles: ['accountant'] });
 
   await client.createIdentityClientToken({ name: 'Orders SDK', username: 'sdk-orders', description: 'Order service', environment: 'production', owner_email: 'platform@example.com', purpose: 'Order worker', token_expires_at: '2027-01-01T00:00:00Z' });
-  assert.strictEqual(calls[4].url, 'http://flowgo.local/api/identity/management/clients');
+  assert.strictEqual(calls[4].url, 'http://artificialflow.local/api/identity/management/clients');
   assert.deepStrictEqual(body(calls[4]), { name: 'Orders SDK', username: 'sdk-orders', description: 'Order service', environment: 'production', owner_email: 'platform@example.com', purpose: 'Order worker', token_expires_at: '2027-01-01T00:00:00Z' });
 
   await client.createIdentityManagementClientToken({ name: 'Worker SDK' });
@@ -377,67 +374,67 @@ async function testIdentityManagementRequests() {
   assert.deepStrictEqual(body(calls[6]), { name: 'API SDK', username: 'api-sdk', description: '', environment: '', owner_email: '', purpose: '', token_expires_at: '' });
 
   await client.listIdentityClients();
-  assert.strictEqual(calls[7].url, 'http://flowgo.local/api/identity/management/clients');
+  assert.strictEqual(calls[7].url, 'http://artificialflow.local/api/identity/management/clients');
 
   await client.getIdentityManagementClients();
-  assert.strictEqual(calls[8].url, 'http://flowgo.local/api/identity/management/clients');
+  assert.strictEqual(calls[8].url, 'http://artificialflow.local/api/identity/management/clients');
 
   await client.listArtificialFlowClients();
-  assert.strictEqual(calls[9].url, 'http://flowgo.local/api/identity/management/clients');
+  assert.strictEqual(calls[9].url, 'http://artificialflow.local/api/identity/management/clients');
 
   await client.rotateIdentityClientToken('client-1', { token_expires_at: '2028-01-01T00:00:00Z' });
-  assert.strictEqual(calls[10].url, 'http://flowgo.local/api/identity/management/clients/client-1/tokens');
+  assert.strictEqual(calls[10].url, 'http://artificialflow.local/api/identity/management/clients/client-1/tokens');
   assert.deepStrictEqual(body(calls[10]), { token_expires_at: '2028-01-01T00:00:00Z' });
 
   await client.rotateIdentityManagementClientToken('client-1');
   assert.deepStrictEqual(body(calls[11]), { token_expires_at: '' });
 
   await client.revokeIdentityClientToken('client-1', 'pat-1');
-  assert.strictEqual(calls[12].url, 'http://flowgo.local/api/identity/management/clients/client-1/tokens/pat-1');
+  assert.strictEqual(calls[12].url, 'http://artificialflow.local/api/identity/management/clients/client-1/tokens/pat-1');
   assert.strictEqual(calls[12].init.method, 'DELETE');
 
   await client.revokeIdentityManagementClientToken('client-1', 'pat-2');
-  assert.strictEqual(calls[13].url, 'http://flowgo.local/api/identity/management/clients/client-1/tokens/pat-2');
+  assert.strictEqual(calls[13].url, 'http://artificialflow.local/api/identity/management/clients/client-1/tokens/pat-2');
 
   await client.deleteIdentityClient('client-1');
-  assert.strictEqual(calls[14].url, 'http://flowgo.local/api/identity/management/clients/client-1');
+  assert.strictEqual(calls[14].url, 'http://artificialflow.local/api/identity/management/clients/client-1');
   assert.strictEqual(calls[14].init.method, 'DELETE');
 
   await client.deleteIdentityManagementClient('client-2');
-  assert.strictEqual(calls[15].url, 'http://flowgo.local/api/identity/management/clients/client-2');
+  assert.strictEqual(calls[15].url, 'http://artificialflow.local/api/identity/management/clients/client-2');
 
   await client.updateIdentityUser('u1', { given_name: 'Admin', roles: ['artificialflow admin'] });
-  assert.strictEqual(calls[16].url, 'http://flowgo.local/api/identity/management/users/u1');
+  assert.strictEqual(calls[16].url, 'http://artificialflow.local/api/identity/management/users/u1');
   assert.strictEqual(calls[16].init.method, 'PUT');
   assert.deepStrictEqual(body(calls[16]), { given_name: 'Admin', roles: ['artificialflow admin'] });
 
   await client.updateIdentityManagementUser('u1', { display_name: 'Admin User' });
-  assert.strictEqual(calls[17].url, 'http://flowgo.local/api/identity/management/users/u1');
+  assert.strictEqual(calls[17].url, 'http://artificialflow.local/api/identity/management/users/u1');
 
   await client.terminateIdentityUser('u1');
-  assert.strictEqual(calls[18].url, 'http://flowgo.local/api/identity/management/users/u1/terminate');
+  assert.strictEqual(calls[18].url, 'http://artificialflow.local/api/identity/management/users/u1/terminate');
 
   await client.terminateIdentityManagementUser('u1');
-  assert.strictEqual(calls[19].url, 'http://flowgo.local/api/identity/management/users/u1/terminate');
+  assert.strictEqual(calls[19].url, 'http://artificialflow.local/api/identity/management/users/u1/terminate');
 
   await client.reactivateIdentityUser('u1');
-  assert.strictEqual(calls[20].url, 'http://flowgo.local/api/identity/management/users/u1/reactivate');
+  assert.strictEqual(calls[20].url, 'http://artificialflow.local/api/identity/management/users/u1/reactivate');
 
   await client.reactivateIdentityManagementUser('u1');
-  assert.strictEqual(calls[21].url, 'http://flowgo.local/api/identity/management/users/u1/reactivate');
+  assert.strictEqual(calls[21].url, 'http://artificialflow.local/api/identity/management/users/u1/reactivate');
 
   await client.deleteIdentityUser('u1');
-  assert.strictEqual(calls[22].url, 'http://flowgo.local/api/identity/management/users/u1');
+  assert.strictEqual(calls[22].url, 'http://artificialflow.local/api/identity/management/users/u1');
   assert.strictEqual(calls[22].init.method, 'DELETE');
 
   await client.deleteIdentityManagementUser('u1');
-  assert.strictEqual(calls[23].url, 'http://flowgo.local/api/identity/management/users/u1');
+  assert.strictEqual(calls[23].url, 'http://artificialflow.local/api/identity/management/users/u1');
 
   await client.listIdentityRoles();
-  assert.strictEqual(calls[24].url, 'http://flowgo.local/api/identity/management/roles');
+  assert.strictEqual(calls[24].url, 'http://artificialflow.local/api/identity/management/roles');
 
   await client.getIdentityManagementRoles();
-  assert.strictEqual(calls[25].url, 'http://flowgo.local/api/identity/management/roles');
+  assert.strictEqual(calls[25].url, 'http://artificialflow.local/api/identity/management/roles');
 
   await client.createIdentityRole({ key: 'custom', display_name: 'Custom' });
   assert.deepStrictEqual(body(calls[26]), { key: 'custom', display_name: 'Custom', group: 'ArtificialFlow' });
@@ -446,18 +443,18 @@ async function testIdentityManagementRequests() {
   assert.deepStrictEqual(body(calls[27]), { key: 'custom-2', display_name: 'Custom 2', group: 'Custom' });
 
   await client.updateIdentityRole('custom', { display_name: 'Updated', group: 'Custom' });
-  assert.strictEqual(calls[28].url, 'http://flowgo.local/api/identity/management/roles/custom');
+  assert.strictEqual(calls[28].url, 'http://artificialflow.local/api/identity/management/roles/custom');
   assert.strictEqual(calls[28].init.method, 'PUT');
 
   await client.updateIdentityManagementRole('custom-2', { display_name: 'Updated 2' });
-  assert.strictEqual(calls[29].url, 'http://flowgo.local/api/identity/management/roles/custom-2');
+  assert.strictEqual(calls[29].url, 'http://artificialflow.local/api/identity/management/roles/custom-2');
 
   await client.deleteIdentityRole('custom');
-  assert.strictEqual(calls[30].url, 'http://flowgo.local/api/identity/management/roles/custom');
+  assert.strictEqual(calls[30].url, 'http://artificialflow.local/api/identity/management/roles/custom');
   assert.strictEqual(calls[30].init.method, 'DELETE');
 
   await client.deleteIdentityManagementRole('custom-2');
-  assert.strictEqual(calls[31].url, 'http://flowgo.local/api/identity/management/roles/custom-2');
+  assert.strictEqual(calls[31].url, 'http://artificialflow.local/api/identity/management/roles/custom-2');
 }
 
 async function testWorkerRunOnceCompletesAndFails() {
@@ -468,7 +465,7 @@ async function testWorkerRunOnceCompletesAndFails() {
   const worker = success.client.createWorker('payment', async () => ({ paid: true }), { workerName: 'worker-1' });
   const count = await worker.runOnce();
   assert.strictEqual(count, 1);
-  assert.strictEqual(success.calls[1].url, 'http://flowgo.local/api/jobs/201/complete');
+  assert.strictEqual(success.calls[1].url, 'http://artificialflow.local/api/jobs/201/complete');
   assert.deepStrictEqual(body(success.calls[1]), { worker: 'worker-1', variables: { paid: true } });
 
   const failure = createClient([
@@ -477,7 +474,7 @@ async function testWorkerRunOnceCompletesAndFails() {
   ]);
   const failingWorker = failure.client.createWorker('payment', async () => { throw new Error('boom'); }, { workerName: 'worker-1' });
   await failingWorker.runOnce();
-  assert.strictEqual(failure.calls[1].url, 'http://flowgo.local/api/jobs/202/fail');
+  assert.strictEqual(failure.calls[1].url, 'http://artificialflow.local/api/jobs/202/fail');
   assert.deepStrictEqual(body(failure.calls[1]), { worker: 'worker-1', errorMessage: 'boom', retries: 1 });
 
   const lockExtension = createClient([
@@ -490,9 +487,9 @@ async function testWorkerRunOnceCompletesAndFails() {
     return { locked: true };
   }, { workerName: 'worker-1' });
   await lockWorker.runOnce();
-  assert.strictEqual(lockExtension.calls[1].url, 'http://flowgo.local/api/jobs/203/extend-lock');
+  assert.strictEqual(lockExtension.calls[1].url, 'http://artificialflow.local/api/jobs/203/extend-lock');
   assert.deepStrictEqual(body(lockExtension.calls[1]), { worker: 'worker-1', lockDurationMs: 60000 });
-  assert.strictEqual(lockExtension.calls[2].url, 'http://flowgo.local/api/jobs/203/complete');
+  assert.strictEqual(lockExtension.calls[2].url, 'http://artificialflow.local/api/jobs/203/complete');
 
   const autoStart = createClient([
     jsonResponse(200, { jobs: [] }),
@@ -502,7 +499,7 @@ async function testWorkerRunOnceCompletesAndFails() {
   await wait(0);
   autoWorker.stop();
   assert.strictEqual(autoWorker.isRunning(), false);
-  assert.strictEqual(autoStart.calls[0].url, 'http://flowgo.local/api/jobs/activate');
+  assert.strictEqual(autoStart.calls[0].url, 'http://artificialflow.local/api/jobs/activate');
 }
 
 async function testApiErrors() {
@@ -514,14 +511,12 @@ async function testApiErrors() {
 }
 
 function testCanonicalExportsAndEnvironmentPrecedence() {
-  assert.strictEqual(FlowGoClient, ArtificialFlowClient);
-  assert.strictEqual(FlowGoApiError, ArtificialFlowApiError);
+  assert.strictEqual(typeof ArtificialFlowClient, 'function');
+  assert.strictEqual(typeof ArtificialFlowApiError, 'function');
   assert.deepStrictEqual(
     resolveArtificialFlowEnvironment({
       ARTIFICIALFLOW_BASE_URL: 'https://api.artificialflow.example.io',
-      FLOWGO_BASE_URL: 'https://legacy.example/api',
       ARTIFICIALFLOW_TOKEN: 'canonical-token',
-      FLOWGO_TOKEN: 'legacy-token',
     }, () => 123),
     {
       baseUrl: 'https://api.artificialflow.example.io',
@@ -534,23 +529,17 @@ function testCanonicalExportsAndEnvironmentPrecedence() {
       workerJobType: '<OPTIONAL_SERVICE_TASK_JOB_TYPE>',
     },
   );
-  const legacy = resolveArtificialFlowEnvironment({
-    FLOWGO_BASE_URL: 'https://legacy.example/api',
-    FLOWGO_TOKEN: 'legacy-token',
-  }, () => 456);
-  assert.strictEqual(legacy.baseUrl, 'https://legacy.example/api');
-  assert.strictEqual(legacy.token, 'legacy-token');
 
-  const legacyApiUrl = resolveArtificialFlowEnvironment({
-    FLOWGO_API_URL: 'https://legacy-api.example/api',
+  const apiUrlFallback = resolveArtificialFlowEnvironment({
+    ARTIFICIALFLOW_API_URL: 'https://api-url.example/api',
   });
-  assert.strictEqual(legacyApiUrl.baseUrl, 'https://legacy-api.example/api');
+  assert.strictEqual(apiUrlFallback.baseUrl, 'https://api-url.example/api');
 
-  const canonicalApiUrl = resolveArtificialFlowEnvironment({
-    ARTIFICIALFLOW_API_URL: 'https://canonical-api.example/api',
-    FLOWGO_BASE_URL: 'https://legacy-base.example/api',
+  const baseUrlWins = resolveArtificialFlowEnvironment({
+    ARTIFICIALFLOW_BASE_URL: 'https://base.example/api',
+    ARTIFICIALFLOW_API_URL: 'https://api-url.example/api',
   });
-  assert.strictEqual(canonicalApiUrl.baseUrl, 'https://canonical-api.example/api');
+  assert.strictEqual(baseUrlWins.baseUrl, 'https://base.example/api');
 }
 
 async function main() {

@@ -24,7 +24,6 @@ type ESRepository struct {
 
 const (
 	canonicalIndexPrefix = "artificialflow"
-	legacyIndexPrefix    = "flowgo"
 
 	// transitionMergeMaxDocuments matches Elasticsearch's default max_result_window.
 	// Compatibility list reads load both result sets so they can de-duplicate and
@@ -45,10 +44,6 @@ func NewESRepository(client search.Backend, indexPrefix string) *ESRepository {
 		client:        client,
 		instanceIndex: indexPrefix + "-process_instance",
 		processIndex:  indexPrefix + "-process",
-	}
-	if indexPrefix == canonicalIndexPrefix {
-		r.legacyInstanceIndex = legacyIndexPrefix + "-process_instance"
-		r.legacyProcessIndex = legacyIndexPrefix + "-process"
 	}
 	return r
 }

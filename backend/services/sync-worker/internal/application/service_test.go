@@ -30,15 +30,15 @@ func TestSyncServiceDefaultsToCanonicalIndexPrefix(t *testing.T) {
 	if got := service.indexNameForTopic("artificialflow.public.process_instance"); got != "artificialflow-process_instance" {
 		t.Fatalf("expected canonical index, got %q", got)
 	}
-	if got := service.indexNameForTopic("flowgo.public.job"); got != "artificialflow-job" {
+	if got := service.indexNameForTopic("artificialflow.public.job"); got != "artificialflow-job" {
 		t.Fatalf("source topic prefix must not control the write index, got %q", got)
 	}
 }
 
 func TestSyncServicePreservesExplicitLegacyIndexOverride(t *testing.T) {
-	service := NewSyncService(&recordingRepository{}, "flowgo")
+	service := NewSyncService(&recordingRepository{}, "artificialflow")
 
-	if got := service.indexNameForTopic("artificialflow.public.process"); got != "flowgo-process" {
+	if got := service.indexNameForTopic("artificialflow.public.process"); got != "artificialflow-process" {
 		t.Fatalf("expected explicit legacy index override, got %q", got)
 	}
 }

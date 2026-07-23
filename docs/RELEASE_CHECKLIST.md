@@ -48,7 +48,6 @@ npm --prefix clients/nodejs-sdk ci
 npm --prefix clients/nodejs-sdk test
 npm --prefix clients/nodejs-sdk run validate:package
 (cd clients/nodejs-sdk && npm pack --dry-run)
-(cd clients/nodejs-sdk-legacy && npm pack --dry-run)
 bash scripts/validate_nodejs_sdk_install.sh
 bash scripts/validate_generated_proto.sh
 (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev >/tmp/artificialflow-nodejs-sdk-sbom.cdx.json)
@@ -96,7 +95,6 @@ tagging to reduce partial publication risk.
 
 - Confirm the `@artificialflow` npm scope is available and owned by the release maintainers.
 - Confirm `@artificialflow/nodejs-sdk` can be published publicly.
-- Confirm the deprecated `@flowgo/nodejs-sdk` package can publish the exact same version and depends on that exact canonical version.
 - Add GitHub Actions secret `NPM_TOKEN`.
 - Use GitHub repository settings: Settings > Secrets and variables > Actions > Repository secrets.
 - Confirm npm trusted publishing or the automation token is authorized for both packages. Both publish steps use GitHub-hosted OIDC provenance.

@@ -8,7 +8,7 @@ global:
 nameOverride: ""
 fullnameOverride: ""
 
-# Use only when upgrading the former flowgo chart in place. These values keep
+# Use only when upgrading the former chart in place. These values keep
 # every resource name and immutable workload selector equal to the live release.
 # Fresh installs must leave this disabled.
 compatibility:

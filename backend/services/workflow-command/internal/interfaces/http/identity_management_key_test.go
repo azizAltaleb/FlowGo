@@ -55,7 +55,7 @@ func TestIdentityManagementPrivateKeyJWTLifecycle(t *testing.T) {
 			if addCount == 0 {
 				_, _ = w.Write([]byte(`{"authorizations":[]}`))
 			} else {
-				_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-1"},"roles":[{"key":"flowgo client"}]}]}`))
+				_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-1"},"roles":[{"key":"artificialflow client"}]}]}`))
 			}
 		case "/zitadel.authorization.v2.AuthorizationService/CreateAuthorization":
 			_, _ = w.Write([]byte(`{"id":"auth-1"}`))

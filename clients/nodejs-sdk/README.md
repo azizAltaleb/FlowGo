@@ -10,8 +10,7 @@ npm run build
 ```
 
 Install the public package with `npm install @artificialflow/nodejs-sdk`. For
-one transition release, the deprecated `@flowgo/nodejs-sdk` wrapper re-exports
-this package. `FlowGoClient`, `FlowGoApiError`, and the `FlowGo*Options` names
+one transition release, the deprecated `@artificialflow/nodejs-sdk` wrapper re-exports
 remain deprecated aliases to the exact canonical implementations.
 
 ## Client
@@ -203,8 +202,8 @@ Required input (set exactly one authentication option):
   - Path to a ZITADEL service-account profile downloaded from **SDK Clients**.
   - Do not print the file contents or commit the file.
 
-For one transition release, the smoke helper falls back to `FLOWGO_BASE_URL`,
-`FLOWGO_API_URL`, and the corresponding legacy `FLOWGO_*` inputs only when the
+For one transition release, the smoke helper falls back to `ARTIFICIALFLOW_BASE_URL`,
+`ARTIFICIALFLOW_API_URL`, and the corresponding legacy `ARTIFICIALFLOW_*` inputs only when the
 canonical value is empty.
 
 Optional inputs:

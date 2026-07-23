@@ -25,10 +25,10 @@ func TestDeployWorkflowFromBPMN_CallActivityBusinessRuleAndManualTask(t *testing
 	}
 
 	parentXML := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn" id="Definitions_Parent" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_Parent" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="ParentProcess" name="Parent Process" isExecutable="true">
     <bpmn:startEvent id="start"/>
-    <bpmn:businessRuleTask id="rule" name="Rule" flowgo:decisionRef="decision_1"/>
+    <bpmn:businessRuleTask id="rule" name="Rule" artificialflow:decisionRef="decision_1"/>
     <bpmn:callActivity id="callChild" name="Call Child" calledElement="ChildProcess"/>
     <bpmn:manualTask id="manualReview" name="Manual Review"/>
     <bpmn:endEvent id="end"/>
@@ -74,12 +74,11 @@ func TestDeployAndExecuteCanonicalArtificialFlowBPMNAttributes(t *testing.T) {
 <bpmn:definitions
   xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
   xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn"
-  xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn"
   id="Definitions_ArtificialFlow"
   targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_ArtificialFlow" isExecutable="true">
     <bpmn:startEvent id="start"/>
-    <bpmn:userTask id="review" artificialflow:assignee="canonical-user" flowgo:assignee="legacy-user"/>
+    <bpmn:userTask id="review" artificialflow:assignee="canonical-user"/>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="review"/>
     <bpmn:sequenceFlow id="f2" sourceRef="review" targetRef="end"/>
@@ -94,7 +93,7 @@ func TestDeployAndExecuteCanonicalArtificialFlowBPMNAttributes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start canonical BPMN: %v", err)
 	}
-	jobs, err := e.ActivateJobs(context.Background(), "flowgo:userTask", "worker-1", 1, 0, 30*time.Second)
+	jobs, err := e.ActivateJobs(context.Background(), "artificialflow:userTask", "worker-1", 1, 0, 30*time.Second)
 	if err != nil {
 		t.Fatalf("failed to activate canonical user task: %v", err)
 	}

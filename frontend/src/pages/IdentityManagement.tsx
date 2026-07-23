@@ -43,7 +43,6 @@ const emptyRole: CreateIdentityManagementRoleRequest = {
   group: "Business",
 };
 
-const FLOWGO_VIEWER_ROLE = "flowgo viewer";
 const ARTIFICIALFLOW_VIEWER_ROLE = "artificialflow viewer";
 const HUMAN_PLATFORM_ROLE_KEYS = [ARTIFICIALFLOW_ADMIN_ROLE, ARTIFICIALFLOW_MODELER_ROLE];
 
@@ -53,7 +52,7 @@ function isPlatformRole(role: string) {
 
 function isReservedRole(role: string) {
   const normalized = role.trim().toLowerCase();
-  return isPlatformRole(role) || normalized === FLOWGO_VIEWER_ROLE || normalized === ARTIFICIALFLOW_VIEWER_ROLE;
+  return isPlatformRole(role) || normalized === ARTIFICIALFLOW_VIEWER_ROLE;
 }
 
 function roleToggle(values: string[], role: string) {
@@ -227,7 +226,7 @@ export default function IdentityManagement() {
   const submitRole = async (event: FormEvent) => {
     event.preventDefault();
     if (isReservedRole(newRole.key)) {
-      setError("ArtificialFlow admin, artificialflow modeler, and artificialflow client are built-in platform roles. Legacy flowgo roles are reserved during migration.");
+      setError("ArtificialFlow admin, modeler, client, and viewer are reserved platform roles.");
       return;
     }
     await mutate(async () => {
@@ -394,7 +393,7 @@ export default function IdentityManagement() {
             <TableBody>
               {roles.map((role) => {
                 const platformRole = isPlatformRole(role.key);
-                const deprecatedViewerRole = role.key.toLowerCase() === FLOWGO_VIEWER_ROLE;
+                const reservedViewerRole = role.key.toLowerCase() === ARTIFICIALFLOW_VIEWER_ROLE;
                 return (
                   <TableRow key={role.key}>
                     <TableCell className="font-mono">
@@ -405,8 +404,8 @@ export default function IdentityManagement() {
                         {canonicalizeRole(role.key) === ARTIFICIALFLOW_CLIENT_ROLE && (
                           <Badge variant="outline">SDK client</Badge>
                         )}
-                        {deprecatedViewerRole && (
-                          <Badge variant="warning">Deprecated</Badge>
+                        {reservedViewerRole && (
+                          <Badge variant="outline">Reserved</Badge>
                         )}
                       </div>
                     </TableCell>

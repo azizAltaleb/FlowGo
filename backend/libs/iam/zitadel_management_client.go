@@ -867,7 +867,7 @@ func managedUserIsVisible(user ManagedUser) bool {
 	if user.Type == "machine" {
 		return false
 	}
-	hiddenIdentities := []string{"workflow-login-client", "login-client", "flowgo-bootstrap"}
+	hiddenIdentities := []string{"workflow-login-client", "login-client", "artificialflow-bootstrap"}
 	userIdentities := []string{user.Username, user.PreferredLoginName, user.DisplayName, user.Email}
 	for _, userIdentity := range userIdentities {
 		for _, hiddenIdentity := range hiddenIdentities {
@@ -883,7 +883,7 @@ func managedClientIsVisible(client ManagedClient) bool {
 	if strings.TrimSpace(client.ClientID) == "" {
 		return false
 	}
-	hiddenIdentities := []string{"workflow-login-client", "login-client", "flowgo-bootstrap"}
+	hiddenIdentities := []string{"workflow-login-client", "login-client", "artificialflow-bootstrap"}
 	clientIdentities := []string{client.Username, client.Name}
 	for _, clientIdentity := range clientIdentities {
 		for _, hiddenIdentity := range hiddenIdentities {
@@ -959,7 +959,7 @@ func decodeClientDescription(value string) (string, string, string, string) {
 		return "", "", "", ""
 	}
 	raw := trimmed
-	for _, prefix := range []string{"artificialflow-client:", "flowgo-client:"} {
+	for _, prefix := range []string{"artificialflow-client:"} {
 		if strings.HasPrefix(strings.ToLower(raw), prefix) {
 			raw = raw[len(prefix):]
 			break

@@ -9,24 +9,16 @@ canonical_tgz="$(
   cd "${ROOT}/clients/nodejs-sdk"
   npm pack --silent --pack-destination "${TMP_DIR}"
 )"
-wrapper_tgz="$(
-  cd "${ROOT}/clients/nodejs-sdk-legacy"
-  npm pack --silent --pack-destination "${TMP_DIR}"
-)"
 
 cd "${TMP_DIR}"
 npm init --yes >/dev/null
 npm install --ignore-scripts --no-audit --no-fund "./${canonical_tgz}" >/dev/null
-npm install --ignore-scripts --no-audit --no-fund "./${wrapper_tgz}" >/dev/null
 
 node <<'NODE'
 const assert = require("node:assert/strict");
-const canonical = require("@artificialflow/nodejs-sdk");
-const wrapperName = ["@", "flow", "go/nodejs-sdk"].join("");
-const wrapper = require(wrapperName);
-
-assert.equal(wrapper.ArtificialFlowClient, canonical.ArtificialFlowClient);
-assert.equal(wrapper.ArtificialFlowApiError, canonical.ArtificialFlowApiError);
+const sdk = require("@artificialflow/nodejs-sdk");
+assert.equal(typeof sdk.ArtificialFlowClient, "function");
+assert.equal(typeof sdk.ArtificialFlowApiError, "function");
 NODE
 
-echo "Canonical SDK and compatibility wrapper pack/install validation passed"
+echo "Canonical SDK pack/install validation passed"

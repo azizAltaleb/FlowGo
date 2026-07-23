@@ -332,8 +332,6 @@ func main() {
 			"X-ArtificialFlow-Acting-Subject", "X-ArtificialFlow-Acting-Username",
 			"X-ArtificialFlow-Acting-Email", "X-ArtificialFlow-Acting-Name",
 			"X-ArtificialFlow-Acting-Roles",
-			"X-FlowGo-Acting-Subject", "X-FlowGo-Acting-Username",
-			"X-FlowGo-Acting-Email", "X-FlowGo-Acting-Name", "X-FlowGo-Acting-Roles",
 		},
 		AllowCredentials: allowCredentials,
 	})
@@ -359,7 +357,6 @@ func main() {
 	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(authMiddleware.UnaryServerInterceptor(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient)))
 	jobWorkerServer := grpcImpl.NewServer(eng)
 	pb.RegisterJobWorkerServiceServer(grpcServer, jobWorkerServer)
-	pb.RegisterLegacyJobWorkerServiceServer(grpcServer, jobWorkerServer)
 
 	go func() {
 		log.Info(ctx, "starting grpc server", map[string]any{"addr": grpcAddr})

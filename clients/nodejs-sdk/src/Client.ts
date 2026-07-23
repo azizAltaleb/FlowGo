@@ -338,11 +338,6 @@ export class ArtificialFlowClient {
         return this.createIdentityClientToken(request, options);
     }
 
-    /** @deprecated Use createArtificialFlowClientToken or createIdentityClientToken. */
-    public async createFlowGoClientToken(request: CreateIdentityManagementClientTokenRequest, options?: RequestOptions): Promise<IdentityManagementClientToken> {
-        return this.createIdentityClientToken(request, options);
-    }
-
     public async listIdentityClients(options?: RequestOptions): Promise<IdentityManagementClient[]> {
         const response = await this.request<{ clients?: IdentityManagementClient[] }>('GET', '/identity/management/clients', undefined, options);
         return response.clients || [];
@@ -353,11 +348,6 @@ export class ArtificialFlowClient {
     }
 
     public async listArtificialFlowClients(options?: RequestOptions): Promise<IdentityManagementClient[]> {
-        return this.listIdentityClients(options);
-    }
-
-    /** @deprecated Use listArtificialFlowClients or listIdentityClients. */
-    public async listFlowGoClients(options?: RequestOptions): Promise<IdentityManagementClient[]> {
         return this.listIdentityClients(options);
     }
 
@@ -624,7 +614,3 @@ function normalizeRotateClientTokenRequest(request: RotateIdentityManagementClie
     };
 }
 
-/** @deprecated Use ArtificialFlowApiError. */
-export { ArtificialFlowApiError as FlowGoApiError };
-/** @deprecated Use ArtificialFlowClient. */
-export { ArtificialFlowClient as FlowGoClient };

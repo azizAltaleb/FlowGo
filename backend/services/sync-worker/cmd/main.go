@@ -143,6 +143,21 @@ func main() {
 	startSyncHealthServer(ctx, log, metricsAddr, statsProvider, freshnessSLOSec, failOnStale)
 
 	if eventBusType != "nats" {
+		// Pre-create subscription topics before the consumer joins the group.
+		// Debezium otherwise creates them asynchronously after connector RUNNING,
+		// and kafka-go can get a permanent empty assignment until restart.
+		topicsToEnsure := append([]string{}, kafkaTopics...)
+		if dlqTopic != "" {
+			topicsToEnsure = append(topicsToEnsure, dlqTopic)
+		}
+		log.Info(ctx, "ensuring kafka topics exist before consumer start", map[string]any{
+			"topics": topicsToEnsure,
+		})
+		if err := messaging.EnsureTopicsReady(ctx, splitAndTrim(kafkaBrokers), topicsToEnsure, connectWaitTimeout); err != nil {
+			log.Error(ctx, "failed to ensure kafka topics", map[string]any{"error": err.Error()})
+			os.Exit(1)
+		}
+
 		if err := ensureConnectorBootstrap(ctx, log, connectorBootstrapOptions{
 			Enabled:                  connectBootstrapEnabled,
 			ConnectURL:               connectURL,
@@ -160,6 +175,14 @@ func main() {
 			log.Error(ctx, "failed to bootstrap connector", map[string]any{"error": err.Error()})
 			os.Exit(1)
 		}
+
+		log.Info(ctx, "re-checking kafka topic readiness after connector bootstrap", map[string]any{
+			"topics": topicsToEnsure,
+		})
+		if err := messaging.EnsureTopicsReady(ctx, splitAndTrim(kafkaBrokers), topicsToEnsure, connectWaitTimeout); err != nil {
+			log.Error(ctx, "failed to ensure kafka topics after connector bootstrap", map[string]any{"error": err.Error()})
+			os.Exit(1)
+		}
 	}
 
 	sigCh := make(chan os.Signal, 1)
@@ -171,8 +194,6 @@ func main() {
 		})
 		cancel()
 	}()
-
-	time.Sleep(500 * time.Millisecond)
 
 	log.Info(ctx, "sync-worker starting", nil)
 	if err := consumer.Start(ctx); err != nil && err != context.Canceled {
@@ -306,34 +327,23 @@ func containsDebeziumTopics(topics []string) bool {
 }
 
 func validateDebeziumIdentifierTransition(topics []string, allowMixed bool) error {
-	prefixes := make(map[string]struct{})
+	_ = allowMixed
 	for _, topic := range topics {
 		parts := strings.Split(strings.TrimSpace(topic), ".")
 		if len(parts) < 3 || !strings.EqualFold(parts[len(parts)-2], "public") {
 			continue
 		}
 		prefix := strings.Join(parts[:len(parts)-2], ".")
-		if prefix == "artificialflow" || prefix == "flowgo" {
-			prefixes[prefix] = struct{}{}
-		}
-	}
-	if _, canonical := prefixes["artificialflow"]; canonical {
-		if _, legacy := prefixes["flowgo"]; legacy && !allowMixed {
-			return fmt.Errorf("KAFKA_TOPICS mixes artificialflow and flowgo Debezium topics; this can duplicate projections (set SYNC_ALLOW_MIXED_DEBEZIUM_PREFIXES=true only for a controlled recovery)")
+		if prefix != "" && prefix != "artificialflow" {
+			return fmt.Errorf("KAFKA_TOPICS uses unsupported Debezium prefix %q; expected artificialflow", prefix)
 		}
 	}
 	return nil
 }
 
 func conflictingConnectorNames(connectorName string) []string {
-	switch strings.TrimSpace(connectorName) {
-	case "artificialflow-postgres-connector":
-		return []string{"flowgo-postgres-connector"}
-	case "flowgo-postgres-connector":
-		return []string{"artificialflow-postgres-connector"}
-	default:
-		return nil
-	}
+	_ = connectorName
+	return nil
 }
 
 func startSyncHealthServer(ctx context.Context, log *logger.Logger, addr string, provider messaging.ConsumerStatsProvider, sloSec int64, failOnStale bool) {

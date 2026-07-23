@@ -59,12 +59,6 @@ export type ArtificialFlowClientOptions = ArtificialFlowClientBaseOptions & (
     | { token?: never; auth?: ArtificialFlowAuthOptions }
 );
 
-/** @deprecated Use ArtificialFlowAuthOptions. */
-export type FlowGoAuthOptions = ArtificialFlowAuthOptions;
-/** @deprecated Use ArtificialFlowClientBaseOptions. */
-export type FlowGoClientBaseOptions = ArtificialFlowClientBaseOptions;
-/** @deprecated Use ArtificialFlowClientOptions. */
-export type FlowGoClientOptions = ArtificialFlowClientOptions;
 
 export interface RequestOptions {
     correlationId?: string;

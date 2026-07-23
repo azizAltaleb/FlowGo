@@ -7,7 +7,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-func TestOutboxCollectorExposesCanonicalAndLegacyMirrors(t *testing.T) {
+func TestOutboxCollectorExposesCanonicalMetrics(t *testing.T) {
 	registry := prometheus.NewPedanticRegistry()
 	collector := NewUnregisteredOutboxCollector(func() OutboxSnapshot {
 		return OutboxSnapshot{
@@ -28,20 +28,19 @@ func TestOutboxCollectorExposesCanonicalAndLegacyMirrors(t *testing.T) {
 		values[family.GetName()] = metricValue(family)
 	}
 
-	pairs := [][2]string{
-		{"artificialflow_outbox_pending", "flowgo_outbox_pending"},
-		{"artificialflow_outbox_publish_success_total", "flowgo_outbox_publish_success_total"},
-		{"artificialflow_outbox_publish_failure_total", "flowgo_outbox_publish_failure_total"},
-		{"artificialflow_outbox_publish_lag_seconds", "flowgo_outbox_publish_lag_seconds"},
+	expected := map[string]float64{
+		"artificialflow_outbox_pending":              3,
+		"artificialflow_outbox_publish_success_total": 7,
+		"artificialflow_outbox_publish_failure_total": 2,
+		"artificialflow_outbox_publish_lag_seconds":   11,
 	}
-	for _, pair := range pairs {
-		canonical, canonicalOK := values[pair[0]]
-		legacy, legacyOK := values[pair[1]]
-		if !canonicalOK || !legacyOK {
-			t.Fatalf("missing metric pair %q/%q in %#v", pair[0], pair[1], values)
+	for name, want := range expected {
+		got, ok := values[name]
+		if !ok {
+			t.Fatalf("missing metric %q in %#v", name, values)
 		}
-		if canonical != legacy {
-			t.Fatalf("metric mirrors differ for %q/%q: %v != %v", pair[0], pair[1], canonical, legacy)
+		if got != want {
+			t.Fatalf("metric %q = %v, want %v", name, got, want)
 		}
 	}
 }

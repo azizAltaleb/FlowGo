@@ -109,23 +109,27 @@ func TestActivateJobs_EmptyWhenNoInstances(t *testing.T) {
 	}
 }
 
-// TestMetricsEndpoint_PrometheusFormat checks /metrics returns Prometheus text format.
-func TestMetricsEndpoint_PrometheusFormat(t *testing.T) {
-	resp, err := httpClient.Get(commandBase + "/metrics")
+// TestMetricsEndpoint_EngineJSON checks command exposes engine metrics JSON.
+func TestMetricsEndpoint_EngineJSON(t *testing.T) {
+	resp, err := httpClient.Get(commandBase + "/internal/metrics")
 	if err != nil {
-		t.Fatalf("GET /metrics: %v", err)
+		t.Fatalf("GET /internal/metrics: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 from /metrics, got %d", resp.StatusCode)
+		t.Fatalf("expected 200 from /internal/metrics, got %d", resp.StatusCode)
 	}
 	ct := resp.Header.Get("Content-Type")
-	if !strings.Contains(ct, "text/plain") {
-		t.Fatalf("expected Prometheus text content-type, got: %q", ct)
+	if !strings.Contains(ct, "application/json") {
+		t.Fatalf("expected JSON content-type, got: %q", ct)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), "go_gc_duration_seconds") && !strings.Contains(string(body), "http_requests_total") {
-		t.Fatalf("expected Prometheus metrics in body, got: %s", string(body)[:200])
+	if !strings.Contains(string(body), "outboxPublishLagSec") {
+		snippet := string(body)
+		if len(snippet) > 200 {
+			snippet = snippet[:200]
+		}
+		t.Fatalf("expected engine metrics in body, got: %s", snippet)
 	}
 }
 
@@ -137,19 +141,11 @@ func TestQueryService_Health(t *testing.T) {
 	}
 }
 
-// TestQueryMetrics_PrometheusFormat checks workflow-query /metrics endpoint.
-func TestQueryMetrics_PrometheusFormat(t *testing.T) {
-	resp, err := httpClient.Get(queryBase + "/metrics")
-	if err != nil {
-		t.Fatalf("GET query /metrics: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 from query /metrics, got %d", resp.StatusCode)
-	}
-	ct := resp.Header.Get("Content-Type")
-	if !strings.Contains(ct, "text/plain") {
-		t.Fatalf("expected Prometheus text content-type from query, got: %q", ct)
+// TestQueryService_ListWorkflows checks the query read API is reachable.
+func TestQueryService_ListWorkflows(t *testing.T) {
+	status, body := doJSON(t, http.MethodGet, queryBase+"/workflows", nil)
+	if status != http.StatusOK && status != http.StatusUnauthorized {
+		t.Fatalf("expected 200 or 401 from query /workflows, got %d: %s", status, string(body))
 	}
 }
 

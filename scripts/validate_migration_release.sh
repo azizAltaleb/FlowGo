@@ -23,6 +23,7 @@ run node scripts/validate_release_workflows.mjs
 run node --test scripts/validate_transition_compatibility.test.mjs
 
 while IFS= read -r script; do
+  [[ -f "${script}" ]] || continue
   run bash -n "${script}"
 done < <(git ls-files 'scripts/*.sh' 'scripts/**/*.sh')
 
@@ -30,15 +31,15 @@ run actionlint -color=false
 run node --test scripts/bootstrap_zitadel.test.mjs
 run bash scripts/test_persistent_migrations.sh
 
-run go test ./backend/api/v1/go -run 'TestCanonicalAndLegacyJobWorkerServicePaths|TestProtobufNamespaceAndLegacyWireCompatibility' -count=1
+run go test ./backend/api/v1/go -run 'TestCanonicalJobWorkerServicePath|TestProtobufNamespaceAndWireEncoding' -count=1
 run go test ./backend/services/workflow-command/internal/domain/bpmn -run 'TestParse_ArtificialFlowNamespaceCompatibilityAndPrecedence|TestParse_CanonicalizesExtensionPropertyAliases' -count=1
 run go test ./backend/services/workflow-command/tests -run 'TestDeployAndExecuteCanonicalArtificialFlowBPMNAttributes|TestDeployWorkflowFromBPMN_ServiceTaskExtensionPropertyMapsImplementation|TestDeployWorkflowFromBPMN_UserTaskAssignmentFromExtensionProperties' -count=1
-run go test ./backend/libs/auth -run 'TestCanonicalizeRolesMigratesLegacyRolesAndPreservesCustomRoles|TestPrincipalFromClaims_CanonicalizesMixedStandardRoleClaims|TestUnaryServerInterceptor' -count=1
-run go test ./backend/libs/iam -run 'TestResolveZITADELManagementConfigPrefersCanonicalEnvironment|TestClientDescriptionUsesCanonicalPrefixAndReadsBothPrefixes|TestNormalizeRoleKeysCanonicalizesLegacyPlatformRoles' -count=1
-run go test ./backend/services/workflow-command/internal/interfaces/http -run 'TestActingPrincipalFromRequestPrefersCanonicalHeadersAndCanonicalizesRoles|TestActingPrincipalFromRequestAcceptsLegacyHeaders|TestIdentityManagementProtectsFlowGoPlatformRoles' -count=1
+run go test ./backend/libs/auth -run 'TestCanonicalizeRolesNormalizesStandardRolesAndPreservesCustomRoles|TestPrincipalFromClaims_CanonicalizesMixedStandardRoleClaims|TestUnaryServerInterceptor' -count=1
+run go test ./backend/libs/iam -run 'TestResolveZITADELManagementConfigUsesCanonicalEnvironment|TestClientDescriptionUsesCanonicalPrefixAndReadsBothPrefixes|TestNormalizeRoleKeysCanonicalizesPlatformRoles' -count=1
+run go test ./backend/services/workflow-command/internal/interfaces/http -run 'TestActingPrincipalFromRequestReadsCanonicalHeaders|TestActingPrincipalFromRequestFallsBackToUsername|TestIdentityManagementProtectsArtificialFlowPlatformRoles' -count=1
 run go test ./backend/services/workflow-command/internal/infrastructure/persistence -run 'TestUserTaskQueriesIncludeCanonicalAndLegacyTypes' -count=1
 run go test ./backend/services/workflow-query/internal/infrastructure/persistence -run 'TestNewESRepositoryDefaultsToCanonicalPrefix|TestESRepository' -count=1
-run go test ./backend/libs/metrics -run 'TestOutboxCollectorExposesCanonicalAndLegacyMirrors' -count=1
+run go test ./backend/libs/metrics -run 'TestOutboxCollectorExposesCanonicalMetrics' -count=1
 run go test ./backend/services/sync-worker/cmd -run 'TestEnsureConnectorBootstrap|TestBuildConnectorCreateRequest|TestConflictingConnectorNames' -count=1
 
 if [[ ! -d frontend/node_modules || ! -d clients/nodejs-sdk/node_modules ]]; then

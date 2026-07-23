@@ -179,7 +179,6 @@ requireText(
   "complete-set verification must wait for every image matrix job",
 );
 
-const wrapperName = ["@", "flow", "go/nodejs-sdk"].join("");
 requireText(npmWorkflow, "release-preflight:", "npm workflow must define a release preflight job");
 requireText(
   npmWorkflow,
@@ -191,16 +190,10 @@ requireText(
   "node scripts/validate_release_version.mjs",
   "npm preflight must validate release version consistency",
 );
-requireText(npmWorkflow, "needs: publish-nodejs-sdk", "compatibility wrapper must depend on canonical npm job");
-requireText(
-  npmWorkflow,
-  "if: ${{ needs.publish-nodejs-sdk.outputs.publish == 'true' }}",
-  "compatibility wrapper publication must use the canonical job decision",
-);
 requireText(
   npmWorkflow,
   "node scripts/validate_nodejs_sdk_package.mjs",
-  "compatibility wrapper must validate exact-version dependency metadata",
+  "npm preflight must validate package metadata",
 );
 requireText(
   npmWorkflow,
@@ -209,10 +202,10 @@ requireText(
 );
 requireText(
   npmWorkflow,
-  `for package in @artificialflow/nodejs-sdk ${wrapperName}`,
-  "npm collision guard must cover canonical and legacy packages",
+  "for package in @artificialflow/nodejs-sdk;",
+  "npm collision guard must cover the canonical package",
 );
-requireText(npmWorkflow, wrapperName, "npm workflow must name the compatibility wrapper");
+requireText(npmWorkflow, "Publish @artificialflow/nodejs-sdk", "npm workflow must publish the canonical package");
 requireAbsent(
   npmWorkflow,
   "imagetools inspect",
@@ -224,12 +217,6 @@ requireOrder(
   "Refuse existing exact npm versions",
   "npm publish --access public --provenance --tag \"${{ steps.release.outputs.dist_tag }}\"",
   "exact npm collision checks must run before canonical publication",
-);
-requireOrder(
-  npmWorkflow,
-  "npm publish --access public --provenance --tag \"${{ steps.release.outputs.dist_tag }}\"",
-  "npm publish --access public --provenance --tag \"${{ needs.publish-nodejs-sdk.outputs.dist_tag }}\"",
-  "canonical npm package must publish before its compatibility wrapper",
 );
 
 if (failures.length > 0) {

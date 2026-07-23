@@ -77,14 +77,6 @@ const lock = readJSON("clients/nodejs-sdk/package-lock.json");
 equal("clients/nodejs-sdk/package-lock.json version", lock.version, version);
 equal("clients/nodejs-sdk/package-lock.json root package version", lock.packages?.[""]?.version, version);
 
-const legacyPackage = readJSON("clients/nodejs-sdk-legacy/package.json");
-equal("clients/nodejs-sdk-legacy/package.json version", legacyPackage.version, version);
-equal(
-  "clients/nodejs-sdk-legacy canonical dependency",
-  legacyPackage.dependencies?.["@artificialflow/nodejs-sdk"],
-  version,
-);
-
 const chartVersion = capture("charts/artificialflow/Chart.yaml", /^version:\s*"?([^"\s]+)"?\s*$/m, "Helm chart version");
 const appVersion = capture("charts/artificialflow/Chart.yaml", /^appVersion:\s*"?([^"\s]+)"?\s*$/m, "Helm appVersion");
 equal("charts/artificialflow/Chart.yaml version", chartVersion, version);
@@ -115,7 +107,7 @@ for (const image of applicationImages) {
 
 const compose = read("docker-compose.release.yml");
 const composeDefaults = [
-  ...compose.matchAll(/ARTIFICIALFLOW_IMAGE_TAG:-\$\{FLOWGO_IMAGE_TAG:-([^}]+)\}/g),
+  ...compose.matchAll(/ARTIFICIALFLOW_IMAGE_TAG:-([^}]+)/g),
 ].map((match) => match[1]);
 if (composeDefaults.length !== 5) {
   failures.push(`docker-compose.release.yml must define exactly five application image defaults; got ${composeDefaults.length}`);
