@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CHART_DIR="${CHART_DIR:-charts/flowgo}"
+CHART_DIR="${CHART_DIR:-charts/artificialflow}"
 
 ruby -e 'require "yaml"; ARGV.each { |f| YAML.load_file(f); puts "ok #{f}" }' \
   "${CHART_DIR}/Chart.yaml" \
@@ -26,7 +26,7 @@ if ! command -v helm >/dev/null 2>&1; then
 fi
 
 helm lint "${CHART_DIR}"
-helm template flowgo "${CHART_DIR}" -f "${CHART_DIR}/values-external-iam.yaml" >/tmp/flowgo-external.yaml
-helm template flowgo "${CHART_DIR}" -f "${CHART_DIR}/values-internal-iam.yaml" >/tmp/flowgo-internal.yaml
+helm template artificialflow "${CHART_DIR}" -f "${CHART_DIR}/values-external-iam.yaml" >/tmp/artificialflow-external.yaml
+helm template artificialflow "${CHART_DIR}" -f "${CHART_DIR}/values-internal-iam.yaml" >/tmp/artificialflow-internal.yaml
 
 echo "helm validation passed"

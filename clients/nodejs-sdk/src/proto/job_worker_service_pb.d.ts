@@ -1,11 +1,10 @@
-// package: flowgo.api.v1
+// package: artificialflow.api.v1
 // file: job_worker_service.proto
 
 /* tslint:disable */
 /* eslint-disable */
 
 import * as jspb from "google-protobuf";
-import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 
 export class ActivateJobsRequest extends jspb.Message { 
     getWorkerName(): string;

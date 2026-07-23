@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/azizAltaleb/flowgo/backend/libs/id"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/libs/id"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"strconv"
 	"time"
 )

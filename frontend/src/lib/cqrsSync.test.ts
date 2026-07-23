@@ -84,4 +84,12 @@ describe("cqrs sync helpers", () => {
     expect(consumePendingInstanceSync()).toBe("instance-1");
     expect(consumePendingInstanceSync()).toBeNull();
   });
+
+  it("writes only canonical pending-sync keys", () => {
+    setPendingWorkflowSync("workflow-1");
+    setPendingInstanceSync("instance-1");
+
+    expect(window.sessionStorage.getItem("artificialflow.pendingWorkflowSync")).toBe("workflow-1");
+    expect(window.sessionStorage.getItem("artificialflow.pendingInstanceSync")).toBe("instance-1");
+  });
 });

@@ -2,7 +2,7 @@
 
 ## Mission
 
-Assess whether a FlowGo release candidate has enough evidence to publish. The agent prepares a readiness report; maintainers approve tags, images, npm packages, and release notes.
+Assess whether an ArtificialFlow release candidate has enough evidence to publish. The agent prepares a readiness report; maintainers approve tags, images, npm packages, and release notes.
 
 ## Inputs
 

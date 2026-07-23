@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { generateKeyPairSync, verify } = require('node:crypto');
 const {
-  FlowGoClient,
+  ArtificialFlowClient,
   OAuthClientCredentialsAuthError,
   OAuthClientCredentialsAuthProvider,
   ZitadelJwtProfileAuthError,
@@ -247,8 +247,8 @@ async function testProfileAndResponseValidation() {
 async function testOAuthClientCredentialsExchangeAndCache() {
   const profile = {
     type: 'oauth-client-credentials',
-    tokenUrl: 'https://iam.example/realms/flowgo/protocol/openid-connect/token',
-    clientId: 'flowgo-inbox-api',
+    tokenUrl: 'https://iam.example/realms/artificialflow/protocol/openid-connect/token',
+    clientId: 'artificialflow-inbox-api',
     clientSecret: 'private-client-secret',
     scopes: ['openid'],
   };
@@ -288,8 +288,8 @@ async function testOAuthClientCredentialsExchangeAndCache() {
 async function testOAuthClientCredentialsValidationAndClientIntegration() {
   const profile = {
     type: 'oauth-client-credentials',
-    tokenUrl: 'https://iam.example/realms/flowgo/protocol/openid-connect/token',
-    clientId: 'flowgo-inbox-api',
+    tokenUrl: 'https://iam.example/realms/artificialflow/protocol/openid-connect/token',
+    clientId: 'artificialflow-inbox-api',
     clientSecret: 'private-client-secret',
   };
   assert.throws(
@@ -323,8 +323,8 @@ async function testOAuthClientCredentialsValidationAndClientIntegration() {
   assert.strictEqual(rejectedBodyReads, 0);
 
   const calls = [];
-  const client = new FlowGoClient({
-    baseUrl: 'https://flowgo.example/api',
+  const client = new ArtificialFlowClient({
+    baseUrl: 'https://api.artificialflow.example.io',
     auth: { type: 'oauth-client-credentials', profile },
     fetch: async (url, init) => {
       calls.push({ url, init });
@@ -357,8 +357,8 @@ async function testClientIntegrationAndRawModeSwitch() {
     }
     return response(200, { status: 'ok' });
   };
-  const client = new FlowGoClient({
-    baseUrl: 'https://flowgo.example/api',
+  const client = new ArtificialFlowClient({
+    baseUrl: 'https://api.artificialflow.example.io',
     fetch,
     auth: {
       type: 'zitadel-jwt-profile',
@@ -376,7 +376,7 @@ async function testClientIntegrationAndRawModeSwitch() {
   assert.strictEqual(calls[2].init.headers.Authorization, 'Bearer raw-migration-token');
 
   assert.throws(
-    () => new FlowGoClient({
+    () => new ArtificialFlowClient({
       token: 'raw-token',
       auth: { type: 'zitadel-jwt-profile', profile },
       fetch,
@@ -415,8 +415,8 @@ async function testWorkerReusesAccessToken() {
     }
     return response(204);
   };
-  const client = new FlowGoClient({
-    baseUrl: 'https://flowgo.example/api',
+  const client = new ArtificialFlowClient({
+    baseUrl: 'https://api.artificialflow.example.io',
     fetch,
     auth: { type: 'zitadel-jwt-profile', profile },
   });

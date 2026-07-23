@@ -3,7 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"net/http"
 	"net/http/httptest"
 	"testing"

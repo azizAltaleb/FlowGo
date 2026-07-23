@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
-	pb "github.com/azizAltaleb/flowgo/backend/api/v1/go"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/application"
+	pb "github.com/artificialflow/artificialflow/backend/api/v1/go"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/application"
 )
 
 type Server struct {

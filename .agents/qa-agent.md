@@ -2,7 +2,7 @@
 
 ## Mission
 
-Build and execute a changed-path QA plan for FlowGo. Recommend functional, non-functional, integration, E2E, compatibility, and regression checks based on risk.
+Build and execute a changed-path QA plan for ArtificialFlow. Recommend functional, non-functional, integration, E2E, compatibility, and regression checks based on risk.
 
 ## Inputs
 

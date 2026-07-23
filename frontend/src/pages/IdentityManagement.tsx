@@ -17,7 +17,14 @@ import {
   type UpdateIdentityManagementRoleRequest,
   type UpdateIdentityManagementUserRequest,
 } from "@/lib/api";
-import { FLOWGO_ADMIN_ROLE, FLOWGO_CLIENT_ROLE, FLOWGO_MODELER_ROLE } from "@/lib/roles";
+import {
+  ARTIFICIALFLOW_ADMIN_ROLE,
+  ARTIFICIALFLOW_CLIENT_ROLE,
+  ARTIFICIALFLOW_MODELER_ROLE,
+  STATIC_ARTIFICIALFLOW_ROLES,
+  canonicalizeRole,
+  isAdmin,
+} from "@/lib/roles";
 import { Pencil, Plus, RefreshCw, Save, Trash2, UserCheck, UserX } from "lucide-react";
 
 const emptyUser: CreateIdentityManagementUserRequest = {
@@ -36,21 +43,16 @@ const emptyRole: CreateIdentityManagementRoleRequest = {
   group: "Business",
 };
 
-const FLOWGO_VIEWER_ROLE = "flowgo viewer";
-const HUMAN_PLATFORM_ROLE_KEYS = [FLOWGO_ADMIN_ROLE, FLOWGO_MODELER_ROLE];
-const RESERVED_ROLE_KEYS = [FLOWGO_ADMIN_ROLE, FLOWGO_MODELER_ROLE, FLOWGO_CLIENT_ROLE, FLOWGO_VIEWER_ROLE];
-const PROTECTED_ROLE_KEYS = [FLOWGO_ADMIN_ROLE, FLOWGO_MODELER_ROLE, FLOWGO_CLIENT_ROLE];
-
-function isAdmin(identity: IdentityResponse | null) {
-  return (identity?.principal?.roles || []).some((role) => role.toLowerCase() === "flowgo admin");
-}
+const ARTIFICIALFLOW_VIEWER_ROLE = "artificialflow viewer";
+const HUMAN_PLATFORM_ROLE_KEYS = [ARTIFICIALFLOW_ADMIN_ROLE, ARTIFICIALFLOW_MODELER_ROLE];
 
 function isPlatformRole(role: string) {
-  return PROTECTED_ROLE_KEYS.some((platformRole) => platformRole.toLowerCase() === role.trim().toLowerCase());
+  return STATIC_ARTIFICIALFLOW_ROLES.includes(canonicalizeRole(role));
 }
 
 function isReservedRole(role: string) {
-  return RESERVED_ROLE_KEYS.some((reservedRole) => reservedRole.toLowerCase() === role.trim().toLowerCase());
+  const normalized = role.trim().toLowerCase();
+  return isPlatformRole(role) || normalized === ARTIFICIALFLOW_VIEWER_ROLE;
 }
 
 function roleToggle(values: string[], role: string) {
@@ -116,14 +118,14 @@ function RolePicker({
           <span className="text-sm text-muted-foreground">No custom business roles available</span>
         )}
       </div>
-      {selected.includes(FLOWGO_ADMIN_ROLE) && (
+      {selected.includes(ARTIFICIALFLOW_ADMIN_ROLE) && (
         <p className="text-xs text-muted-foreground">
-          {FLOWGO_ADMIN_ROLE} is the administrative static role and remains assigned to current admins.
+          {ARTIFICIALFLOW_ADMIN_ROLE} is the administrative static role and remains assigned to current admins.
         </p>
       )}
-      {selected.includes(FLOWGO_MODELER_ROLE) && (
+      {selected.includes(ARTIFICIALFLOW_MODELER_ROLE) && (
         <p className="text-xs text-muted-foreground">
-          {FLOWGO_MODELER_ROLE} can read and deploy process definitions, but cannot start instances or manage identity.
+          {ARTIFICIALFLOW_MODELER_ROLE} can read and deploy process definitions, but cannot start instances or manage identity.
         </p>
       )}
     </div>
@@ -148,7 +150,7 @@ export default function IdentityManagement() {
   const canManage = config?.deployment_mode === "zitadel" && isAdmin(identity);
   const roleKeys = roles.map((role) => role.key);
   const platformRoleKeys = HUMAN_PLATFORM_ROLE_KEYS.filter((role) =>
-    roleKeys.some((roleKey) => roleKey.toLowerCase() === role),
+    roleKeys.some((roleKey) => canonicalizeRole(roleKey) === role),
   );
   const customRoleKeys = roleKeys.filter((role) => !isReservedRole(role));
 
@@ -224,7 +226,7 @@ export default function IdentityManagement() {
   const submitRole = async (event: FormEvent) => {
     event.preventDefault();
     if (isReservedRole(newRole.key)) {
-      setError("FlowGo admin, flowgo modeler, and flowgo client are built-in platform roles; flowgo viewer is no longer used. Add a custom business role instead.");
+      setError("ArtificialFlow admin, modeler, client, and viewer are reserved platform roles.");
       return;
     }
     await mutate(async () => {
@@ -241,7 +243,7 @@ export default function IdentityManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Identity</h2>
-          <p className="text-sm text-muted-foreground">Manage bundled ZITADEL users and FlowGo role assignments.</p>
+          <p className="text-sm text-muted-foreground">Manage bundled ZITADEL users and ArtificialFlow role assignments.</p>
         </div>
         <Button variant="outline" size="sm" onClick={load} disabled={saving}>
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -254,11 +256,11 @@ export default function IdentityManagement() {
       <Card>
         <CardHeader>
           <CardTitle>Access</CardTitle>
-          <CardDescription>This screen is available only in bundled ZITADEL mode for flowgo admin users.</CardDescription>
+          <CardDescription>This screen is available only in bundled ZITADEL mode for artificialflow admin users.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <Badge>Bundled ZITADEL</Badge>
-          <Badge variant="success">flowgo admin</Badge>
+          <Badge variant="success">{ARTIFICIALFLOW_ADMIN_ROLE}</Badge>
           <Badge variant="outline">{identity?.principal?.email || identity?.principal?.subject}</Badge>
         </CardContent>
       </Card>
@@ -266,7 +268,7 @@ export default function IdentityManagement() {
       <Card>
         <CardHeader>
           <CardTitle>Add user</CardTitle>
-          <CardDescription>Create a human ZITADEL user and assign FlowGo roles.</CardDescription>
+          <CardDescription>Create a human ZITADEL user and assign ArtificialFlow roles.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-3 md:grid-cols-2" onSubmit={submitUser}>
@@ -357,7 +359,7 @@ export default function IdentityManagement() {
         <CardHeader>
           <CardTitle>Roles</CardTitle>
           <CardDescription>
-            FlowGo admin and FlowGo modeler are static human roles. FlowGo client is reserved for SDK clients.
+            ArtificialFlow admin and ArtificialFlow modeler are static human roles. ArtificialFlow client is reserved for SDK clients.
             Add custom business roles here and enroll users to them.
           </CardDescription>
         </CardHeader>
@@ -391,19 +393,19 @@ export default function IdentityManagement() {
             <TableBody>
               {roles.map((role) => {
                 const platformRole = isPlatformRole(role.key);
-                const deprecatedViewerRole = role.key.toLowerCase() === FLOWGO_VIEWER_ROLE;
+                const reservedViewerRole = role.key.toLowerCase() === ARTIFICIALFLOW_VIEWER_ROLE;
                 return (
                   <TableRow key={role.key}>
                     <TableCell className="font-mono">
                       <div className="flex flex-wrap items-center gap-2">
                         {role.key}
-                        {role.key.toLowerCase() === FLOWGO_ADMIN_ROLE && <Badge variant="success">Administrative</Badge>}
-                        {role.key.toLowerCase() === FLOWGO_MODELER_ROLE && <Badge variant="outline">Modeler</Badge>}
-                        {role.key.toLowerCase() === FLOWGO_CLIENT_ROLE && (
+                        {canonicalizeRole(role.key) === ARTIFICIALFLOW_ADMIN_ROLE && <Badge variant="success">Administrative</Badge>}
+                        {canonicalizeRole(role.key) === ARTIFICIALFLOW_MODELER_ROLE && <Badge variant="outline">Modeler</Badge>}
+                        {canonicalizeRole(role.key) === ARTIFICIALFLOW_CLIENT_ROLE && (
                           <Badge variant="outline">SDK client</Badge>
                         )}
-                        {deprecatedViewerRole && (
-                          <Badge variant="warning">Deprecated</Badge>
+                        {reservedViewerRole && (
+                          <Badge variant="outline">Reserved</Badge>
                         )}
                       </div>
                     </TableCell>
@@ -415,7 +417,7 @@ export default function IdentityManagement() {
                           variant="outline"
                           size="sm"
                           disabled={platformRole}
-                          title={platformRole ? "Built-in FlowGo roles cannot be edited here" : "Edit role"}
+                          title={platformRole ? "Built-in ArtificialFlow roles cannot be edited here" : "Edit role"}
                           onClick={() => {
                             setEditingRoleKey(role.key);
                             setEditingRole({ display_name: role.display_name, group: role.group });
@@ -427,7 +429,7 @@ export default function IdentityManagement() {
                           variant="destructive"
                           size="sm"
                           disabled={saving || platformRole}
-                          title={platformRole ? "Built-in FlowGo roles cannot be deleted" : "Delete role"}
+                          title={platformRole ? "Built-in ArtificialFlow roles cannot be deleted" : "Delete role"}
                           onClick={() =>
                             window.confirm(`Delete role ${role.key}?`) &&
                             mutate(() => api.deleteIdentityManagementRole(role.key))

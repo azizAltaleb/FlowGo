@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
-	"github.com/azizAltaleb/flowgo/backend/libs/iam"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/interfaces/http/dto"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/iam"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/interfaces/http/dto"
 	"github.com/gorilla/mux"
 )
 
@@ -55,7 +55,7 @@ func TestIdentityManagementPrivateKeyJWTLifecycle(t *testing.T) {
 			if addCount == 0 {
 				_, _ = w.Write([]byte(`{"authorizations":[]}`))
 			} else {
-				_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-1"},"roles":[{"key":"flowgo client"}]}]}`))
+				_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-1"},"roles":[{"key":"artificialflow client"}]}]}`))
 			}
 		case "/zitadel.authorization.v2.AuthorizationService/CreateAuthorization":
 			_, _ = w.Write([]byte(`{"id":"auth-1"}`))
@@ -83,7 +83,7 @@ func TestIdentityManagementPrivateKeyJWTLifecycle(t *testing.T) {
 	})
 	router := mux.NewRouter()
 	registerTestRoutes(router, handler)
-	admin := auth.Principal{Subject: "admin", Roles: []string{auth.RoleFlowGoAdmin}}
+	admin := auth.Principal{Subject: "admin", Roles: []string{auth.RoleArtificialFlowAdmin}}
 	expiresAt := time.Now().UTC().Add(30 * 24 * time.Hour).Format(time.RFC3339)
 
 	createBody, _ := json.Marshal(map[string]string{

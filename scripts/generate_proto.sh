@@ -12,12 +12,12 @@ mkdir -p backend/api/v1/go
 
 # Run protoc via Docker
 docker run --rm \
-  -v $(pwd):/workspace \
+  -v "$(pwd):/workspace" \
   -w /workspace \
   rvolosatovs/protoc:4.0.0 \
   --proto_path=. \
-  --go_out=. --go_opt=paths=source_relative \
-  --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+  --go_out=. --go_opt=module=github.com/artificialflow/artificialflow \
+  --go-grpc_out=. --go-grpc_opt=module=github.com/artificialflow/artificialflow \
   backend/api/proto/job_worker_service.proto \
   backend/api/proto/events.proto
 

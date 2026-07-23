@@ -9,13 +9,13 @@ const BASE = __ENV.COMMAND_URL || "http://localhost:8080";
 function minimalBpmn(jobType) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-  xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn"
+  xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn"
   id="Definitions_perf" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="perf-workflow" name="Perf Test" isExecutable="true">
     <bpmn:startEvent id="start1">
       <bpmn:outgoing>flow1</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:serviceTask id="task1" name="Do Work" flowgo:taskType="${jobType}">
+    <bpmn:serviceTask id="task1" name="Do Work" artificialflow:taskType="${jobType}">
       <bpmn:incoming>flow1</bpmn:incoming>
       <bpmn:outgoing>flow2</bpmn:outgoing>
     </bpmn:serviceTask>

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
 )
 
 func TestResolveDeploymentConfigFromEnv_ExternalIAMRetainsJWTMode(t *testing.T) {
@@ -15,7 +15,7 @@ func TestResolveDeploymentConfigFromEnv_ExternalIAMRetainsJWTMode(t *testing.T) 
 	t.Setenv("AUTH_ISSUER_PUBLIC_URL", "https://identity.example.com")
 	t.Setenv("AUTH_TOKEN_MODE", "jwt")
 	t.Setenv("FRONTEND_AUTH_OIDC_AUTHORITY", "https://identity.example.com")
-	t.Setenv("FRONTEND_AUTH_OIDC_CLIENT_ID", "flowgo-frontend")
+	t.Setenv("FRONTEND_AUTH_OIDC_CLIENT_ID", "artificialflow-frontend")
 
 	cfg := ResolveDeploymentConfigFromEnv()
 	if cfg.Mode != DeploymentModeExternal {
@@ -27,15 +27,15 @@ func TestResolveDeploymentConfigFromEnv_ExternalIAMRetainsJWTMode(t *testing.T) 
 }
 
 func TestResolveZITADELManagementConfigLegacyPATControlsAreExplicit(t *testing.T) {
-	t.Setenv("FLOWGO_IAM_ENABLE_LEGACY_PAT_CREATION", "")
-	t.Setenv("FLOWGO_IAM_ENABLE_LEGACY_PAT_ROTATION", "")
+	t.Setenv("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_CREATION", "")
+	t.Setenv("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_ROTATION", "")
 	config := ResolveZITADELManagementConfigFromEnv(auth.Config{}, FrontendAuthConfig{})
 	if config.EnableLegacyPATCreation || config.EnableLegacyPATRotation {
 		t.Fatal("legacy PAT issuance must be disabled by default")
 	}
 
-	t.Setenv("FLOWGO_IAM_ENABLE_LEGACY_PAT_CREATION", "true")
-	t.Setenv("FLOWGO_IAM_ENABLE_LEGACY_PAT_ROTATION", "1")
+	t.Setenv("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_CREATION", "true")
+	t.Setenv("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_ROTATION", "1")
 	config = ResolveZITADELManagementConfigFromEnv(auth.Config{}, FrontendAuthConfig{})
 	if !config.EnableLegacyPATCreation || !config.EnableLegacyPATRotation {
 		t.Fatal("explicit emergency controls must enable legacy PAT issuance")
@@ -43,18 +43,46 @@ func TestResolveZITADELManagementConfigLegacyPATControlsAreExplicit(t *testing.T
 }
 
 func TestResolveZITADELManagementConfigBoundsClientKeyLifetimes(t *testing.T) {
-	t.Setenv("FLOWGO_IAM_CLIENT_KEY_DEFAULT_LIFETIME", "48h")
-	t.Setenv("FLOWGO_IAM_CLIENT_KEY_MAX_LIFETIME", "720h")
+	t.Setenv("ARTIFICIALFLOW_IAM_CLIENT_KEY_DEFAULT_LIFETIME", "48h")
+	t.Setenv("ARTIFICIALFLOW_IAM_CLIENT_KEY_MAX_LIFETIME", "720h")
 	config := ResolveZITADELManagementConfigFromEnv(auth.Config{}, FrontendAuthConfig{})
 	if config.ClientKeyDefaultLifetime != 48*time.Hour || config.ClientKeyMaxLifetime != 720*time.Hour {
 		t.Fatalf("unexpected key lifetimes: %#v", config)
 	}
 
-	t.Setenv("FLOWGO_IAM_CLIENT_KEY_DEFAULT_LIFETIME", "999999h")
-	t.Setenv("FLOWGO_IAM_CLIENT_KEY_MAX_LIFETIME", "invalid")
+	t.Setenv("ARTIFICIALFLOW_IAM_CLIENT_KEY_DEFAULT_LIFETIME", "999999h")
+	t.Setenv("ARTIFICIALFLOW_IAM_CLIENT_KEY_MAX_LIFETIME", "invalid")
 	config = ResolveZITADELManagementConfigFromEnv(auth.Config{}, FrontendAuthConfig{})
 	if config.ClientKeyDefaultLifetime != defaultClientCredentialLifetime || config.ClientKeyMaxLifetime != maxClientCredentialLifetime {
 		t.Fatalf("invalid key lifetime settings must fall back to safe bounds: %#v", config)
+	}
+}
+
+func TestResolveZITADELManagementConfigUsesCanonicalEnvironment(t *testing.T) {
+	t.Setenv("ARTIFICIALFLOW_ZITADEL_BOOTSTRAP_STATE_FILE", "/canonical/bootstrap.json")
+	t.Setenv("ARTIFICIALFLOW_IAM_CLIENT_KEY_DEFAULT_LIFETIME", "72h")
+	t.Setenv("ARTIFICIALFLOW_IAM_CLIENT_KEY_MAX_LIFETIME", "144h")
+	t.Setenv("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_CREATION", "false")
+	t.Setenv("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_ROTATION", "true")
+
+	config := ResolveZITADELManagementConfigFromEnv(auth.Config{}, FrontendAuthConfig{})
+	if config.BootstrapStateFile != "/canonical/bootstrap.json" {
+		t.Fatalf("expected canonical state file, got %q", config.BootstrapStateFile)
+	}
+	if config.ClientKeyDefaultLifetime != 72*time.Hour || config.ClientKeyMaxLifetime != 144*time.Hour {
+		t.Fatalf("expected canonical key lifetimes, got %#v", config)
+	}
+	if config.EnableLegacyPATCreation || !config.EnableLegacyPATRotation {
+		t.Fatalf("expected canonical PAT controls, got %#v", config)
+	}
+}
+
+func TestResolveZITADELManagementConfigUsesCanonicalStatePathByDefault(t *testing.T) {
+	t.Setenv("ARTIFICIALFLOW_ZITADEL_BOOTSTRAP_STATE_FILE", "")
+
+	config := ResolveZITADELManagementConfigFromEnv(auth.Config{}, FrontendAuthConfig{})
+	if config.BootstrapStateFile != "/artificialflow/bootstrap/artificialflow-zitadel.json" {
+		t.Fatalf("expected canonical default state file, got %q", config.BootstrapStateFile)
 	}
 }
 

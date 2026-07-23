@@ -40,18 +40,41 @@ func TestPrincipalFromClaims_MapsNestedRolesAndScopes(t *testing.T) {
 func TestPrincipalFromClaims_PreservesRoleNamesWithSpaces(t *testing.T) {
 	claims := map[string]any{
 		"sub":   "user-123",
-		"roles": "flowgo admin,finance reviewer",
+		"roles": "artificialflow admin,finance reviewer",
 	}
 
 	principal := principalFromClaims(claims, "", Config{ClaimRolesPath: "roles"}, TokenModeJWT)
 	if len(principal.Roles) != 2 {
 		t.Fatalf("expected 2 roles, got %#v", principal.Roles)
 	}
-	if principal.Roles[0] != RoleFlowGoAdmin {
-		t.Fatalf("expected first role %q, got %q", RoleFlowGoAdmin, principal.Roles[0])
+	if principal.Roles[0] != RoleArtificialFlowAdmin {
+		t.Fatalf("expected first role %q, got %q", RoleArtificialFlowAdmin, principal.Roles[0])
 	}
 	if principal.Roles[1] != "finance reviewer" {
 		t.Fatalf("expected second role %q, got %q", "finance reviewer", principal.Roles[1])
+	}
+}
+
+func TestPrincipalFromClaims_CanonicalizesMixedStandardRoleClaims(t *testing.T) {
+	claims := map[string]any{
+		"sub": "user-123",
+		"roles": []any{
+			"ARTIFICIALFLOW ADMIN",
+			RoleArtificialFlowAdmin,
+			"artificialflow client",
+			"finance reviewer",
+		},
+	}
+
+	principal := principalFromClaims(claims, "", Config{ClaimRolesPath: "roles"}, TokenModeJWT)
+	expected := []string{RoleArtificialFlowAdmin, RoleArtificialFlowClient, "finance reviewer"}
+	if len(principal.Roles) != len(expected) {
+		t.Fatalf("expected canonical roles %#v, got %#v", expected, principal.Roles)
+	}
+	for index := range expected {
+		if principal.Roles[index] != expected[index] {
+			t.Fatalf("expected role %q at index %d, got %q", expected[index], index, principal.Roles[index])
+		}
 	}
 }
 
@@ -59,13 +82,13 @@ func TestPrincipalFromClaims_MapsZitadelProjectRolesObject(t *testing.T) {
 	claims := map[string]any{
 		"sub": "user-123",
 		"urn:zitadel:iam:org:project:roles": map[string]any{
-			RoleFlowGoAdmin: map[string]any{},
+			RoleArtificialFlowAdmin: map[string]any{},
 		},
 	}
 
 	principal := principalFromClaims(claims, "", Config{ClaimRolesPath: "urn:zitadel:iam:org:project:roles"}, TokenModeJWT)
-	if len(principal.Roles) != 1 || principal.Roles[0] != RoleFlowGoAdmin {
-		t.Fatalf("expected ZITADEL role %q, got %#v", RoleFlowGoAdmin, principal.Roles)
+	if len(principal.Roles) != 1 || principal.Roles[0] != RoleArtificialFlowAdmin {
+		t.Fatalf("expected ZITADEL role %q, got %#v", RoleArtificialFlowAdmin, principal.Roles)
 	}
 }
 
@@ -73,7 +96,7 @@ func TestPrincipalFromClaims_MapsZitadelProjectIDRolesObject(t *testing.T) {
 	claims := map[string]any{
 		"sub": "user-123",
 		"urn:zitadel:iam:org:project:project-1:roles": map[string]any{
-			RoleFlowGoClient: map[string]any{},
+			RoleArtificialFlowClient: map[string]any{},
 		},
 		"urn:zitadel:iam:org:project:project-2:roles": map[string]any{
 			"finance reviewer": map[string]any{},
@@ -84,8 +107,8 @@ func TestPrincipalFromClaims_MapsZitadelProjectIDRolesObject(t *testing.T) {
 	if len(principal.Roles) != 2 {
 		t.Fatalf("expected ZITADEL project roles, got %#v", principal.Roles)
 	}
-	if !containsString(principal.Roles, RoleFlowGoClient) {
-		t.Fatalf("expected ZITADEL role %q, got %#v", RoleFlowGoClient, principal.Roles)
+	if !containsString(principal.Roles, RoleArtificialFlowClient) {
+		t.Fatalf("expected ZITADEL role %q, got %#v", RoleArtificialFlowClient, principal.Roles)
 	}
 	if !containsString(principal.Roles, "finance reviewer") {
 		t.Fatalf("expected finance reviewer role, got %#v", principal.Roles)

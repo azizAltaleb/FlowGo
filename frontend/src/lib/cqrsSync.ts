@@ -15,8 +15,8 @@ type WorkflowMatch = {
   version?: number;
 };
 
-const pendingWorkflowKey = "flowgo.pendingWorkflowSync";
-const pendingInstanceKey = "flowgo.pendingInstanceSync";
+const pendingWorkflowKey = "artificialflow.pendingWorkflowSync";
+const pendingInstanceKey = "artificialflow.pendingInstanceSync";
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 

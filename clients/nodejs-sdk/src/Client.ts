@@ -43,7 +43,7 @@ import {
     WorkflowDefinition,
     WorkflowInstance,
     WorkflowSearchResponse,
-    FlowGoClientOptions,
+    ArtificialFlowClientOptions,
     CompleteJobRequest,
     TokenProvider,
 } from './types';
@@ -58,7 +58,7 @@ type AuthProvider = {
     getToken(): Promise<string>;
 };
 
-export class FlowGoApiError extends Error {
+export class ArtificialFlowApiError extends Error {
     public readonly status: number;
     public readonly statusText: string;
     public readonly body: string;
@@ -67,7 +67,7 @@ export class FlowGoApiError extends Error {
 
     constructor(method: string, path: string, response: FetchResponseLike, body: string) {
         super(`${method} ${path} returned ${response.status} ${response.statusText}${body ? `: ${body}` : ''}`);
-        this.name = 'FlowGoApiError';
+        this.name = 'ArtificialFlowApiError';
         this.status = response.status;
         this.statusText = response.statusText;
         this.body = body;
@@ -76,19 +76,19 @@ export class FlowGoApiError extends Error {
     }
 }
 
-export class FlowGoClient {
+export class ArtificialFlowClient {
     private baseUrl: string;
     private queryBaseUrl: string;
     private token?: TokenProvider;
     private authProvider?: AuthProvider;
-    private headers?: FlowGoClientOptions['headers'];
+    private headers?: ArtificialFlowClientOptions['headers'];
     private timeoutMs: number;
     private fetchImpl: FetchLike;
 
-    constructor(options: FlowGoClientOptions | string = {}) {
+    constructor(options: ArtificialFlowClientOptions | string = {}) {
         const resolvedOptions = typeof options === 'string' ? { baseUrl: options } : options;
         if (resolvedOptions.token !== undefined && resolvedOptions.auth !== undefined) {
-            throw new Error('FlowGoClient options.token and options.auth cannot be used together');
+            throw new Error('ArtificialFlowClient options.token and options.auth cannot be used together');
         }
         this.baseUrl = normalizeBaseUrl(resolvedOptions.baseUrl || 'http://localhost:9100/api');
         this.queryBaseUrl = normalizeBaseUrl(resolvedOptions.queryBaseUrl || `${this.baseUrl}/query`);
@@ -334,7 +334,7 @@ export class FlowGoClient {
         return this.createIdentityClientToken(request, options);
     }
 
-    public async createFlowGoClientToken(request: CreateIdentityManagementClientTokenRequest, options?: RequestOptions): Promise<IdentityManagementClientToken> {
+    public async createArtificialFlowClientToken(request: CreateIdentityManagementClientTokenRequest, options?: RequestOptions): Promise<IdentityManagementClientToken> {
         return this.createIdentityClientToken(request, options);
     }
 
@@ -347,7 +347,7 @@ export class FlowGoClient {
         return this.listIdentityClients(options);
     }
 
-    public async listFlowGoClients(options?: RequestOptions): Promise<IdentityManagementClient[]> {
+    public async listArtificialFlowClients(options?: RequestOptions): Promise<IdentityManagementClient[]> {
         return this.listIdentityClients(options);
     }
 
@@ -417,7 +417,7 @@ export class FlowGoClient {
     }
 
     public async createIdentityRole(request: CreateIdentityManagementRoleRequest, options?: RequestOptions): Promise<IdentityManagementRole> {
-        return this.request<IdentityManagementRole>('POST', '/identity/management/roles', { ...request, group: request.group || 'FlowGo' }, options);
+        return this.request<IdentityManagementRole>('POST', '/identity/management/roles', { ...request, group: request.group || 'ArtificialFlow' }, options);
     }
 
     public async createIdentityManagementRole(request: CreateIdentityManagementRoleRequest, options?: RequestOptions): Promise<IdentityManagementRole> {
@@ -471,7 +471,7 @@ export class FlowGoClient {
             });
             const responseText = await response.text();
             if (!response.ok) {
-                throw new FlowGoApiError(method, path, response, responseText);
+                throw new ArtificialFlowApiError(method, path, response, responseText);
             }
             if (response.status === 204 || responseText.trim() === '') {
                 return undefined as T;
@@ -563,19 +563,19 @@ function withActingUserHeaders(options: InboxRequestOptions): RequestOptions {
 
     const headers: Record<string, string> = { ...options.headers };
     if (actingUser.subject) {
-        headers['X-FlowGo-Acting-Subject'] = actingUser.subject;
+        headers['X-ArtificialFlow-Acting-Subject'] = actingUser.subject;
     }
     if (actingUser.username) {
-        headers['X-FlowGo-Acting-Username'] = actingUser.username;
+        headers['X-ArtificialFlow-Acting-Username'] = actingUser.username;
     }
     if (actingUser.email) {
-        headers['X-FlowGo-Acting-Email'] = actingUser.email;
+        headers['X-ArtificialFlow-Acting-Email'] = actingUser.email;
     }
     if (actingUser.name) {
-        headers['X-FlowGo-Acting-Name'] = actingUser.name;
+        headers['X-ArtificialFlow-Acting-Name'] = actingUser.name;
     }
     if (actingUser.roles && actingUser.roles.length > 0) {
-        headers['X-FlowGo-Acting-Roles'] = actingUser.roles.join(',');
+        headers['X-ArtificialFlow-Acting-Roles'] = actingUser.roles.join(',');
     }
 
     return {
@@ -613,3 +613,4 @@ function normalizeRotateClientTokenRequest(request: RotateIdentityManagementClie
         token_expires_at: request.token_expires_at || '',
     };
 }
+

@@ -120,7 +120,7 @@ function summaryMarkdown(manifest: {
   functionality_coverage: Record<string, string[]>;
 }): string {
   const lines = [
-    "# FlowGo UAT Video Suite",
+    "# ArtificialFlow UAT Video Suite",
     "",
     `- Generated at: ${manifest.generated_at}`,
     `- Total recorded cases: ${manifest.total}`,

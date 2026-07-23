@@ -12,7 +12,7 @@ const Instances = lazy(() => import("@/pages/Instances"));
 const InstanceDetails = lazy(() => import("@/pages/InstanceDetails"));
 const History = lazy(() => import("@/pages/History"));
 const IdentityManagement = lazy(() => import("@/pages/IdentityManagement"));
-const FlowGoClients = lazy(() => import("@/pages/FlowGoClients"));
+const ArtificialFlowClients = lazy(() => import("@/pages/ArtificialFlowClients"));
 
 type AppProps = {
   authDisabled?: boolean;
@@ -43,7 +43,7 @@ function AppRoutes({ onLogout }: AppRoutesProps) {
             <Route path="instances/:id" element={<InstanceDetails />} />
             <Route path="history" element={<History />} />
             <Route path="identity" element={<IdentityManagement />} />
-            <Route path="sdk-clients" element={<FlowGoClients />} />
+            <Route path="sdk-clients" element={<ArtificialFlowClients />} />
           </Route>
         </Routes>
       </Suspense>
@@ -75,7 +75,7 @@ function AuthenticatedApp() {
     return (
       <div className="flex h-screen items-center justify-center bg-muted/50">
         <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold">FlowGo</h1>
+          <h1 className="text-2xl font-bold">ArtificialFlow</h1>
           <p className="text-muted-foreground">Please sign in to continue</p>
           <button
             onClick={() => void auth.signinRedirect()}

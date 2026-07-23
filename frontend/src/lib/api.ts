@@ -559,7 +559,7 @@ export const api = {
       body: JSON.stringify(request),
     });
     if (!response.ok) {
-      throw new Error(`Failed to create FlowGo client: ${response.statusText}`);
+      throw new Error(`Failed to create ArtificialFlow client: ${response.statusText}`);
     }
     return response.json();
   },
@@ -570,7 +570,7 @@ export const api = {
       headers: getHeaders(correlationId),
     });
     if (!response.ok) {
-      throw new Error(`Failed to fetch FlowGo clients: ${response.statusText}`);
+      throw new Error(`Failed to fetch ArtificialFlow clients: ${response.statusText}`);
     }
     const data = await response.json();
     return data.clients || [];
@@ -586,7 +586,7 @@ export const api = {
       body: JSON.stringify(request),
     });
     if (!response.ok) {
-      throw new Error(`Failed to add FlowGo client key: ${response.statusText}`);
+      throw new Error(`Failed to add ArtificialFlow client key: ${response.statusText}`);
     }
     return response.json();
   },
@@ -598,7 +598,7 @@ export const api = {
       headers: getHeaders(correlationId),
     });
     if (!response.ok) {
-      throw new Error(`Failed to revoke FlowGo client key: ${response.statusText}`);
+      throw new Error(`Failed to revoke ArtificialFlow client key: ${response.statusText}`);
     }
   },
 
@@ -609,7 +609,7 @@ export const api = {
       headers: getHeaders(correlationId),
     });
     if (!response.ok) {
-      throw new Error(`Failed to revoke FlowGo client token: ${response.statusText}`);
+      throw new Error(`Failed to revoke ArtificialFlow client token: ${response.statusText}`);
     }
   },
 
@@ -620,7 +620,7 @@ export const api = {
       headers: getHeaders(correlationId),
     });
     if (!response.ok) {
-      throw new Error(`Failed to delete FlowGo client: ${response.statusText}`);
+      throw new Error(`Failed to delete ArtificialFlow client: ${response.statusText}`);
     }
   },
 

@@ -1,6 +1,6 @@
 # Agentic SDLC
 
-FlowGo uses agents as maintainer assistants, not as autonomous owners. Agents can read repository context, propose labels, summarize risks, plan validation, and draft review comments. Humans approve public writes, generated commits, releases, security disclosures, and compatibility decisions.
+ArtificialFlow uses agents as maintainer assistants, not as autonomous owners. Agents can read repository context, propose labels, summarize risks, plan validation, and draft review comments. Humans approve public writes, generated commits, releases, security disclosures, and compatibility decisions.
 
 This document defines the operating model for issue triage, pull requests, quality gates, community work, dependency/security review, and release readiness.
 
@@ -11,7 +11,7 @@ This document defines the operating model for issue triage, pull requests, quali
 - Prefer small, auditable comments and check summaries over broad generated changes.
 - Never expose secrets, private vulnerability details, tokens, logs with credentials, or contributor private data.
 - Do not run untrusted pull request code with repository secrets.
-- Preserve FlowGo compatibility-sensitive surfaces: worker REST API, Node.js SDK public API, Docker image environment variables, Helm values, IAM roles/claims, and BPMN parser/runtime semantics.
+- Preserve ArtificialFlow compatibility-sensitive surfaces: worker REST API, Node.js SDK public API, Docker image environment variables, Helm values, IAM roles/claims, and BPMN parser/runtime semantics.
 
 ## Agent Roles
 
@@ -38,7 +38,7 @@ Reusable prompts live under `.agents/`. The shared policy/config file is `.agent
 
 Expected triage evidence:
 
-- FlowGo version or commit.
+- ArtificialFlow version or commit.
 - Deployment mode: external IAM Compose, bundled ZITADEL Compose, Helm external IAM, Helm bundled ZITADEL, or local development.
 - A minimal BPMN file, API payload, SDK snippet, screenshot, or command log when relevant.
 - Expected behavior, actual behavior, and compatibility impact.
@@ -100,7 +100,7 @@ Agents must record which checks were run, skipped, or recommended but not run. A
 
 ## Automation Layers
 
-FlowGo separates agentic SDLC work into three layers:
+ArtificialFlow separates agentic SDLC work into three layers:
 
 | Layer | Examples | Safety default |
 | :--- | :--- | :--- |

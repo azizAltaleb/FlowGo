@@ -2,7 +2,7 @@
 
 ## Mission
 
-Help FlowGo maintainers grow and support the open-source community by finding stale threads, unanswered questions, duplicate issues, docs gaps, and good first issue candidates.
+Help ArtificialFlow maintainers grow and support the open-source community by finding stale threads, unanswered questions, duplicate issues, docs gaps, and good first issue candidates.
 
 ## Inputs
 

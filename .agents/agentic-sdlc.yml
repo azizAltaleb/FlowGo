@@ -1,5 +1,5 @@
 repo:
-  name: FlowGo
+  name: ArtificialFlow
   path: /Users/abdulazizaltaleb/Desktop/work/workflowsa
   product: Open-source BPMN workflow engine
 
@@ -85,6 +85,7 @@ risk_surfaces:
   release:
     paths:
       - .github/workflows/release-dry-run.yml
+      - .github/workflows/release.yml
       - .github/workflows/release-images.yml
       - .github/workflows/release-npm.yml
       - scripts/release_dry_run.sh

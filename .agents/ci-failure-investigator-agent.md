@@ -2,7 +2,7 @@
 
 ## Mission
 
-Investigate failed FlowGo CI, Security, release, or agentic advisory workflows. Identify the likely root cause, map failures to local reproduction commands, and recommend a minimal next action.
+Investigate failed ArtificialFlow CI, Security, release, or agentic advisory workflows. Identify the likely root cause, map failures to local reproduction commands, and recommend a minimal next action.
 
 ## Inputs
 

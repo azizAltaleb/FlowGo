@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
-	"github.com/azizAltaleb/flowgo/backend/libs/iam"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/interfaces/http/dto"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/iam"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/interfaces/http/dto"
 
 	"github.com/gorilla/mux"
 )
@@ -44,7 +44,7 @@ func (h *Handler) requireBundledIAMAdmin(fn http.HandlerFunc) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if !principal.HasRole(auth.RoleFlowGoAdmin) {
+		if !principal.HasRole(auth.RoleArtificialFlowAdmin) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -124,7 +124,7 @@ func (h *Handler) createIdentityManagementClientToken(w http.ResponseWriter, r *
 			writeIdentityManagementError(w, err)
 			return
 		}
-		setSensitiveResponseHeaders(w, "flowgo-client-credential.json")
+		setSensitiveResponseHeaders(w, "artificialflow-client-credential.json")
 		writeJSON(w, http.StatusCreated, toIdentityManagementClientResponse(client))
 		return
 	}
@@ -141,7 +141,7 @@ func (h *Handler) createIdentityManagementClientToken(w http.ResponseWriter, r *
 		writeIdentityManagementError(w, err)
 		return
 	}
-	setSensitiveResponseHeaders(w, "flowgo-client-token.json")
+	setSensitiveResponseHeaders(w, "artificialflow-client-token.json")
 	writeJSON(w, http.StatusCreated, toIdentityManagementClientTokenResponse(token))
 }
 
@@ -163,7 +163,7 @@ func (h *Handler) addIdentityManagementClientKey(w http.ResponseWriter, r *http.
 		writeIdentityManagementError(w, err)
 		return
 	}
-	setSensitiveResponseHeaders(w, "flowgo-client-credential.json")
+	setSensitiveResponseHeaders(w, "artificialflow-client-credential.json")
 	writeJSON(w, http.StatusCreated, toIdentityManagementClientCredentialResponse(key))
 }
 
@@ -189,7 +189,7 @@ func (h *Handler) rotateIdentityManagementClientToken(w http.ResponseWriter, r *
 		writeIdentityManagementError(w, err)
 		return
 	}
-	setSensitiveResponseHeaders(w, "flowgo-client-token.json")
+	setSensitiveResponseHeaders(w, "artificialflow-client-token.json")
 	writeJSON(w, http.StatusCreated, toIdentityManagementClientTokenResponse(token))
 }
 
@@ -282,8 +282,8 @@ func (h *Handler) createIdentityManagementRole(w http.ResponseWriter, r *http.Re
 		http.Error(w, "key and display_name are required", http.StatusBadRequest)
 		return
 	}
-	if isReservedFlowGoRole(request.Key) {
-		http.Error(w, "flowgo admin, flowgo modeler, and flowgo client are built-in platform roles; flowgo viewer is no longer used", http.StatusBadRequest)
+	if isReservedPlatformRole(request.Key) {
+		http.Error(w, "artificialflow admin, artificialflow modeler, artificialflow client, and artificialflow viewer are reserved platform roles", http.StatusBadRequest)
 		return
 	}
 	role, err := h.identityManager.CreateRole(r.Context(), iam.ManagedRoleCreate{Key: request.Key, DisplayName: request.DisplayName, Group: request.Group})
@@ -301,8 +301,8 @@ func (h *Handler) updateIdentityManagementRole(w http.ResponseWriter, r *http.Re
 		return
 	}
 	roleKey := mux.Vars(r)["roleKey"]
-	if isProtectedFlowGoRole(roleKey) {
-		http.Error(w, "flowgo platform roles are built in and cannot be updated from identity management", http.StatusBadRequest)
+	if isProtectedPlatformRole(roleKey) {
+		http.Error(w, "artificialflow platform roles are built in and cannot be updated from identity management", http.StatusBadRequest)
 		return
 	}
 	role, err := h.identityManager.UpdateRole(r.Context(), roleKey, iam.ManagedRoleUpdate{DisplayName: request.DisplayName, Group: request.Group})
@@ -315,8 +315,8 @@ func (h *Handler) updateIdentityManagementRole(w http.ResponseWriter, r *http.Re
 
 func (h *Handler) deleteIdentityManagementRole(w http.ResponseWriter, r *http.Request) {
 	roleKey := mux.Vars(r)["roleKey"]
-	if isProtectedFlowGoRole(roleKey) {
-		http.Error(w, "flowgo platform roles are built in and cannot be deleted from identity management", http.StatusBadRequest)
+	if isProtectedPlatformRole(roleKey) {
+		http.Error(w, "artificialflow platform roles are built in and cannot be deleted from identity management", http.StatusBadRequest)
 		return
 	}
 	if err := h.identityManager.DeleteRole(r.Context(), roleKey); err != nil {
@@ -326,14 +326,14 @@ func (h *Handler) deleteIdentityManagementRole(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func isProtectedFlowGoRole(role string) bool {
-	return strings.EqualFold(strings.TrimSpace(role), auth.RoleFlowGoAdmin) ||
-		strings.EqualFold(strings.TrimSpace(role), auth.RoleFlowGoModeler) ||
-		strings.EqualFold(strings.TrimSpace(role), auth.RoleFlowGoClient)
+func isProtectedPlatformRole(role string) bool {
+	return auth.IsStandardRole(role)
 }
 
-func isReservedFlowGoRole(role string) bool {
-	return isProtectedFlowGoRole(role) || strings.EqualFold(strings.TrimSpace(role), "flowgo viewer")
+func isReservedPlatformRole(role string) bool {
+	normalized := strings.TrimSpace(role)
+	return isProtectedPlatformRole(normalized) ||
+		strings.EqualFold(normalized, "artificialflow viewer")
 }
 
 func toIdentityManagementUserResponse(user iam.ManagedUser) dto.IdentityManagementUserResponse {
@@ -419,7 +419,7 @@ func writeIdentityManagementError(w http.ResponseWriter, err error) {
 	case errors.Is(err, iam.ErrZITADELManagementNotConfigured):
 		http.Error(w, "ZITADEL management is not configured", http.StatusServiceUnavailable)
 	case errors.Is(err, iam.ErrZITADELManagedClientNotFound):
-		http.Error(w, "FlowGo client was not found", http.StatusNotFound)
+		http.Error(w, "ArtificialFlow client was not found", http.StatusNotFound)
 	case errors.Is(err, iam.ErrInvalidClientPublicKey), errors.Is(err, iam.ErrInvalidClientCredentialExpiry):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, iam.ErrLegacyPATCreationDisabled), errors.Is(err, iam.ErrLegacyPATRotationDisabled):

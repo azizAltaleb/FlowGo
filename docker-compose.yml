@@ -1,3 +1,5 @@
+name: ${ARTIFICIALFLOW_COMPOSE_PROJECT_NAME:-artificialflow}
+
 services:
 
   # ---------------------------------------------------------------------------
@@ -7,8 +9,8 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: ${POSTGRES_USER:-artificialflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: workflow_db
     command:
       - postgres
@@ -23,7 +25,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d workflow_db"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d workflow_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -84,10 +86,10 @@ services:
       - "8083:8083"
     environment:
       BOOTSTRAP_SERVERS: kafka:29092
-      GROUP_ID: flowgo-debezium
-      CONFIG_STORAGE_TOPIC: flowgo_connect_configs
-      OFFSET_STORAGE_TOPIC: flowgo_connect_offsets
-      STATUS_STORAGE_TOPIC: flowgo_connect_statuses
+      GROUP_ID: ${CONNECT_GROUP_ID:-artificialflow-debezium}
+      CONFIG_STORAGE_TOPIC: ${CONNECT_CONFIG_STORAGE_TOPIC:-artificialflow_connect_configs}
+      OFFSET_STORAGE_TOPIC: ${CONNECT_OFFSET_STORAGE_TOPIC:-artificialflow_connect_offsets}
+      STATUS_STORAGE_TOPIC: ${CONNECT_STATUS_STORAGE_TOPIC:-artificialflow_connect_statuses}
       KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       KEY_CONVERTER_SCHEMAS_ENABLE: "false"
@@ -108,11 +110,10 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: workflow-backend
     ports:
       - "8080:8080"
     environment:
-      - PG_DSN=host=postgres user=user password=password dbname=workflow_db port=5432 sslmode=disable TimeZone=UTC
+      - PG_DSN=host=postgres user=${POSTGRES_USER:-artificialflow} password=${POSTGRES_PASSWORD:-password} dbname=workflow_db port=5432 sslmode=disable TimeZone=UTC
       - ES_ADDR=http://elasticsearch:9200
       - SERVER_ADDR=0.0.0.0:8080
       # -----------------------------------------------------------------------
@@ -153,9 +154,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile.runtime
-    container_name: workflow-runtime
     environment:
-      - PG_DSN=host=postgres user=user password=password dbname=workflow_db port=5432 sslmode=disable TimeZone=UTC
+      - PG_DSN=host=postgres user=${POSTGRES_USER:-artificialflow} password=${POSTGRES_PASSWORD:-password} dbname=workflow_db port=5432 sslmode=disable TimeZone=UTC
       - RUNTIME_ENABLED=true
       - RUNTIME_TICK_INTERVAL=1s
       - RUNTIME_TASK_TIMEOUT=5s
@@ -173,15 +173,14 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile.workflow-query
-    container_name: workflow-query
     ports:
       - "8081:8081"
     environment:
-      - PG_DSN=host=postgres user=user password=password dbname=workflow_db port=5432 sslmode=disable TimeZone=UTC
+      - PG_DSN=host=postgres user=${POSTGRES_USER:-artificialflow} password=${POSTGRES_PASSWORD:-password} dbname=workflow_db port=5432 sslmode=disable TimeZone=UTC
       - ES_ADDR=http://elasticsearch:9200
       - SEARCH_BACKEND=${SEARCH_BACKEND:-elasticsearch}
       - QUERY_SERVER_ADDR=0.0.0.0:8081
-      - ES_INDEX_PREFIX=flowgo
+      - ES_INDEX_PREFIX=${ES_INDEX_PREFIX:-artificialflow}
       # -----------------------------------------------------------------------
       # IAM / OIDC Authentication Configuration
       # (Must match the configuration used in the app service above)
@@ -221,18 +220,21 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile.sync-worker
-    container_name: workflow-sync-worker
     ports:
       - "8092:8092"
     environment:
       KAFKA_BROKERS: "kafka:29092"
-      KAFKA_GROUP_ID: "flowgo-sync-worker-v8"
-      KAFKA_TOPICS: "workflow.events.v1,flowgo.public.process,flowgo.public.process_instance,flowgo.public.element_instance,flowgo.public.variable,flowgo.public.job,flowgo.public.incident,flowgo.public.timer,flowgo.public.message_subscription"
+      KAFKA_GROUP_ID: "${KAFKA_GROUP_ID:-artificialflow-sync-worker-v8}"
+      KAFKA_TOPICS: "${KAFKA_TOPICS:-workflow.events.v1,artificialflow.public.process,artificialflow.public.process_instance,artificialflow.public.element_instance,artificialflow.public.variable,artificialflow.public.job,artificialflow.public.incident,artificialflow.public.timer,artificialflow.public.message_subscription}"
       SYNC_PROJECTION_CONTRACT: "hybrid"
       KAFKA_DLQ_TOPIC: "workflow.sync.dlq"
       CONNECT_BOOTSTRAP_ENABLED: "true"
       CONNECT_URL: "http://connect:8083"
-      CONNECTOR_NAME: "flowgo-postgres-connector"
+      CONNECTOR_NAME: "${CONNECTOR_NAME:-artificialflow-postgres-connector}"
+      CONNECTOR_TOPIC_PREFIX: "${CONNECTOR_TOPIC_PREFIX:-artificialflow}"
+      CONNECTOR_SLOT_NAME: "${CONNECTOR_SLOT_NAME:-artificialflow_slot}"
+      CONNECTOR_DATABASE_USER: "${CONNECTOR_DATABASE_USER:-${POSTGRES_USER:-artificialflow}}"
+      CONNECT_ALLOW_PARALLEL_IDENTIFIERS: "${CONNECT_ALLOW_PARALLEL_IDENTIFIERS:-false}"
       CONNECTOR_FILE: ""
       CONNECTOR_JSON: ""
       CONNECT_WAIT_TIMEOUT_SEC: "180"
@@ -242,7 +244,8 @@ services:
       SYNC_HEALTH_FAIL_ON_STALE: "false"
       SYNC_METRICS_ADDR: ":8092"
       ES_ADDR: "http://elasticsearch:9200"
-      ES_INDEX_PREFIX: "flowgo"
+      ES_INDEX_PREFIX: "${ES_INDEX_PREFIX:-artificialflow}"
+      SYNC_ALLOW_MIXED_DEBEZIUM_PREFIXES: "${SYNC_ALLOW_MIXED_DEBEZIUM_PREFIXES:-false}"
     depends_on:
       kafka:
         condition: service_healthy
@@ -257,7 +260,6 @@ services:
 
   gateway:
     image: nginx:alpine
-    container_name: workflow-gateway
     ports:
       - "9100:80"
     volumes:
@@ -276,7 +278,6 @@ services:
         VITE_API_URL: http://localhost:9100/api
         VITE_OIDC_AUTHORITY: ""
         VITE_OIDC_CLIENT_ID: ""
-    container_name: workflow-frontend
     environment:
       # -----------------------------------------------------------------------
       # Frontend IAM / OIDC Configuration
@@ -287,9 +288,14 @@ services:
       - VITE_OIDC_CLIENT_ID=
       - FRONTEND_AUTH_OIDC_AUTHORITY=
       - FRONTEND_AUTH_OIDC_CLIENT_ID=
+      - ARTIFICIALFLOW_API_URL=http://localhost:9100/api
+      - ARTIFICIALFLOW_OIDC_AUTHORITY=
+      - ARTIFICIALFLOW_OIDC_CLIENT_ID=
     depends_on:
       - app
 
 volumes:
   pgdata:
+    name: ${ARTIFICIALFLOW_PGDATA_VOLUME:-artificialflow-postgres-data}
   esdata:
+    name: ${ARTIFICIALFLOW_ESDATA_VOLUME:-artificialflow-elasticsearch-data}

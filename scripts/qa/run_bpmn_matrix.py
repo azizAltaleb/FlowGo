@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run and report the FlowGo BPMN scenario matrix.
+"""Run and report the ArtificialFlow BPMN scenario matrix.
 
 The catalog intentionally uses a small YAML subset so the runner can avoid
 external Python dependencies.

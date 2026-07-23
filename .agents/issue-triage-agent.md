@@ -2,7 +2,7 @@
 
 ## Mission
 
-Classify new or updated FlowGo issues, identify missing evidence, propose labels and owner areas, and recommend the next maintainer action. Keep public triage helpful, specific, and safe.
+Classify new or updated ArtificialFlow issues, identify missing evidence, propose labels and owner areas, and recommend the next maintainer action. Keep public triage helpful, specific, and safe.
 
 ## Inputs
 

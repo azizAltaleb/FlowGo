@@ -1,4 +1,4 @@
-import { FlowGoClient } from './Client';
+import { ArtificialFlowClient } from './Client';
 import { Job, RequestOptions } from './types';
 
 export interface WorkerContext {
@@ -22,14 +22,14 @@ export interface WorkerOptions {
 }
 
 export class Worker {
-    private readonly client: FlowGoClient;
+    private readonly client: ArtificialFlowClient;
     private readonly type: string;
     private readonly handler: WorkerHandler;
     private readonly options: Required<Omit<WorkerOptions, 'failRetries' | 'onError'>> & Pick<WorkerOptions, 'failRetries' | 'onError'>;
     private running = false;
     private timer?: ReturnType<typeof setTimeout>;
 
-    constructor(client: FlowGoClient, type: string, handler: WorkerHandler, options: WorkerOptions = {}) {
+    constructor(client: ArtificialFlowClient, type: string, handler: WorkerHandler, options: WorkerOptions = {}) {
         this.client = client;
         this.type = type;
         this.handler = handler;

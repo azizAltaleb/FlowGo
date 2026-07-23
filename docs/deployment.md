@@ -1,11 +1,11 @@
 # Deployment Guide
 
-FlowGo supports the same application stack with either an existing OIDC provider
+ArtificialFlow supports the same application stack with either an existing OIDC provider
 or a bundled ZITADEL installation:
 
-- **External IAM**: FlowGo validates identities created and managed by your OIDC
-  provider. FlowGo does not create external users, clients, roles, or tokens.
-- **Bundled IAM**: FlowGo installs ZITADEL and bootstraps the FlowGo project,
+- **External IAM**: ArtificialFlow validates identities created and managed by your OIDC
+  provider. ArtificialFlow does not create external users, clients, roles, or tokens.
+- **Bundled IAM**: ArtificialFlow installs ZITADEL and bootstraps the ArtificialFlow project,
   applications, roles, initial administrator, and internal introspection client.
 
 Docker Compose is intended for local development and evaluation. The Helm chart
@@ -18,13 +18,13 @@ is the production deployment path.
 - `docker-compose.zitadel.yml`: full local stack with bundled ZITADEL.
 - `docker-compose.release.yml`: override for either Compose option that uses
   published images instead of local builds.
-- `charts/flowgo/values-external-iam.yaml`: Kubernetes with external IAM and
+- `charts/artificialflow/values-external-iam.yaml`: Kubernetes with external IAM and
   operator-managed infrastructure.
-- `charts/flowgo/values-internal-iam.yaml`: Kubernetes with bundled ZITADEL and
-  operator-managed FlowGo infrastructure.
+- `charts/artificialflow/values-internal-iam.yaml`: Kubernetes with bundled ZITADEL and
+  operator-managed ArtificialFlow infrastructure.
 
 Both IAM modes deploy the command API, runtime, query API, sync worker,
-frontend, and gateway. The Compose profiles also include FlowGo Postgres,
+frontend, and gateway. The Compose profiles also include ArtificialFlow Postgres,
 Kafka, Debezium Connect, and Elasticsearch. Bundled IAM additionally includes
 ZITADEL and its database.
 
@@ -35,7 +35,7 @@ For Docker Compose:
 - Docker Engine or Docker Desktop with Docker Compose v2.
 - Free local ports `5432`, `8080`, `8081`, `8083`, `8092`, `9092`, `9100`, and
   `9200`; bundled IAM also requires `9180`.
-- Enough Docker memory for Elasticsearch, Kafka, Debezium, FlowGo, and, in
+- Enough Docker memory for Elasticsearch, Kafka, Debezium, ArtificialFlow, and, in
   bundled mode, ZITADEL.
 - `curl` for the post-deployment checks.
 - Node.js 20 or newer only when building or testing the Node.js SDK locally.
@@ -43,7 +43,7 @@ For Docker Compose:
 For Kubernetes:
 
 - A Kubernetes cluster, Helm 3, and `kubectl`.
-- An ingress controller, DNS, and TLS certificates for the FlowGo hostname.
+- An ingress controller, DNS, and TLS certificates for the ArtificialFlow hostname.
 - Reachable Postgres and Elasticsearch/OpenSearch.
 - Reachable Kafka plus Debezium Connect for the default Kafka projection, or a
   reachable NATS deployment when `eventBus.type=nats`.
@@ -53,28 +53,65 @@ For Kubernetes:
   the chart defaults; its three bootstrap/auth PVCs request RWX access.
 - Backup, monitoring, and restore procedures for stateful dependencies.
 
+## Deployment identity and rename compatibility
+
+Fresh Compose deployments use project name `artificialflow`, project-scoped
+container names, and these explicit volume names:
+
+- `artificialflow-postgres-data`
+- `artificialflow-elasticsearch-data`
+- `artificialflow-zitadel-postgres-data`
+- `artificialflow-zitadel-system-bootstrap`
+- `artificialflow-zitadel-bootstrap`
+- `artificialflow-zitadel-auth`
+
+The Compose files intentionally do not hard-code `container_name`; Compose
+derives collision-safe names from the selected project and service. To attach
+an existing installation, discover the exact old project and volume names
+before rendering. Set only names that actually exist:
+
+```bash
+
+docker compose -f docker-compose.zitadel.yml config --quiet
+bash scripts/validate_compose_identities.sh
+```
+
+installation created from another directory or `COMPOSE_PROJECT_NAME` can have
+different names. A wrong override creates empty storage and can look like data
+loss. Never use a volume-deleting cleanup command during the rename. Back up
+the old volumes first and keep the legacy environment overrides together as
+the rollback configuration.
+
+Fresh Helm installs use chart/release identity `artificialflow`, canonical
+selectors, canonical Secrets/PVCs, and `artificialflow/*` images. An in-place
+upgrade of the former chart must include
+`charts/artificialflow/values-legacy-persistent-identifiers.yaml`. It preserves
+the old fullnames and immutable selectors and renders the existing standalone
+PVCs and Secrets with the keep policy. For a nonstandard old release, copy the
+file and derive all compatibility identity values from live manifests.
+
 ## External IAM prerequisites
 
-Complete these steps in the external provider before starting FlowGo:
+Complete these steps in the external provider before starting ArtificialFlow:
 
 1. Create a backend API resource/audience. Its identifier must match
    `AUTH_CLIENT_ID` or `iam.auth.clientId`; the examples use
    `workflow-backend`.
 2. Create a public browser client. The examples use `workflow-frontend`.
    Enable Authorization Code with PKCE and do not assign a client secret.
-3. Register the FlowGo origin as the login redirect, silent redirect,
+3. Register the ArtificialFlow origin as the login redirect, silent redirect,
    post-logout redirect, and allowed web origin. Local Compose uses
-   `http://localhost:9100`; Kubernetes uses the public FlowGo HTTPS origin.
+   `http://localhost:9100`; Kubernetes uses the public ArtificialFlow HTTPS origin.
 4. Create a confidential machine-to-machine client with the client-credentials
    grant for SDK, worker, and automation access.
 5. Create and assign the exact role names described in
    [IAM roles](iam.md#external-iam-role-provisioning).
 6. Emit those roles in a claim configured by `AUTH_CLAIM_ROLES_PATH` or
    `iam.auth.claimRolesPath`.
-7. Include the FlowGo backend audience in access tokens. Audience enforcement
+7. Include the ArtificialFlow backend audience in access tokens. Audience enforcement
    is enabled in the supplied external-IAM configurations.
 8. Confirm that the OIDC discovery document and JWKS are reachable from the
-   FlowGo containers or pods, while the public issuer is reachable from user
+   ArtificialFlow containers or pods, while the public issuer is reachable from user
    browsers.
 
 Use `AUTH_TOKEN_MODE=jwt` for self-contained JWT access tokens. For opaque
@@ -139,7 +176,7 @@ make up-external-iam
 To use published images:
 
 ```bash
-FLOWGO_IMAGE_TAG=0.2.0 make up-external-iam-release
+ARTIFICIALFLOW_IMAGE_TAG=0.3.0 make up-external-iam-release
 ```
 
 ### 3. External-IAM postconditions
@@ -151,19 +188,22 @@ make ps-external-iam
 curl -fsS http://localhost:9100/api/health
 curl -fsS http://localhost:9100/api/query/health
 curl -fsS http://localhost:8092/health
-curl -fsS http://localhost:8083/connectors/flowgo-postgres-connector/status
+curl -fsS http://localhost:8083/connectors/artificialflow-postgres-connector/status
 ```
+
+The connector name is a legacy wire identifier retained for rolling-upgrade
+compatibility.
 
 - Compose reports no exited or unhealthy required service.
 - Both API health calls return `{"status":"ok"}`.
 - The connector and all connector tasks report `RUNNING`.
 - `http://localhost:9100` redirects to the configured provider and a user with
-  `flowgo admin` or `flowgo modeler` can sign in.
-- An SDK token returns an authenticated principal containing `flowgo client`:
+  `artificialflow admin` or `artificialflow modeler` can sign in.
+- An SDK token returns an authenticated principal containing `artificialflow client`:
 
 ```bash
 curl -fsS \
-  -H "Authorization: Bearer ${FLOWGO_TOKEN}" \
+  -H "Authorization: Bearer ${ARTIFICIALFLOW_TOKEN}" \
   http://localhost:9100/api/identity/me
 ```
 
@@ -189,15 +229,15 @@ make up-zitadel
 To use published images:
 
 ```bash
-FLOWGO_IMAGE_TAG=0.2.0 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_TAG=0.3.0 make up-zitadel-release
 ```
 
-The first boot can take several minutes while ZITADEL initializes and FlowGo
+The first boot can take several minutes while ZITADEL initializes and ArtificialFlow
 waits for generated client files.
 
 Important bootstrap limitation: every bundled-ZITADEL restart reconciles the
 configured initial administrator and deletes other human users holding
-`flowgo admin` for the FlowGo project. Until that behavior is changed, use the
+`artificialflow admin` for the ArtificialFlow project. Until that behavior is changed, use the
 single configured human administrator and do not treat additional bundled-IAM
 admin assignments as durable.
 
@@ -208,14 +248,14 @@ make ps-zitadel
 curl -fsS http://localhost:9100/api/health
 curl -fsS http://localhost:9100/api/query/health
 curl -fsS http://localhost:8092/health
-curl -fsS http://localhost:8083/connectors/flowgo-postgres-connector/status
+curl -fsS http://localhost:8083/connectors/artificialflow-postgres-connector/status
 ```
 
-- FlowGo is available at `http://localhost:9100`.
+- ArtificialFlow is available at `http://localhost:9100`.
 - ZITADEL is available at `http://localhost:9180`.
 - The local development administrator can sign in with username `admin`,
   password `admin`, and email `admin@admin.localhost`.
-- The administrator has `flowgo admin`; all three standard roles are visible.
+- The administrator has `artificialflow admin`; all three standard roles are visible.
 - The **SDK Clients** page can create a client and download its one-time
   service-account profile.
 - Both APIs are healthy and the Debezium connector is `RUNNING`.
@@ -246,12 +286,12 @@ make clean-zitadel
 ## Kubernetes and Helm
 
 Create an environment-specific values file rather than editing the checked-in
-examples. Pin every FlowGo image tag and provide production dependency
+examples. Pin every ArtificialFlow image tag and provide production dependency
 addresses:
 
 ```yaml
 postgresql:
-  existingSecret: flowgo-postgres
+  existingSecret: artificialflow-postgres
   existingSecretKey: PG_DSN
 
 search:
@@ -307,26 +347,26 @@ zitadel:
 
 ingress:
   enabled: true
-  host: flowgo.example.com
+  host: app.artificialflow.example.io
   tls:
     enabled: true
-    secretName: flowgo-tls
+    secretName: artificialflow-tls
 ```
 
 Validate and install:
 
 ```bash
 make validate-helm
-helm lint ./charts/flowgo -f ./charts/flowgo/values-external-iam.yaml -f ./values-production.yaml
-helm upgrade --install flowgo ./charts/flowgo \
-  --namespace flowgo --create-namespace \
-  -f ./charts/flowgo/values-external-iam.yaml \
+helm lint ./charts/artificialflow -f ./charts/artificialflow/values-external-iam.yaml -f ./values-production.yaml
+helm upgrade --install artificialflow ./charts/artificialflow \
+  --namespace artificialflow --create-namespace \
+  -f ./charts/artificialflow/values-external-iam.yaml \
   -f ./values-production.yaml
 ```
 
 ### Helm with bundled ZITADEL
 
-Use separate HTTPS hostnames for FlowGo and ZITADEL. Configure
+Use separate HTTPS hostnames for ArtificialFlow and ZITADEL. Configure
 `zitadel.publicUrl`, `zitadel.externalDomain`, `zitadel.bootstrap.frontendUrl`,
 and both ingresses consistently. The ZITADEL master key must be exactly 32
 characters.
@@ -338,14 +378,14 @@ For production, set `zitadel.existingSecret` to a Secret containing:
 - `ZITADEL_POSTGRES_PASSWORD`
 - `ZITADEL_DATABASE_POSTGRES_DSN`
 
-The bootstrap automatically supplies FlowGo's generated frontend client,
+The bootstrap automatically supplies ArtificialFlow's generated frontend client,
 project audience, roles, and authenticated introspection credentials.
 
 Review these current bundled-chart constraints before production use:
 
 - The three bootstrap/auth PVCs default to `ReadWriteMany`.
 - Bootstrap reconciliation retains the configured administrator and deletes
-  additional human FlowGo administrators on restart.
+  additional human ArtificialFlow administrators on restart.
 - The generated frontend OIDC application currently uses ZITADEL development
   mode.
 - Bootstrap relaxes instance password policy and does not require the initial
@@ -363,28 +403,64 @@ production.
 
 ```bash
 make validate-helm
-helm lint ./charts/flowgo -f ./charts/flowgo/values-internal-iam.yaml -f ./values-production.yaml
-helm upgrade --install flowgo ./charts/flowgo \
-  --namespace flowgo --create-namespace \
-  -f ./charts/flowgo/values-internal-iam.yaml \
+helm lint ./charts/artificialflow -f ./charts/artificialflow/values-internal-iam.yaml -f ./values-production.yaml
+helm upgrade --install artificialflow ./charts/artificialflow \
+  --namespace artificialflow --create-namespace \
+  -f ./charts/artificialflow/values-internal-iam.yaml \
   -f ./values-production.yaml
 ```
+
+### Controlled cutover to canonical Kubernetes names
+
+Changing resource names to canonical `artificialflow`
+names is a blue/green deployment, not a normal in-place Helm upgrade:
+
+1. Inventory the old release manifest, resource names, selectors, Secrets,
+   standalone PVCs, StatefulSet claims, external databases, search indices,
+   connector offsets, and ingress/DNS configuration.
+2. Take tested backups or snapshots of Postgres, search, every PVC, and IAM
+   state. Record the exact image digests and values for rollback.
+3. Upgrade the old release once with
+   `values-legacy-persistent-identifiers.yaml`. Review the rendered diff first.
+   This keeps old identities and applies keep/retention protection before any
+   name migration.
+4. Verify the old stack is healthy, then schedule a write freeze. Stop new
+   workflow/API writes, let outbox and projection lag reach zero, and stop the
+   old consumers before copying mutable state.
+5. Restore into separately named canonical databases, indices, and claims, or
+   attach deliberately pre-provisioned clones through the chart's
+   `existingSecret`/`existingClaim` settings. Do not let blue and green writers
+   share one mutable database, connector slot, consumer group, or RWO claim.
+6. Install release `artificialflow` with the canonical chart defaults in a
+   separate namespace or routing boundary. Keep ingress/DNS pointed at the old
+   stack while running health, IAM, workflow, and write-to-query checks.
+7. Switch traffic only after validation and retain the old release and backups
+   unchanged for the rollback window.
+8. To roll back, restore the old ingress/DNS target and resume the old stack
+   with its recorded compatibility values. If the green stack accepted writes,
+   reconcile or restore state according to the tested recovery plan before
+   reopening writes; do not run both writers concurrently.
+
+The release workflows do not perform this migration or delete old resources.
+After the rollback window, retire the legacy release only through an
+operator-approved change that separately verifies every retained Secret and
+PVC.
 
 ### Helm postconditions
 
 ```bash
-kubectl get pods -n flowgo
-kubectl get ingress -n flowgo
-kubectl get events -n flowgo --sort-by=.lastTimestamp
-curl -fsS https://flowgo.example.com/api/health
-curl -fsS https://flowgo.example.com/api/query/health
+kubectl get pods -n artificialflow
+kubectl get ingress -n artificialflow
+kubectl get events -n artificialflow --sort-by=.lastTimestamp
+curl -fsS https://app.artificialflow.example.io/api/health
+curl -fsS https://app.artificialflow.example.io/api/query/health
 ```
 
 The installation is complete when:
 
-- Every FlowGo Deployment is available and all pods are Ready.
+- Every ArtificialFlow Deployment is available and all pods are Ready.
 - The command and query health endpoints return `{"status":"ok"}`.
-- The public FlowGo page loads through TLS.
+- The public ArtificialFlow page loads through TLS.
 - External mode completes an OIDC login and returns the expected roles from
   `/api/identity/me`.
 - Bundled mode exposes the ZITADEL TLS hostname, completes bootstrap, and lets
