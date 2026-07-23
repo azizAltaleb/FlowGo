@@ -444,7 +444,7 @@ deployment_matrix() {
   fi
   deployment_compose_model "bundled-zitadel" "-f docker-compose.zitadel.yml" "make up-zitadel" "make down-zitadel"
 
-  if [[ -n "${ARTIFICIALFLOW_IMAGE_TAG:-${FLOWGO_IMAGE_TAG:-}}" ]]; then
+  if [[ -n "${ARTIFICIALFLOW_IMAGE_TAG:-${ARTIFICIALFLOW_IMAGE_TAG:-}}" ]]; then
     if [[ "${external_iam_ready}" == "true" ]]; then
       deployment_compose_model "external-iam-release" "-f docker-compose.external-iam.yml -f docker-compose.release.yml" "make up-external-iam-release" "make down-external-iam"
     elif [[ "${ALLOW_EXTERNAL_IAM_LIVE}" == "true" ]]; then
@@ -479,8 +479,8 @@ ui_sdk_perf_security() {
 
   if [[ "${SKIP_SDK_LIVE}" == "true" ]]; then
     skip_case "sdk-live" "Live Node.js SDK smoke" "sdk" "false" "--skip-sdk-live was requested"
-  elif [[ -n "${ARTIFICIALFLOW_TOKEN:-${FLOWGO_TOKEN:-}}" ]]; then
-    run_case "sdk-live" "Live Node.js SDK smoke" "sdk" "false" "cd clients/nodejs-sdk && ARTIFICIALFLOW_BASE_URL='${ARTIFICIALFLOW_BASE_URL:-${FLOWGO_BASE_URL:-http://localhost:9100/api}}' node examples/sdk-smoke-test.js"
+  elif [[ -n "${ARTIFICIALFLOW_TOKEN:-${ARTIFICIALFLOW_TOKEN:-}}" ]]; then
+    run_case "sdk-live" "Live Node.js SDK smoke" "sdk" "false" "cd clients/nodejs-sdk && ARTIFICIALFLOW_BASE_URL='${ARTIFICIALFLOW_BASE_URL:-${ARTIFICIALFLOW_BASE_URL:-http://localhost:9100/api}}' node examples/sdk-smoke-test.js"
   else
     warn_case "sdk-live" "Live Node.js SDK smoke" "sdk" "ARTIFICIALFLOW_TOKEN is not set."
   fi

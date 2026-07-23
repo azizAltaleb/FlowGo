@@ -5,37 +5,15 @@ import test from "node:test";
 import {
   canonicalRoleKeys,
   collectPaginated,
-  envWithLegacy,
   selectApplication,
   selectProject,
 } from "./bootstrap_zitadel.mjs";
 
-test("envWithLegacy prefers canonical values and supports legacy fallback", () => {
-  const canonicalName = "ARTIFICIALFLOW_TEST_PRECEDENCE";
-  const legacyName = "FLOWGO_TEST_PRECEDENCE";
-  const previousCanonical = process.env[canonicalName];
-  const previousLegacy = process.env[legacyName];
-  try {
-    process.env[canonicalName] = "canonical";
-    process.env[legacyName] = "legacy";
-    assert.equal(envWithLegacy(canonicalName, legacyName, "fallback"), "canonical");
-    delete process.env[canonicalName];
-    assert.equal(envWithLegacy(canonicalName, legacyName, "fallback"), "legacy");
-    delete process.env[legacyName];
-    assert.equal(envWithLegacy(canonicalName, legacyName, "fallback"), "fallback");
-  } finally {
-    if (previousCanonical === undefined) delete process.env[canonicalName];
-    else process.env[canonicalName] = previousCanonical;
-    if (previousLegacy === undefined) delete process.env[legacyName];
-    else process.env[legacyName] = previousLegacy;
-  }
-});
-
 test("canonicalRoleKeys migrates standard roles and preserves custom roles", () => {
   const migrated = canonicalRoleKeys([
-    "flowgo admin",
     "artificialflow admin",
-    "flowgo client",
+    "artificialflow admin",
+    "artificialflow client",
     "Finance Reviewer",
   ]);
   assert.deepEqual(migrated, [
@@ -61,7 +39,7 @@ test("collectPaginated finds saved migration objects on later pages instead of d
     }
     return {
       pagination: { totalResult: "3" },
-      projects: [{ projectId: "saved-project", name: "FlowGo" }],
+      projects: [{ projectId: "saved-project", name: "LegacyProject" }],
     };
   }, "projects", 2);
 
@@ -88,7 +66,7 @@ test("multi-page application and user results preserve saved IDs", async () => {
       : [{
         applicationId: "saved-app",
         projectId: "project-1",
-        name: "FlowGo Frontend",
+        name: "Legacy Frontend",
         oidcConfiguration: { clientId: "saved-client" },
       }],
   }), "applications", 1);
@@ -97,7 +75,7 @@ test("multi-page application and user results preserve saved IDs", async () => {
     applicationId: "saved-app",
     clientId: "saved-client",
     name: "ArtificialFlow Frontend",
-    legacyNames: new Set(["flowgo frontend"]),
+    legacyNames: new Set(["legacy frontend"]),
     configurationKey: "oidcConfiguration",
   });
   assert.equal(selected?.applicationId, "saved-app");
@@ -177,7 +155,7 @@ test("multi-page authorization migration preserves IDs and custom roles", async 
       details: { totalResult: "2" },
       authorizations: [{
         id: "saved-auth",
-        roles: [{ key: "flowgo admin" }, { key: "Finance Reviewer" }],
+        roles: [{ key: "artificialflow admin" }, { key: "Finance Reviewer" }],
       }],
     };
   }, "authorizations", 1);
@@ -190,13 +168,13 @@ test("multi-page authorization migration preserves IDs and custom roles", async 
   );
 });
 
-test("selectProject prefers immutable legacy state before names", () => {
+test("selectProject prefers saved project id then canonical name", () => {
   const projects = [
     { projectId: "canonical-name", name: "ArtificialFlow" },
-    { projectId: "legacy-id", name: "FlowGo" },
+    { projectId: "saved-id", name: "Other Project" },
   ];
-  assert.equal(selectProject(projects, { project_id: "legacy-id" })?.projectId, "legacy-id");
-  assert.equal(selectProject([projects[1]], {})?.projectId, "legacy-id");
+  assert.equal(selectProject(projects, { project_id: "saved-id" })?.projectId, "saved-id");
+  assert.equal(selectProject(projects, {})?.projectId, "canonical-name");
 });
 
 test("selectApplication reuses immutable IDs and legacy names", () => {
@@ -210,7 +188,7 @@ test("selectApplication reuses immutable IDs and legacy names", () => {
     {
       applicationId: "legacy-id",
       projectId: "project-1",
-      name: "FlowGo Frontend",
+      name: "Legacy Frontend",
       oidcConfiguration: { clientId: "legacy-client" },
     },
   ];
@@ -219,7 +197,7 @@ test("selectApplication reuses immutable IDs and legacy names", () => {
     applicationId: "legacy-id",
     clientId: "",
     name: "ArtificialFlow Frontend",
-    legacyNames: new Set(["flowgo frontend"]),
+    legacyNames: new Set(["legacy frontend"]),
     configurationKey: "oidcConfiguration",
   };
   assert.equal(selectApplication(applications, options)?.applicationId, "legacy-id");

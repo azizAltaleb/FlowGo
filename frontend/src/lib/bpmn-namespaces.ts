@@ -1,5 +1,4 @@
 export const ARTIFICIALFLOW_BPMN_NAMESPACE = "http://artificialflow.io/schema/1.0/bpmn";
-export const LEGACY_FLOWGO_BPMN_NAMESPACE = "http://flowgo.com/schema/1.0/bpmn";
 export const ARTIFICIALFLOW_BPMN_PREFIX = "artificialflow";
 
 const EXTENSION_ATTRIBUTE_NAMES = [
@@ -28,12 +27,10 @@ type XMLRecord = Record<string, unknown>;
 
 export interface BpmnNamespaceContext {
   canonicalPrefixes: string[];
-  legacyPrefixes: string[];
 }
 
 const defaultContext: BpmnNamespaceContext = {
   canonicalPrefixes: [ARTIFICIALFLOW_BPMN_PREFIX],
-  legacyPrefixes: ["flowgo"],
 };
 
 function unique(values: string[]): string[] {
@@ -48,16 +45,13 @@ export function bpmnNamespaceContext(definitions: XMLRecord): BpmnNamespaceConte
 
   return {
     canonicalPrefixes: unique([ARTIFICIALFLOW_BPMN_PREFIX, ...prefixesFor(ARTIFICIALFLOW_BPMN_NAMESPACE)]),
-    legacyPrefixes: unique(["flowgo", ...prefixesFor(LEGACY_FLOWGO_BPMN_NAMESPACE)]),
   };
 }
 
 function attributeKeys(name: ArtificialFlowAttributeName, context: BpmnNamespaceContext): string[] {
   return [
     ...context.canonicalPrefixes.map((prefix) => `@_${prefix}:${name}`),
-    ...context.legacyPrefixes.map((prefix) => `@_${prefix}:${name}`),
     `@_${name}`,
-    `@_flowgo_${name}`,
   ];
 }
 
@@ -90,7 +84,6 @@ function extensionKeys(
 ): string[] {
   return [
     ...context.canonicalPrefixes.map((prefix) => `${prefix}:${localName}`),
-    ...context.legacyPrefixes.map((prefix) => `${prefix}:${localName}`),
     localName,
   ];
 }
@@ -132,17 +125,14 @@ function canonicalizeVendorKeys(value: unknown, context: BpmnNamespaceContext): 
 
   const normalized: XMLRecord = {};
   const canonicalPrefixes = unique([ARTIFICIALFLOW_BPMN_PREFIX, ...context.canonicalPrefixes]);
-  const allPrefixes = unique([...canonicalPrefixes, ...context.legacyPrefixes]);
   for (const [key, item] of Object.entries(record)) {
-    if (!canonicalVendorKey(key, allPrefixes)) {
+    if (!canonicalVendorKey(key, canonicalPrefixes)) {
       normalized[key] = canonicalizeVendorKeys(item, context);
     }
   }
-  for (const prefixGroup of [context.legacyPrefixes, canonicalPrefixes]) {
-    for (const [key, item] of Object.entries(record)) {
-      const canonicalKey = canonicalVendorKey(key, prefixGroup);
-      if (canonicalKey) normalized[canonicalKey] = canonicalizeVendorKeys(item, context);
-    }
+  for (const [key, item] of Object.entries(record)) {
+    const canonicalKey = canonicalVendorKey(key, canonicalPrefixes);
+    if (canonicalKey) normalized[canonicalKey] = canonicalizeVendorKeys(item, context);
   }
   return normalized;
 }

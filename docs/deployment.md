@@ -71,22 +71,11 @@ an existing installation, discover the exact old project and volume names
 before rendering. Set only names that actually exist:
 
 ```bash
-export ARTIFICIALFLOW_COMPOSE_PROJECT_NAME=flowgo
-export ARTIFICIALFLOW_PGDATA_VOLUME=flowgo_pgdata
-export ARTIFICIALFLOW_ESDATA_VOLUME=flowgo_esdata
-export ARTIFICIALFLOW_ZITADEL_PGDATA_VOLUME=flowgo_zitadel-postgres-data
-export ARTIFICIALFLOW_ZITADEL_BOOTSTRAP_VOLUME=flowgo_zitadel-bootstrap
-export ARTIFICIALFLOW_BOOTSTRAP_VOLUME=flowgo_flowgo-zitadel-bootstrap
-export ARTIFICIALFLOW_AUTH_VOLUME=flowgo_flowgo-zitadel-auth
-export ARTIFICIALFLOW_ZITADEL_NETWORK=zitadel
-export ARTIFICIALFLOW_STATE_ROOT=/flowgo
-export ARTIFICIALFLOW_STATE_FILE_PREFIX=flowgo
 
 docker compose -f docker-compose.zitadel.yml config --quiet
 bash scripts/validate_compose_identities.sh
 ```
 
-The sample legacy names match the standard former `flowgo` project, but an
 installation created from another directory or `COMPOSE_PROJECT_NAME` can have
 different names. A wrong override creates empty storage and can look like data
 loss. Never use a volume-deleting cleanup command during the rename. Back up
@@ -423,7 +412,7 @@ helm upgrade --install artificialflow ./charts/artificialflow \
 
 ### Controlled cutover to canonical Kubernetes names
 
-Changing from legacy `flowgo` resource names to canonical `artificialflow`
+Changing resource names to canonical `artificialflow`
 names is a blue/green deployment, not a normal in-place Helm upgrade:
 
 1. Inventory the old release manifest, resource names, selectors, Secrets,

@@ -16,10 +16,6 @@ function env(name, fallback = "") {
   return (process.env[name] || fallback).trim();
 }
 
-function envWithLegacy(canonicalName, legacyName, fallback = "") {
-  return env(canonicalName, env(legacyName, fallback));
-}
-
 function canonicalIdentity(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -27,20 +23,20 @@ function canonicalIdentity(value) {
 const ZITADEL_INTERNAL_URL = env("ZITADEL_INTERNAL_URL", "http://zitadel-api:8080").replace(/\/$/, "");
 const ZITADEL_PUBLIC_URL = env("ZITADEL_PUBLIC_URL", "http://localhost:9180").replace(/\/$/, "");
 const OWNER_PAT_FILE = env("ZITADEL_OWNER_PAT_FILE", "/zitadel/bootstrap/owner.pat");
-const CLIENT_ID_FILE = envWithLegacy("ARTIFICIALFLOW_FRONTEND_CLIENT_ID_FILE", "FLOWGO_FRONTEND_CLIENT_ID_FILE", "/artificialflow/bootstrap/artificialflow-frontend-client-id");
-const PROJECT_ID_FILE = envWithLegacy("ARTIFICIALFLOW_PROJECT_ID_FILE", "FLOWGO_PROJECT_ID_FILE", "/artificialflow/bootstrap/artificialflow-project-id");
-const API_CLIENT_ID_FILE = envWithLegacy("ARTIFICIALFLOW_API_CLIENT_ID_FILE", "FLOWGO_API_CLIENT_ID_FILE", "/artificialflow/auth/artificialflow-api-client-id");
-const API_CLIENT_SECRET_FILE = envWithLegacy("ARTIFICIALFLOW_API_CLIENT_SECRET_FILE", "FLOWGO_API_CLIENT_SECRET_FILE", "/artificialflow/auth/artificialflow-api-client-secret");
-const API_CREDENTIAL_UID = Number(envWithLegacy("ARTIFICIALFLOW_API_CREDENTIAL_UID", "FLOWGO_API_CREDENTIAL_UID", "10001"));
-const BOOTSTRAP_STATE_FILE = envWithLegacy("ARTIFICIALFLOW_ZITADEL_BOOTSTRAP_STATE_FILE", "FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE", "/artificialflow/bootstrap/artificialflow-zitadel.json");
-const PROJECT_NAME = envWithLegacy("ARTIFICIALFLOW_PROJECT_NAME", "FLOWGO_PROJECT_NAME", "ArtificialFlow");
-const FRONTEND_APP_NAME = envWithLegacy("ARTIFICIALFLOW_FRONTEND_APP_NAME", "FLOWGO_FRONTEND_APP_NAME", "ArtificialFlow Frontend");
-const API_APP_NAME = envWithLegacy("ARTIFICIALFLOW_API_APP_NAME", "FLOWGO_API_APP_NAME", "ArtificialFlow API");
-const LEGACY_PROJECT_NAMES = new Set(["FlowGo", ...envWithLegacy("ARTIFICIALFLOW_LEGACY_PROJECT_NAMES", "FLOWGO_LEGACY_PROJECT_NAMES").split(",")].map(canonicalIdentity).filter(Boolean));
-const LEGACY_FRONTEND_APP_NAMES = new Set(["FlowGo Frontend", ...envWithLegacy("ARTIFICIALFLOW_LEGACY_FRONTEND_APP_NAMES", "FLOWGO_LEGACY_FRONTEND_APP_NAMES").split(",")].map(canonicalIdentity).filter(Boolean));
-const LEGACY_API_APP_NAMES = new Set(["FlowGo API", ...envWithLegacy("ARTIFICIALFLOW_LEGACY_API_APP_NAMES", "FLOWGO_LEGACY_API_APP_NAMES").split(",")].map(canonicalIdentity).filter(Boolean));
-const FRONTEND_URL = envWithLegacy("ARTIFICIALFLOW_FRONTEND_URL", "FLOWGO_FRONTEND_URL", "http://localhost:9100").replace(/\/$/, "");
-const ACCESS_TOKEN_LIFETIME = envWithLegacy("ARTIFICIALFLOW_ZITADEL_ACCESS_TOKEN_LIFETIME", "FLOWGO_ZITADEL_ACCESS_TOKEN_LIFETIME", "900s");
+const CLIENT_ID_FILE = env("ARTIFICIALFLOW_FRONTEND_CLIENT_ID_FILE", "/artificialflow/bootstrap/artificialflow-frontend-client-id");
+const PROJECT_ID_FILE = env("ARTIFICIALFLOW_PROJECT_ID_FILE", "/artificialflow/bootstrap/artificialflow-project-id");
+const API_CLIENT_ID_FILE = env("ARTIFICIALFLOW_API_CLIENT_ID_FILE", "/artificialflow/auth/artificialflow-api-client-id");
+const API_CLIENT_SECRET_FILE = env("ARTIFICIALFLOW_API_CLIENT_SECRET_FILE", "/artificialflow/auth/artificialflow-api-client-secret");
+const API_CREDENTIAL_UID = Number(env("ARTIFICIALFLOW_API_CREDENTIAL_UID", "10001"));
+const BOOTSTRAP_STATE_FILE = env("ARTIFICIALFLOW_ZITADEL_BOOTSTRAP_STATE_FILE", "/artificialflow/bootstrap/artificialflow-zitadel.json");
+const PROJECT_NAME = env("ARTIFICIALFLOW_PROJECT_NAME", "ArtificialFlow");
+const FRONTEND_APP_NAME = env("ARTIFICIALFLOW_FRONTEND_APP_NAME", "ArtificialFlow Frontend");
+const API_APP_NAME = env("ARTIFICIALFLOW_API_APP_NAME", "ArtificialFlow API");
+const LEGACY_PROJECT_NAMES = new Set([...env("ARTIFICIALFLOW_LEGACY_PROJECT_NAMES").split(",")].map(canonicalIdentity).filter(Boolean));
+const LEGACY_FRONTEND_APP_NAMES = new Set([...env("ARTIFICIALFLOW_LEGACY_FRONTEND_APP_NAMES").split(",")].map(canonicalIdentity).filter(Boolean));
+const LEGACY_API_APP_NAMES = new Set([...env("ARTIFICIALFLOW_LEGACY_API_APP_NAMES").split(",")].map(canonicalIdentity).filter(Boolean));
+const FRONTEND_URL = env("ARTIFICIALFLOW_FRONTEND_URL", "http://localhost:9100").replace(/\/$/, "");
+const ACCESS_TOKEN_LIFETIME = env("ARTIFICIALFLOW_ZITADEL_ACCESS_TOKEN_LIFETIME", "900s");
 const ADMIN_USERNAME = env("ZITADEL_ADMIN_USERNAME", env("ZITADEL_ADMIN_LOGIN_NAME", "admin"));
 const ADMIN_PASSWORD = env("ZITADEL_ADMIN_PASSWORD", "admin");
 const ADMIN_GIVEN_NAME = env("ZITADEL_ADMIN_GIVEN_NAME", "admin");
@@ -61,16 +57,11 @@ const ROLES = [
   ["artificialflow modeler", "ArtificialFlow Modeler"],
   ["artificialflow client", "ArtificialFlow Client"],
 ];
-const LEGACY_ROLE_MAPPINGS = new Map([
-  ["flowgo admin", "artificialflow admin"],
-  ["flowgo modeler", "artificialflow modeler"],
-  ["flowgo client", "artificialflow client"],
-]);
 
 function canonicalRoleKey(roleKey) {
   const trimmed = String(roleKey || "").trim();
   const normalized = trimmed.toLowerCase();
-  return LEGACY_ROLE_MAPPINGS.get(normalized) || ROLES.find(([role]) => role === normalized)?.[0] || trimmed;
+  return ROLES.find(([role]) => role === normalized)?.[0] || trimmed;
 }
 
 function canonicalRoleKeys(roleKeys) {
@@ -857,7 +848,6 @@ export {
   canonicalRoleKey,
   canonicalRoleKeys,
   collectPaginated,
-  envWithLegacy,
   listUsers,
   selectApplication,
   selectProject,

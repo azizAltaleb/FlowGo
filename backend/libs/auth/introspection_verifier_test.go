@@ -38,7 +38,7 @@ func TestIntrospectionVerifierAcceptsBrowserJWT(t *testing.T) {
 func TestIntrospectionVerifierAcceptsSDKClientPATWithRole(t *testing.T) {
 	const opaquePAT = "opaque-sdk-client-token"
 	verifier, _ := newTestIntrospectionVerifier(t, func(w http.ResponseWriter, r *http.Request) {
-		if username, password, ok := r.BasicAuth(); !ok || username != "flowgo-api" || password != "introspection-secret" {
+		if username, password, ok := r.BasicAuth(); !ok || username != "artificialflow-api" || password != "introspection-secret" {
 			t.Fatalf("unexpected introspection credentials: username=%q ok=%v", username, ok)
 		}
 		if err := r.ParseForm(); err != nil {
@@ -63,7 +63,7 @@ func TestIntrospectionVerifierAcceptsSDKClientPATWithRole(t *testing.T) {
 		t.Fatalf("expected SDK PAT to be accepted: %v", err)
 	}
 	if principal.Subject != "sdk-client-1" || !principal.HasRole(RoleArtificialFlowClient) {
-		t.Fatalf("expected flowgo client principal, got %#v", principal)
+		t.Fatalf("expected artificialflow client principal, got %#v", principal)
 	}
 	if principal.TokenMode != TokenModeIntrospection {
 		t.Fatalf("expected introspection token mode, got %q", principal.TokenMode)
@@ -119,7 +119,7 @@ func newTestIntrospectionVerifier(t *testing.T, handler http.HandlerFunc) (Token
 	verifier, err := newIntrospectionVerifier(Config{
 		TokenValidationMode:       TokenModeIntrospection,
 		IntrospectionURL:          server.URL,
-		IntrospectionClientID:     "flowgo-api",
+		IntrospectionClientID:     "artificialflow-api",
 		IntrospectionClientSecret: "introspection-secret",
 		IntrospectionAuthMethod:   "basic",
 		ClaimRolesPath:            "roles,urn:zitadel:iam:org:project:roles,groups",
@@ -149,7 +149,7 @@ func TestIntrospectionVerifierPostAuthentication(t *testing.T) {
 		for key, values := range r.Form {
 			body[key] = values
 		}
-		if body.Get("client_id") != "flowgo-api" || body.Get("client_secret") != "introspection-secret" {
+		if body.Get("client_id") != "artificialflow-api" || body.Get("client_secret") != "introspection-secret" {
 			t.Fatalf("missing client_secret_post credentials")
 		}
 		writeIntrospectionResponse(t, w, map[string]any{"active": true, "sub": "client-1"})
@@ -157,7 +157,7 @@ func TestIntrospectionVerifierPostAuthentication(t *testing.T) {
 	defer server.Close()
 	verifier, err := newIntrospectionVerifier(Config{
 		IntrospectionURL:          server.URL,
-		IntrospectionClientID:     "flowgo-api",
+		IntrospectionClientID:     "artificialflow-api",
 		IntrospectionClientSecret: "introspection-secret",
 		IntrospectionAuthMethod:   "post",
 	})
@@ -179,7 +179,7 @@ func TestIntrospectionVerifierUsesPublicIssuerHostForInternalProxy(t *testing.T)
 	defer server.Close()
 	verifier, err := newIntrospectionVerifier(Config{
 		IntrospectionURL:          server.URL,
-		IntrospectionClientID:     "flowgo-api",
+		IntrospectionClientID:     "artificialflow-api",
 		IntrospectionClientSecret: "introspection-secret",
 		ExternalIssuerURL:         "http://localhost:9180",
 		AllowInsecureIssuer:       true,

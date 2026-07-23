@@ -28,10 +28,10 @@ func TestNewKafkaConsumerAppliesConfigDefaults(t *testing.T) {
 }
 
 func TestReaderConfigUsesSingleGroupSubscriptionForAllTopics(t *testing.T) {
-	topics := []string{"workflow.events.v1", "flowgo.public.process", "flowgo.public.job"}
+	topics := []string{"workflow.events.v1", "artificialflow.public.process", "artificialflow.public.job"}
 	consumer := NewKafkaConsumer(Config{
 		Brokers: []string{"kafka:29092"},
-		GroupID: "flowgo-sync-worker",
+		GroupID: "artificialflow-sync-worker",
 		Topics:  topics,
 	}, nil)
 
@@ -42,7 +42,7 @@ func TestReaderConfigUsesSingleGroupSubscriptionForAllTopics(t *testing.T) {
 	if !reflect.DeepEqual(cfg.GroupTopics, topics) {
 		t.Fatalf("expected group topics %v, got %v", topics, cfg.GroupTopics)
 	}
-	if cfg.GroupID != "flowgo-sync-worker" {
+	if cfg.GroupID != "artificialflow-sync-worker" {
 		t.Fatalf("expected group id to be preserved, got %q", cfg.GroupID)
 	}
 	if !cfg.WatchPartitionChanges {
@@ -60,8 +60,8 @@ func TestReaderDiscoversTopicCreatedAfterInitialGroupJoin(t *testing.T) {
 	}
 
 	suffix := time.Now().UnixNano()
-	topic := fmt.Sprintf("flowgo.sync.late-topic.%d", suffix)
-	groupID := fmt.Sprintf("flowgo-sync-late-topic-%d", suffix)
+	topic := fmt.Sprintf("artificialflow.sync.late-topic.%d", suffix)
+	groupID := fmt.Sprintf("artificialflow-sync-late-topic-%d", suffix)
 	consumer := NewKafkaConsumer(Config{
 		Brokers: []string{broker},
 		GroupID: groupID,
@@ -175,7 +175,7 @@ func TestSnapshotIncludesCountersAndTopicStats(t *testing.T) {
 	consumer.retryCount.Store(3)
 	consumer.dlqCount.Store(1)
 	consumer.lastProcessed.Store(now.UnixNano())
-	consumer.recordTopicOutcome("flowgo.public.variable", 42, nil)
+	consumer.recordTopicOutcome("artificialflow.public.variable", 42, nil)
 
 	snapshot := consumer.Snapshot()
 	if snapshot.Processed != 10 || snapshot.Succeeded != 8 || snapshot.Failed != 2 {
@@ -188,7 +188,7 @@ func TestSnapshotIncludesCountersAndTopicStats(t *testing.T) {
 		t.Fatalf("expected last processed timestamp to be set")
 	}
 
-	topicStats, ok := snapshot.Topics["flowgo.public.variable"]
+	topicStats, ok := snapshot.Topics["artificialflow.public.variable"]
 	if !ok {
 		t.Fatalf("expected topic stats entry")
 	}
@@ -199,11 +199,11 @@ func TestSnapshotIncludesCountersAndTopicStats(t *testing.T) {
 
 func TestProcessMessageWithRetry_SucceedsAfterRetry(t *testing.T) {
 	repo := &flakyRepo{failUpsertAttempts: 1}
-	service := application.NewSyncService(repo, "flowgo")
+	service := application.NewSyncService(repo, "artificialflow")
 	consumer := NewKafkaConsumer(Config{MaxProcessRetries: 2, RetryBackoff: time.Millisecond}, service)
 
 	err := consumer.processMessageWithRetry(context.Background(), kafka.Message{
-		Topic:     "flowgo.public.process_instance",
+		Topic:     "artificialflow.public.process_instance",
 		Partition: 0,
 		Offset:    9,
 		Value:     []byte(`{"before":null,"after":{"key":1},"op":"c"}`),
@@ -221,11 +221,11 @@ func TestProcessMessageWithRetry_SucceedsAfterRetry(t *testing.T) {
 
 func TestProcessMessageWithRetry_FailsAfterMaxAttempts(t *testing.T) {
 	repo := &flakyRepo{failUpsertAttempts: 5}
-	service := application.NewSyncService(repo, "flowgo")
+	service := application.NewSyncService(repo, "artificialflow")
 	consumer := NewKafkaConsumer(Config{MaxProcessRetries: 1, RetryBackoff: time.Millisecond}, service)
 
 	err := consumer.processMessageWithRetry(context.Background(), kafka.Message{
-		Topic:     "flowgo.public.process_instance",
+		Topic:     "artificialflow.public.process_instance",
 		Partition: 0,
 		Offset:    10,
 		Value:     []byte(`{"before":null,"after":{"key":1},"op":"c"}`),

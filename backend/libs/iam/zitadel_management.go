@@ -211,20 +211,18 @@ func ResolveZITADELManagementConfigFromEnv(authConfig auth.Config, frontendConfi
 	if ownerPATFile == "" {
 		ownerPATFile = "/zitadel/bootstrap/owner.pat"
 	}
-	bootstrapStateFile := envValue("ARTIFICIALFLOW_ZITADEL_BOOTSTRAP_STATE_FILE", "FLOWGO_ZITADEL_BOOTSTRAP_STATE_FILE")
+	bootstrapStateFile := envValue("ARTIFICIALFLOW_ZITADEL_BOOTSTRAP_STATE_FILE")
 	if bootstrapStateFile == "" {
 		bootstrapStateFile = "/artificialflow/bootstrap/artificialflow-zitadel.json"
 	}
 	defaultKeyLifetime := boundedDurationEnv(
 		"ARTIFICIALFLOW_IAM_CLIENT_KEY_DEFAULT_LIFETIME",
-		"FLOWGO_IAM_CLIENT_KEY_DEFAULT_LIFETIME",
 		defaultClientCredentialLifetime,
 		time.Hour,
 		maxClientCredentialLifetime,
 	)
 	maxKeyLifetime := boundedDurationEnv(
 		"ARTIFICIALFLOW_IAM_CLIENT_KEY_MAX_LIFETIME",
-		"FLOWGO_IAM_CLIENT_KEY_MAX_LIFETIME",
 		maxClientCredentialLifetime,
 		defaultKeyLifetime,
 		maxClientCredentialLifetime,
@@ -236,20 +234,17 @@ func ResolveZITADELManagementConfigFromEnv(authConfig auth.Config, frontendConfi
 		BootstrapStateFile:       bootstrapStateFile,
 		ClientKeyDefaultLifetime: defaultKeyLifetime,
 		ClientKeyMaxLifetime:     maxKeyLifetime,
-		EnableLegacyPATCreation:  envBool("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_CREATION", "FLOWGO_IAM_ENABLE_LEGACY_PAT_CREATION"),
-		EnableLegacyPATRotation:  envBool("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_ROTATION", "FLOWGO_IAM_ENABLE_LEGACY_PAT_ROTATION"),
+		EnableLegacyPATCreation:  envBool("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_CREATION"),
+		EnableLegacyPATRotation:  envBool("ARTIFICIALFLOW_IAM_ENABLE_LEGACY_PAT_ROTATION"),
 	}
 }
 
-func envValue(canonicalName, legacyName string) string {
-	if value := strings.TrimSpace(os.Getenv(canonicalName)); value != "" {
-		return value
-	}
-	return strings.TrimSpace(os.Getenv(legacyName))
+func envValue(name string) string {
+	return strings.TrimSpace(os.Getenv(name))
 }
 
-func boundedDurationEnv(canonicalName, legacyName string, fallback, minimum, maximum time.Duration) time.Duration {
-	value := envValue(canonicalName, legacyName)
+func boundedDurationEnv(name string, fallback, minimum, maximum time.Duration) time.Duration {
+	value := envValue(name)
 	if value == "" {
 		return fallback
 	}
@@ -260,8 +255,8 @@ func boundedDurationEnv(canonicalName, legacyName string, fallback, minimum, max
 	return parsed
 }
 
-func envBool(canonicalName, legacyName string) bool {
-	value := envValue(canonicalName, legacyName)
+func envBool(name string) bool {
+	value := envValue(name)
 	return strings.EqualFold(value, "true") || value == "1"
 }
 

@@ -513,10 +513,10 @@ async function provisionInboxClientToken(page: Page, api: ArtificialFlowApi, mod
     }).getToken();
   }
 
-  const tokenResponse = await page.request.post("http://localhost:9181/realms/flowgo/protocol/openid-connect/token", {
+  const tokenResponse = await page.request.post("http://localhost:9181/realms/artificialflow/protocol/openid-connect/token", {
     form: {
       grant_type: "password",
-      client_id: "flowgo-frontend",
+      client_id: "artificialflow-frontend",
       username: "sdk-client",
       password: "UatPass123!",
     },
@@ -738,10 +738,10 @@ pre{white-space:pre-wrap;background:#020617;color:#e2e8f0;border-radius:16px;pad
 
 async function addBanner(page: Page, text: string): Promise<void> {
   await page.evaluate((text) => {
-    let banner = document.getElementById("flowgo-uat-banner");
+    let banner = document.getElementById("artificialflow-uat-banner");
     if (!banner) {
       banner = document.createElement("div");
-      banner.id = "flowgo-uat-banner";
+      banner.id = "artificialflow-uat-banner";
       banner.style.cssText = "position:fixed;z-index:999999;top:12px;left:50%;transform:translateX(-50%);max-width:90vw;padding:10px 16px;background:#0f172a;color:white;border-radius:999px;font:700 14px system-ui;box-shadow:0 8px 24px rgba(15,23,42,.25);text-align:center";
       document.body.appendChild(banner);
     }

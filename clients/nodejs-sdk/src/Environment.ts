@@ -13,13 +13,10 @@ export interface ArtificialFlowEnvironmentConfig {
 
 export function readArtificialFlowEnvironmentValue(
     environment: ArtificialFlowEnvironmentSource,
-    canonicalName: string,
-    legacyName: string,
+    name: string,
     fallback = '',
 ): string {
-    return environment[canonicalName]?.trim()
-        || environment[legacyName]?.trim()
-        || fallback;
+    return environment[name]?.trim() || fallback;
 }
 
 export function resolveArtificialFlowEnvironment(
@@ -27,41 +24,34 @@ export function resolveArtificialFlowEnvironment(
         typeof process === 'undefined' ? {} : process.env,
     now: () => number = Date.now,
 ): ArtificialFlowEnvironmentConfig {
-    const read = (canonicalName: string, legacyName: string, fallback = '') =>
-        readArtificialFlowEnvironmentValue(environment, canonicalName, legacyName, fallback);
+    const read = (name: string, fallback = '') =>
+        readArtificialFlowEnvironmentValue(environment, name, fallback);
 
     return {
         baseUrl:
             environment.ARTIFICIALFLOW_BASE_URL?.trim()
             || environment.ARTIFICIALFLOW_API_URL?.trim()
-            || environment.FLOWGO_BASE_URL?.trim()
-            || environment.FLOWGO_API_URL?.trim()
             || 'http://localhost:9100/api',
-        token: read('ARTIFICIALFLOW_TOKEN', 'FLOWGO_TOKEN'),
-        zitadelProfileFile: read('ARTIFICIALFLOW_ZITADEL_PROFILE_FILE', 'FLOWGO_ZITADEL_PROFILE_FILE'),
+        token: read('ARTIFICIALFLOW_TOKEN'),
+        zitadelProfileFile: read('ARTIFICIALFLOW_ZITADEL_PROFILE_FILE'),
         workflowKey: read(
             'ARTIFICIALFLOW_WORKFLOW_KEY',
-            'FLOWGO_WORKFLOW_KEY',
             '<WORKFLOW_DEFINITION_KEY_OR_ID_TO_START>',
         ),
         businessKey: read(
             'ARTIFICIALFLOW_BUSINESS_KEY',
-            'FLOWGO_BUSINESS_KEY',
             `sdk-smoke-${now()}`,
         ),
         messageName: read(
             'ARTIFICIALFLOW_MESSAGE_NAME',
-            'FLOWGO_MESSAGE_NAME',
             '<OPTIONAL_BPMN_MESSAGE_NAME>',
         ),
         messageCorrelationKey: read(
             'ARTIFICIALFLOW_MESSAGE_CORRELATION_KEY',
-            'FLOWGO_MESSAGE_CORRELATION_KEY',
             '<OPTIONAL_MESSAGE_CORRELATION_KEY>',
         ),
         workerJobType: read(
             'ARTIFICIALFLOW_WORKER_JOB_TYPE',
-            'FLOWGO_WORKER_JOB_TYPE',
             '<OPTIONAL_SERVICE_TASK_JOB_TYPE>',
         ),
     };

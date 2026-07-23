@@ -226,10 +226,7 @@ Stop the selected stack with `make down-zitadel` or
 all local volumes and data.
 
 Fresh Compose deployments use project name `artificialflow` and explicit
-canonical volume names. Existing FlowGo installations must set the exact old
-project and volume overrides before rendering; otherwise Compose creates empty
-canonical volumes. Follow the [deployment identity guidance](docs/deployment.md#deployment-identity-and-rename-compatibility);
-do not use a volume-deleting cleanup command during the transition.
+canonical volume names. Follow the [deployment identity guidance](docs/deployment.md#deployment-identity-and-rename-compatibility).
 
 ## Production deployment
 

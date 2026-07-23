@@ -17,8 +17,6 @@ type WorkflowMatch = {
 
 const pendingWorkflowKey = "artificialflow.pendingWorkflowSync";
 const pendingInstanceKey = "artificialflow.pendingInstanceSync";
-const legacyPendingWorkflowKey = "flowgo.pendingWorkflowSync";
-const legacyPendingInstanceKey = "flowgo.pendingInstanceSync";
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -99,15 +97,9 @@ const setPendingSync = (key: string, id: string) => {
   window.sessionStorage.setItem(key, id);
 };
 
-const consumePendingSync = (key: string, legacyKey: string): string | null => {
+const consumePendingSync = (key: string): string | null => {
   if (typeof window === "undefined") return null;
-  const currentID = window.sessionStorage.getItem(key);
-  const legacyID = window.sessionStorage.getItem(legacyKey);
-  if (!currentID && legacyID) {
-    window.sessionStorage.setItem(key, legacyID);
-  }
-  window.sessionStorage.removeItem(legacyKey);
-  const id = currentID || legacyID;
+  const id = window.sessionStorage.getItem(key);
   if (id) {
     window.sessionStorage.removeItem(key);
   }
@@ -115,8 +107,6 @@ const consumePendingSync = (key: string, legacyKey: string): string | null => {
 };
 
 export const setPendingWorkflowSync = (id: string) => setPendingSync(pendingWorkflowKey, id);
-export const consumePendingWorkflowSync = () =>
-  consumePendingSync(pendingWorkflowKey, legacyPendingWorkflowKey);
+export const consumePendingWorkflowSync = () => consumePendingSync(pendingWorkflowKey);
 export const setPendingInstanceSync = (id: string) => setPendingSync(pendingInstanceKey, id);
-export const consumePendingInstanceSync = () =>
-  consumePendingSync(pendingInstanceKey, legacyPendingInstanceKey);
+export const consumePendingInstanceSync = () => consumePendingSync(pendingInstanceKey);

@@ -40,11 +40,6 @@ const actingUsernameHeader = "X-ArtificialFlow-Acting-Username"
 const actingEmailHeader = "X-ArtificialFlow-Acting-Email"
 const actingNameHeader = "X-ArtificialFlow-Acting-Name"
 const actingRolesHeader = "X-ArtificialFlow-Acting-Roles"
-const legacyActingSubjectHeader = "X-FlowGo-Acting-Subject"
-const legacyActingUsernameHeader = "X-FlowGo-Acting-Username"
-const legacyActingEmailHeader = "X-FlowGo-Acting-Email"
-const legacyActingNameHeader = "X-FlowGo-Acting-Name"
-const legacyActingRolesHeader = "X-FlowGo-Acting-Roles"
 
 func NewHandler(e *application.Engine, identityConfig iam.DeploymentConfig) *Handler {
 	return &Handler{
@@ -561,10 +556,10 @@ func userTaskCompletedByPrincipal(job *model.Job, principal auth.Principal) bool
 }
 
 func actingPrincipalFromRequest(r *http.Request) (auth.Principal, error) {
-	subject := preferredHeader(r, actingSubjectHeader, legacyActingSubjectHeader)
-	username := preferredHeader(r, actingUsernameHeader, legacyActingUsernameHeader)
-	email := preferredHeader(r, actingEmailHeader, legacyActingEmailHeader)
-	name := preferredHeader(r, actingNameHeader, legacyActingNameHeader)
+	subject := strings.TrimSpace(r.Header.Get(actingSubjectHeader))
+	username := strings.TrimSpace(r.Header.Get(actingUsernameHeader))
+	email := strings.TrimSpace(r.Header.Get(actingEmailHeader))
+	name := strings.TrimSpace(r.Header.Get(actingNameHeader))
 	if subject == "" {
 		subject = username
 	}
@@ -581,17 +576,11 @@ func actingPrincipalFromRequest(r *http.Request) (auth.Principal, error) {
 		Subject: subject,
 		Email:   email,
 		Name:    name,
-		Roles:   auth.CanonicalizeRoles(splitAssignment(preferredHeader(r, actingRolesHeader, legacyActingRolesHeader))),
+		Roles:   auth.CanonicalizeRoles(splitAssignment(strings.TrimSpace(r.Header.Get(actingRolesHeader)))),
 		Claims:  claims,
 	}, nil
 }
 
-func preferredHeader(r *http.Request, canonicalName, legacyName string) string {
-	if value := strings.TrimSpace(r.Header.Get(canonicalName)); value != "" {
-		return value
-	}
-	return strings.TrimSpace(r.Header.Get(legacyName))
-}
 
 func principalIdentifiers(principal auth.Principal) []string {
 	values := []string{principal.Subject, principal.Email, principal.Name}

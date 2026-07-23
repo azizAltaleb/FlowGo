@@ -71,7 +71,7 @@ func TestZITADELClientKeyLifecycleChecksOwnership(t *testing.T) {
 		case "/zitadel.user.v2.UserService/GetUserByID":
 			_, _ = w.Write([]byte(`{"user":{"userId":"client-1","username":"sdk","state":"USER_STATE_ACTIVE","machine":{"name":"SDK"}}}`))
 		case "/zitadel.authorization.v2.AuthorizationService/ListAuthorizations":
-			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-1"},"roles":[{"key":"flowgo client"}]}]}`))
+			_, _ = w.Write([]byte(`{"authorizations":[{"id":"auth-1","state":"STATE_ACTIVE","project":{"id":"project-1"},"user":{"id":"client-1"},"roles":[{"key":"artificialflow client"}]}]}`))
 		case "/zitadel.user.v2.UserService/AddKey":
 			if err := json.NewDecoder(r.Body).Decode(&addPayload); err != nil {
 				t.Fatal(err)
@@ -145,7 +145,6 @@ func TestClientDescriptionUsesCanonicalPrefixAndReadsBothPrefixes(t *testing.T) 
 
 	for _, value := range []string{
 		encoded,
-		"flowgo-client:" + encoded[len(canonicalPrefix):],
 	} {
 		description, environment, ownerEmail, purpose := decodeClientDescription(value)
 		if description != client.Description || environment != client.Environment || ownerEmail != client.OwnerEmail || purpose != client.Purpose {
@@ -154,9 +153,9 @@ func TestClientDescriptionUsesCanonicalPrefixAndReadsBothPrefixes(t *testing.T) 
 	}
 }
 
-func TestNormalizeRoleKeysCanonicalizesLegacyPlatformRoles(t *testing.T) {
+func TestNormalizeRoleKeysCanonicalizesPlatformRoles(t *testing.T) {
 	roles := normalizeRoleKeys([]string{
-		auth.LegacyRoleFlowGoClient,
+		"ARTIFICIALFLOW CLIENT",
 		auth.RoleArtificialFlowClient,
 		"finance reviewer",
 	})

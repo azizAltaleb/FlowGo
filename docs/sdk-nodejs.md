@@ -20,9 +20,6 @@ obtained and refreshed.
 npm install @artificialflow/nodejs-sdk
 ```
 
-For one transition release, the deprecated `@flowgo/nodejs-sdk` wrapper
-re-exports the canonical package. Deprecated `FlowGoClient`, `FlowGoApiError`,
-and `FlowGo*Options` exports are aliases to the exact canonical implementations.
 The wrapper version and its `@artificialflow/nodejs-sdk` dependency must exactly
 match the canonical package version.
 
@@ -272,8 +269,6 @@ unset ARTIFICIALFLOW_TOKEN
 
 Add provider-specific scopes and audience/resource parameters when required.
 Never include `Bearer ` in `ARTIFICIALFLOW_TOKEN`.
-For one transition release, the SDK also reads `FLOWGO_BASE_URL`,
-`FLOWGO_API_URL`, and the remaining `FLOWGO_*` smoke-test variables after their
 `ARTIFICIALFLOW_*` equivalents.
 
 Optional smoke-test inputs:

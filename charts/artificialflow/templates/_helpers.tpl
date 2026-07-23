@@ -85,7 +85,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- if .Values.applicationState.bootstrapExistingClaim -}}
 {{- .Values.applicationState.bootstrapExistingClaim -}}
 {{- else if .Values.compatibility.legacyResourceNames.enabled -}}
-{{- printf "%s-flowgo-bootstrap" (include "artificialflow.fullname" .) -}}
+{{- printf "%s-artificialflow-bootstrap" (include "artificialflow.fullname" .) -}}
 {{- else -}}
 {{- printf "%s-artificialflow-bootstrap" (include "artificialflow.fullname" .) -}}
 {{- end -}}
@@ -95,7 +95,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- if .Values.applicationState.authExistingClaim -}}
 {{- .Values.applicationState.authExistingClaim -}}
 {{- else if .Values.compatibility.legacyResourceNames.enabled -}}
-{{- printf "%s-flowgo-auth" (include "artificialflow.fullname" .) -}}
+{{- printf "%s-artificialflow-auth" (include "artificialflow.fullname" .) -}}
 {{- else -}}
 {{- printf "%s-artificialflow-auth" (include "artificialflow.fullname" .) -}}
 {{- end -}}

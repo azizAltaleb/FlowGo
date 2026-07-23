@@ -600,9 +600,9 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
                 '@_id', '@_name', '@_sourceRef', '@_targetRef', 'label',
                 'bpmn:extensionElements',
                 '@_artificialflow:sourceHandle',
-                '@_flowgo:sourceHandle', '@_flowgo_sourceHandle', '@_sourceHandle',
+                '@_sourceHandle',
                 '@_artificialflow:targetHandle',
-                '@_flowgo:targetHandle', '@_flowgo_targetHandle', '@_targetHandle'
+                '@_targetHandle'
             ].includes(key)) return;
             
             const value = data[key];

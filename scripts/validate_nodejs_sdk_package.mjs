@@ -89,27 +89,6 @@ for (const requiredFile of requiredFiles) {
   }
 }
 
-const legacyDir = path.join(scriptDir, '..', 'clients', 'nodejs-sdk-legacy');
-const legacyPackagePath = path.join(legacyDir, 'package.json');
-if (!fs.existsSync(legacyPackagePath)) {
-  failures.push('deprecated compatibility package is missing: clients/nodejs-sdk-legacy/package.json');
-} else {
-  const legacy = JSON.parse(fs.readFileSync(legacyPackagePath, 'utf8'));
-  requireEqual('legacy.name', legacy.name, '@flowgo/nodejs-sdk');
-  requireEqual('legacy.version', legacy.version, pkg.version);
-  requireEqual(
-    'legacy.dependencies.@artificialflow/nodejs-sdk',
-    legacy.dependencies?.['@artificialflow/nodejs-sdk'],
-    pkg.version,
-  );
-  requireEqual('legacy.publishConfig.access', legacy.publishConfig?.access, 'public');
-  requireEqual('legacy.publishConfig.tag', legacy.publishConfig?.tag, undefined);
-  for (const requiredFile of ['README.md', 'LICENSE', 'index.js', 'index.d.ts']) {
-    if (!fs.existsSync(path.join(legacyDir, requiredFile))) {
-      failures.push(`required compatibility package file is missing: ${requiredFile}`);
-    }
-  }
-}
 
 if (failures.length > 0) {
   console.error('Node.js SDK package metadata validation failed:');
@@ -119,6 +98,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(
-  `Node.js SDK package metadata validation passed for ${pkg.name}@${pkg.version} and its exact-version compatibility wrapper`,
-);
+console.log(`Node.js SDK package metadata validation passed for ${pkg.name}@${pkg.version}`);

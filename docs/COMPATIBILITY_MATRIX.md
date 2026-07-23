@@ -39,10 +39,10 @@ ArtificialFlow is pre-1.0 software. Compatibility guarantees are conservative un
 | SDK package | Compatible platform target | Notes |
 | :--- | :--- | :--- |
 | `@artificialflow/nodejs-sdk@0.2.x` | ArtificialFlow `v0.2.x` | Use Node.js 20 or newer. |
-| `@flowgo/nodejs-sdk@0.2.x` | ArtificialFlow `v0.2.x` | Deprecated one-release wrapper that re-exports the canonical package. |
-| `@flowgo/nodejs-sdk@0.1.x` | FlowGo `v0.1.x` | Historical package and product line. |
+| `@artificialflow/nodejs-sdk@0.2.x` | ArtificialFlow `v0.2.x` | Deprecated one-release wrapper that re-exports the canonical package. |
+| `@artificialflow/nodejs-sdk@0.1.x` | ArtificialFlow `v0.1.x` | Historical package and product line. |
 
-The SDK can target local Compose through `ARTIFICIALFLOW_BASE_URL=http://localhost:9100/api`; `FLOWGO_BASE_URL` remains a legacy fallback for one transition release. New bundled-ZITADEL clients use a service-account JSON profile and automatic JWT Profile exchange. The raw `token` option remains compatible with external IAM and staged legacy PAT migration.
+The SDK can target local Compose through `ARTIFICIALFLOW_BASE_URL=http://localhost:9100/api`; `ARTIFICIALFLOW_BASE_URL` remains a legacy fallback for one transition release. New bundled-ZITADEL clients use a service-account JSON profile and automatic JWT Profile exchange. The raw `token` option remains compatible with external IAM and staged legacy PAT migration.
 
 Key revocation prevents new exchanges but does not retroactively invalidate already-minted short-lived access tokens. Existing bundled PATs remain accepted and revocable during the migration window; new PAT creation and rotation are disabled by default.
 

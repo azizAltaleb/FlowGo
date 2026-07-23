@@ -87,41 +87,19 @@ canonical_env=(
   ARTIFICIALFLOW_IMAGE_REGISTRY=artificialflow
 )
 
-legacy_env=(
-  COMPOSE_PROJECT_NAME=flowgo
-  ARTIFICIALFLOW_COMPOSE_PROJECT_NAME=flowgo
-  ARTIFICIALFLOW_PGDATA_VOLUME=flowgo_pgdata
-  ARTIFICIALFLOW_ESDATA_VOLUME=flowgo_esdata
-  ARTIFICIALFLOW_ZITADEL_PGDATA_VOLUME=flowgo_zitadel-postgres-data
-  ARTIFICIALFLOW_ZITADEL_BOOTSTRAP_VOLUME=flowgo_zitadel-bootstrap
-  ARTIFICIALFLOW_BOOTSTRAP_VOLUME=flowgo_flowgo-zitadel-bootstrap
-  ARTIFICIALFLOW_AUTH_VOLUME=flowgo_flowgo-zitadel-auth
-  ARTIFICIALFLOW_ZITADEL_NETWORK=zitadel
-  ARTIFICIALFLOW_STATE_ROOT=/flowgo
-  ARTIFICIALFLOW_STATE_FILE_PREFIX=flowgo
-  ARTIFICIALFLOW_IMAGE_REGISTRY=azizaltaleb
-)
 
 base_volumes="pgdata=artificialflow-postgres-data,esdata=artificialflow-elasticsearch-data"
 zitadel_volumes="${base_volumes},zitadel-postgres-data=artificialflow-zitadel-postgres-data,zitadel-bootstrap=artificialflow-zitadel-system-bootstrap,application-bootstrap=artificialflow-zitadel-bootstrap,application-auth=artificialflow-zitadel-auth"
-legacy_base_volumes="pgdata=flowgo_pgdata,esdata=flowgo_esdata"
-legacy_zitadel_volumes="${legacy_base_volumes},zitadel-postgres-data=flowgo_zitadel-postgres-data,zitadel-bootstrap=flowgo_zitadel-bootstrap,application-bootstrap=flowgo_flowgo-zitadel-bootstrap,application-auth=flowgo_flowgo-zitadel-auth"
 
 for release_overlay in false true; do
   canonical_registry="-"
-  legacy_registry="-"
   if [[ "${release_overlay}" == "true" ]]; then
     canonical_registry=artificialflow
-    legacy_registry=azizaltaleb
   fi
 
   validate_config "canonical base release=${release_overlay}" docker-compose.yml "${release_overlay}" artificialflow "${canonical_registry}" "${base_volumes}" "${canonical_env[@]}"
   validate_config "canonical external release=${release_overlay}" docker-compose.external-iam.yml "${release_overlay}" artificialflow "${canonical_registry}" "${base_volumes}" "${canonical_env[@]}"
   validate_config "canonical zitadel release=${release_overlay}" docker-compose.zitadel.yml "${release_overlay}" artificialflow "${canonical_registry}" "${zitadel_volumes}" "${canonical_env[@]}"
-
-  validate_config "legacy base release=${release_overlay}" docker-compose.yml "${release_overlay}" flowgo "${legacy_registry}" "${legacy_base_volumes}" "${legacy_env[@]}"
-  validate_config "legacy external release=${release_overlay}" docker-compose.external-iam.yml "${release_overlay}" flowgo "${legacy_registry}" "${legacy_base_volumes}" "${legacy_env[@]}"
-  validate_config "legacy zitadel release=${release_overlay}" docker-compose.zitadel.yml "${release_overlay}" flowgo "${legacy_registry}" "${legacy_zitadel_volumes}" "${legacy_env[@]}"
 done
 
-echo "compose canonical and legacy identity validation passed"
+echo "compose identity validation passed"

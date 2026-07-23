@@ -6,11 +6,11 @@ CONFIRM=""
 CONNECT_URL="${CONNECT_URL:-http://localhost:8083}"
 KAFKA_BOOTSTRAP="${KAFKA_BOOTSTRAP:-localhost:9092}"
 PG_DSN="${PG_DSN:-host=localhost user=artificialflow password=password dbname=workflow_db sslmode=disable}"
-OLD_CONNECTOR="${OLD_CONNECTOR:-flowgo-postgres-connector}"
+OLD_CONNECTOR="${OLD_CONNECTOR:-legacy-postgres-connector}"
 NEW_CONNECTOR="${NEW_CONNECTOR:-artificialflow-postgres-connector}"
-OLD_GROUP="${OLD_GROUP:-flowgo-sync-worker-v8}"
+OLD_GROUP="${OLD_GROUP:-legacy-sync-worker-v8}"
 NEW_GROUP="${NEW_GROUP:-artificialflow-sync-worker-v8}"
-OLD_SLOT="${OLD_SLOT:-flowgo_slot}"
+OLD_SLOT="${OLD_SLOT:-legacy_slot}"
 NEW_SLOT="${NEW_SLOT:-artificialflow_slot}"
 NEW_CONNECTOR_FILE="${NEW_CONNECTOR_FILE:-debezium/connector-register.json}"
 STATE_DIR="${STATE_DIR:-streaming-cutover-state}"
@@ -294,7 +294,7 @@ fi
 # Renamed Debezium topics intentionally begin at the new connector's cutover.
 awk -F '	' '
   BEGIN { OFS = "\t"; print "TOPIC", "PARTITION", "CURRENT-OFFSET" }
-  NR > 1 && $2 !~ /^flowgo\./ { print $2, $3, $4 }
+  NR > 1 && $2 !~ /^legacy\./ { print $2, $3, $4 }
 ' "${apply_tmp}/old-consumer-group.tsv" >"${apply_tmp}/unchanged-offsets.tsv"
 
 while IFS=$'\t' read -r topic partition offset; do

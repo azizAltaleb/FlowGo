@@ -22,15 +22,15 @@ func TestEnsureConnectorBootstrap_Disabled(t *testing.T) {
 	}
 }
 
-func TestEnsureConnectorBootstrap_RejectsRunningLegacyConnector(t *testing.T) {
+func TestEnsureConnectorBootstrap_RejectsRunningBlockedConnector(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/connectors":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`["flowgo-postgres-connector"]`))
-		case "/connectors/flowgo-postgres-connector/status":
+			_, _ = w.Write([]byte(`["blocked-postgres-connector"]`))
+		case "/connectors/blocked-postgres-connector/status":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector","connector":{"state":"RUNNING"},"tasks":[]}`))
+			_, _ = w.Write([]byte(`{"name":"blocked-postgres-connector","connector":{"state":"RUNNING"},"tasks":[]}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -42,12 +42,12 @@ func TestEnsureConnectorBootstrap_RejectsRunningLegacyConnector(t *testing.T) {
 		ConnectURL:            server.URL,
 		ConnectorName:         "artificialflow-postgres-connector",
 		ConnectorJSON:         `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
-		BlockedConnectorNames: []string{"flowgo-postgres-connector"},
+		BlockedConnectorNames: []string{"blocked-postgres-connector"},
 		WaitTimeout:           time.Second,
 		PollInterval:          time.Millisecond,
 	})
 	if err == nil || !strings.Contains(err.Error(), "conflicting connector") {
-		t.Fatalf("expected running legacy connector rejection, got %v", err)
+		t.Fatalf("expected running blocked connector rejection, got %v", err)
 	}
 }
 
@@ -146,7 +146,7 @@ func TestEnsureConnectorBootstrap_RegistersWhenMissing(t *testing.T) {
 			postCalls.Add(1)
 			created.Store(true)
 			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"artificialflow-postgres-connector"}`))
 			return
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/") && strings.HasSuffix(r.URL.Path, "/status"):
 			if created.Load() {
@@ -160,7 +160,7 @@ func TestEnsureConnectorBootstrap_RegistersWhenMissing(t *testing.T) {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/"):
 			if created.Load() {
 				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector"}`))
+				_, _ = w.Write([]byte(`{"name":"artificialflow-postgres-connector"}`))
 				return
 			}
 			w.WriteHeader(http.StatusNotFound)
@@ -175,7 +175,7 @@ func TestEnsureConnectorBootstrap_RegistersWhenMissing(t *testing.T) {
 	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
 		Enabled:       true,
 		ConnectURL:    server.URL,
-		ConnectorName: "flowgo-postgres-connector",
+		ConnectorName: "artificialflow-postgres-connector",
 		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
 		WaitTimeout:   2 * time.Second,
 		PollInterval:  10 * time.Millisecond,
@@ -203,12 +203,12 @@ func TestEnsureConnectorBootstrap_SkipsCreateWhenAlreadyExists(t *testing.T) {
 			return
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/"):
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"artificialflow-postgres-connector"}`))
 			return
 		case r.Method == http.MethodPost && r.URL.Path == "/connectors":
 			postCalls.Add(1)
 			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"artificialflow-postgres-connector"}`))
 			return
 		default:
 			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
@@ -219,7 +219,7 @@ func TestEnsureConnectorBootstrap_SkipsCreateWhenAlreadyExists(t *testing.T) {
 	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
 		Enabled:       true,
 		ConnectURL:    server.URL,
-		ConnectorName: "flowgo-postgres-connector",
+		ConnectorName: "artificialflow-postgres-connector",
 		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
 		WaitTimeout:   2 * time.Second,
 		PollInterval:  10 * time.Millisecond,
@@ -247,12 +247,12 @@ func TestEnsureConnectorBootstrap_AllowsRecoveringConnectorWithRunningTask(t *te
 			return
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/"):
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"artificialflow-postgres-connector"}`))
 			return
 		case r.Method == http.MethodPost && r.URL.Path == "/connectors":
 			postCalls.Add(1)
 			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"artificialflow-postgres-connector"}`))
 			return
 		default:
 			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
@@ -263,7 +263,7 @@ func TestEnsureConnectorBootstrap_AllowsRecoveringConnectorWithRunningTask(t *te
 	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
 		Enabled:       true,
 		ConnectURL:    server.URL,
-		ConnectorName: "flowgo-postgres-connector",
+		ConnectorName: "artificialflow-postgres-connector",
 		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
 		WaitTimeout:   2 * time.Second,
 		PollInterval:  10 * time.Millisecond,
@@ -307,7 +307,7 @@ func TestEnsureConnectorBootstrap_HandlesConflictAsSuccess(t *testing.T) {
 	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
 		Enabled:       true,
 		ConnectURL:    server.URL,
-		ConnectorName: "flowgo-postgres-connector",
+		ConnectorName: "artificialflow-postgres-connector",
 		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
 		WaitTimeout:   2 * time.Second,
 		PollInterval:  10 * time.Millisecond,
@@ -333,7 +333,7 @@ func TestEnsureConnectorBootstrap_TimesOutWhenConnectorNotRunning(t *testing.T) 
 			return
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/connectors/"):
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"name":"flowgo-postgres-connector"}`))
+			_, _ = w.Write([]byte(`{"name":"artificialflow-postgres-connector"}`))
 			return
 		default:
 			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
@@ -344,7 +344,7 @@ func TestEnsureConnectorBootstrap_TimesOutWhenConnectorNotRunning(t *testing.T) 
 	err := ensureConnectorBootstrap(context.Background(), logger.New("sync-worker-test"), connectorBootstrapOptions{
 		Enabled:       true,
 		ConnectURL:    server.URL,
-		ConnectorName: "flowgo-postgres-connector",
+		ConnectorName: "artificialflow-postgres-connector",
 		ConnectorJSON: `{"config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector"}}`,
 		WaitTimeout:   200 * time.Millisecond,
 		PollInterval:  10 * time.Millisecond,
@@ -406,18 +406,18 @@ func TestBuildConnectorCreateRequest_UsesEmbeddedDefaultWhenNoOverride(t *testin
 
 func TestBuildConnectorCreateRequest_AppliesPersistentIdentifierOverrides(t *testing.T) {
 	request, _, err := buildConnectorCreateRequest(connectorBootstrapOptions{
-		ConnectorName:         "flowgo-postgres-connector",
-		ConnectorTopicPrefix:  "flowgo",
-		ConnectorSlotName:     "flowgo_slot",
-		ConnectorDatabaseUser: "flowgo",
+		ConnectorName:         "artificialflow-postgres-connector",
+		ConnectorTopicPrefix:  "artificialflow",
+		ConnectorSlotName:     "artificialflow_slot",
+		ConnectorDatabaseUser: "artificialflow",
 	})
 	if err != nil {
 		t.Fatalf("expected no error from explicit overrides, got %v", err)
 	}
 	for key, want := range map[string]any{
-		"topic.prefix":  "flowgo",
-		"slot.name":     "flowgo_slot",
-		"database.user": "flowgo",
+		"topic.prefix":  "artificialflow",
+		"slot.name":     "artificialflow_slot",
+		"database.user": "artificialflow",
 	} {
 		if got := request.Config[key]; got != want {
 			t.Fatalf("expected override %s=%q, got %#v", key, want, got)

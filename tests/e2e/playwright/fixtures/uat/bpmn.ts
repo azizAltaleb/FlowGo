@@ -22,7 +22,7 @@ export interface BpmnBundle {
   dependencies?: BpmnDocument[];
 }
 
-const ns = `xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn"`;
+const ns = `xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn"`;
 
 function doc(id: string, body: string, extraDefs = ""): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -53,9 +53,9 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
             processId,
             process(processId, "UAT Role Based Complex Process", `
     <bpmn:startEvent id="start" name="Request submitted"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
-    <bpmn:serviceTask id="validateInvoice" name="Validate invoice" flowgo:taskType="uat-complex-worker"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:serviceTask id="validateInvoice" name="Validate invoice" artificialflow:taskType="uat-complex-worker"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:serviceTask>
     <bpmn:scriptTask id="calculateRisk" name="Calculate risk"><bpmn:incoming>f2</bpmn:incoming><bpmn:outgoing>f3</bpmn:outgoing></bpmn:scriptTask>
-    <bpmn:businessRuleTask id="classifyInvoice" name="Classify invoice" flowgo:decisionRef="invoice_decision" flowgo:resultVariable="decisionResult"><bpmn:incoming>f3</bpmn:incoming><bpmn:outgoing>f4</bpmn:outgoing></bpmn:businessRuleTask>
+    <bpmn:businessRuleTask id="classifyInvoice" name="Classify invoice" artificialflow:decisionRef="invoice_decision" artificialflow:resultVariable="decisionResult"><bpmn:incoming>f3</bpmn:incoming><bpmn:outgoing>f4</bpmn:outgoing></bpmn:businessRuleTask>
     <bpmn:exclusiveGateway id="exclusiveApproval" name="Exclusive amount route" default="f5_low"><bpmn:incoming>f4</bpmn:incoming><bpmn:outgoing>f5</bpmn:outgoing><bpmn:outgoing>f5_low</bpmn:outgoing></bpmn:exclusiveGateway>
     <bpmn:parallelGateway id="parallelPrep" name="Parallel preparation"><bpmn:incoming>f5</bpmn:incoming><bpmn:outgoing>f6a</bpmn:outgoing><bpmn:outgoing>f6b</bpmn:outgoing></bpmn:parallelGateway>
     <bpmn:scriptTask id="parallelRiskStamp" name="Parallel risk stamp"><bpmn:incoming>f6a</bpmn:incoming><bpmn:outgoing>f7a</bpmn:outgoing></bpmn:scriptTask>
@@ -63,17 +63,17 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
     <bpmn:endEvent id="parallelChildEnd" name="Parallel child branch done"><bpmn:incoming>f7b</bpmn:incoming></bpmn:endEvent>
     <bpmn:inclusiveGateway id="inclusivePolicy" name="Inclusive policy checks"><bpmn:incoming>f7a</bpmn:incoming><bpmn:outgoing>f9a</bpmn:outgoing><bpmn:outgoing>f9b</bpmn:outgoing></bpmn:inclusiveGateway>
     <bpmn:scriptTask id="archivePrep" name="Archive preparation"><bpmn:incoming>f9a</bpmn:incoming><bpmn:outgoing>f10a</bpmn:outgoing></bpmn:scriptTask>
-    <bpmn:businessRuleTask id="complianceRule" name="Compliance rule" flowgo:decisionRef="compliance_decision" flowgo:resultVariable="complianceDecision"><bpmn:incoming>f9b</bpmn:incoming><bpmn:outgoing>f10b</bpmn:outgoing></bpmn:businessRuleTask>
+    <bpmn:businessRuleTask id="complianceRule" name="Compliance rule" artificialflow:decisionRef="compliance_decision" artificialflow:resultVariable="complianceDecision"><bpmn:incoming>f9b</bpmn:incoming><bpmn:outgoing>f10b</bpmn:outgoing></bpmn:businessRuleTask>
     <bpmn:endEvent id="complianceEnd" name="Compliance branch done"><bpmn:incoming>f10b</bpmn:incoming></bpmn:endEvent>
     <bpmn:subProcess id="embeddedAudit" name="Embedded audit"><bpmn:incoming>f10a</bpmn:incoming><bpmn:outgoing>f11</bpmn:outgoing></bpmn:subProcess>
     <bpmn:callActivity id="callChild" name="Parallel child validation" calledElement="${childId}"><bpmn:incoming>f11</bpmn:incoming><bpmn:outgoing>f12</bpmn:outgoing></bpmn:callActivity>
-    <bpmn:userTask id="accountantReview" name="Accountant review" flowgo:assignee="accountant" flowgo:candidateUsers="accountant,accounts.lead@artificialflow.io" flowgo:candidateGroups="accountant,finance" flowgo:dueDate="PT1H">
+    <bpmn:userTask id="accountantReview" name="Accountant review" artificialflow:assignee="accountant" artificialflow:candidateUsers="accountant,accounts.lead@artificialflow.io" artificialflow:candidateGroups="accountant,finance" artificialflow:dueDate="PT1H">
       <bpmn:extensionElements>
-        <flowgo:properties>
-          <flowgo:property name="uat_role" value="accountant"/>
-          <flowgo:property name="candidateUsers" value="accountant,accounts.lead@artificialflow.io"/>
-          <flowgo:property name="candidateGroups" value="accountant,finance"/>
-        </flowgo:properties>
+        <artificialflow:properties>
+          <artificialflow:property name="uat_role" value="accountant"/>
+          <artificialflow:property name="candidateUsers" value="accountant,accounts.lead@artificialflow.io"/>
+          <artificialflow:property name="candidateGroups" value="accountant,finance"/>
+        </artificialflow:properties>
       </bpmn:extensionElements>
       <bpmn:incoming>f12</bpmn:incoming><bpmn:outgoing>f13</bpmn:outgoing>
     </bpmn:userTask>
@@ -86,13 +86,13 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
     <bpmn:endEvent id="budgetEnd" name="Budget branch done"><bpmn:incoming>f15b</bpmn:incoming></bpmn:endEvent>
     <bpmn:intermediateCatchEvent id="documentTimer" name="Document timer"><bpmn:outgoing>f18</bpmn:outgoing><bpmn:timerEventDefinition><bpmn:timeDuration>PT1H</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>
     <bpmn:manualTask id="timerManualFollowup" name="Timer manual follow-up"><bpmn:incoming>f18</bpmn:incoming><bpmn:outgoing>f19</bpmn:outgoing></bpmn:manualTask>
-    <bpmn:userTask id="reviewerApproval" name="Reviewer approval" flowgo:assignee="reviewer" flowgo:candidateUsers="reviewer,reviewer.lead@artificialflow.io" flowgo:candidateGroups="reviewer,approvers" flowgo:dueDate="PT2H">
+    <bpmn:userTask id="reviewerApproval" name="Reviewer approval" artificialflow:assignee="reviewer" artificialflow:candidateUsers="reviewer,reviewer.lead@artificialflow.io" artificialflow:candidateGroups="reviewer,approvers" artificialflow:dueDate="PT2H">
       <bpmn:extensionElements>
-        <flowgo:properties>
-          <flowgo:property name="uat_role" value="reviewer"/>
-          <flowgo:property name="candidateUsers" value="reviewer,reviewer.lead@artificialflow.io"/>
-          <flowgo:property name="candidateGroups" value="reviewer,approvers"/>
-        </flowgo:properties>
+        <artificialflow:properties>
+          <artificialflow:property name="uat_role" value="reviewer"/>
+          <artificialflow:property name="candidateUsers" value="reviewer,reviewer.lead@artificialflow.io"/>
+          <artificialflow:property name="candidateGroups" value="reviewer,approvers"/>
+        </artificialflow:properties>
       </bpmn:extensionElements>
       <bpmn:incoming>f15a</bpmn:incoming><bpmn:outgoing>f17</bpmn:outgoing>
     </bpmn:userTask>
@@ -137,7 +137,7 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
           processId,
           xml: doc(processId, process(processId, "UAT User Task Approval", `
     <bpmn:startEvent id="start" name="Start"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
-    <bpmn:userTask id="reviewTask" name="Review request" flowgo:assignee="admin"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:userTask>
+    <bpmn:userTask id="reviewTask" name="Review request" artificialflow:assignee="admin"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:userTask>
     <bpmn:endEvent id="end" name="Done"><bpmn:incoming>f2</bpmn:incoming></bpmn:endEvent>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="reviewTask"/>
     <bpmn:sequenceFlow id="f2" sourceRef="reviewTask" targetRef="end"/>`)),
@@ -153,11 +153,11 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
             processId,
             process(processId, "UAT Parser Element Matrix", `
     <bpmn:startEvent id="start" name="Start"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
-    <bpmn:serviceTask id="service" name="Service" flowgo:taskType="uat-parser-service"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:serviceTask id="service" name="Service" artificialflow:taskType="uat-parser-service"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:serviceTask>
     <bpmn:scriptTask id="script" name="Script"><bpmn:incoming>f2</bpmn:incoming><bpmn:outgoing>f3</bpmn:outgoing></bpmn:scriptTask>
     <bpmn:userTask id="user" name="User"><bpmn:incoming>f3</bpmn:incoming><bpmn:outgoing>f4</bpmn:outgoing></bpmn:userTask>
     <bpmn:manualTask id="manual" name="Manual"><bpmn:incoming>f4</bpmn:incoming><bpmn:outgoing>f5</bpmn:outgoing></bpmn:manualTask>
-    <bpmn:businessRuleTask id="rule" name="Rule" flowgo:decisionRef="decision_1"><bpmn:incoming>f5</bpmn:incoming><bpmn:outgoing>f6</bpmn:outgoing></bpmn:businessRuleTask>
+    <bpmn:businessRuleTask id="rule" name="Rule" artificialflow:decisionRef="decision_1"><bpmn:incoming>f5</bpmn:incoming><bpmn:outgoing>f6</bpmn:outgoing></bpmn:businessRuleTask>
     <bpmn:exclusiveGateway id="exclusive" name="Exclusive"><bpmn:incoming>f6</bpmn:incoming><bpmn:outgoing>f7</bpmn:outgoing></bpmn:exclusiveGateway>
     <bpmn:parallelGateway id="parallel" name="Parallel"><bpmn:incoming>f7</bpmn:incoming><bpmn:outgoing>f8</bpmn:outgoing></bpmn:parallelGateway>
     <bpmn:inclusiveGateway id="inclusive" name="Inclusive"><bpmn:incoming>f8</bpmn:incoming><bpmn:outgoing>f9</bpmn:outgoing></bpmn:inclusiveGateway>
@@ -215,8 +215,8 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
           processId,
           xml: doc(processId, process(processId, "UAT Extension Properties", `
     <bpmn:startEvent id="start"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
-    <bpmn:userTask id="assignedUser" name="Assigned User" flowgo:assignee="admin" flowgo:candidateGroups="ops"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:userTask>
-    <bpmn:serviceTask id="externalService" name="External Service" flowgo:taskType="uat-extension-service"><bpmn:incoming>f2</bpmn:incoming><bpmn:outgoing>f3</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:userTask id="assignedUser" name="Assigned User" artificialflow:assignee="admin" artificialflow:candidateGroups="ops"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:userTask>
+    <bpmn:serviceTask id="externalService" name="External Service" artificialflow:taskType="uat-extension-service"><bpmn:incoming>f2</bpmn:incoming><bpmn:outgoing>f3</bpmn:outgoing></bpmn:serviceTask>
     <bpmn:endEvent id="end"><bpmn:incoming>f3</bpmn:incoming></bpmn:endEvent>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="assignedUser"/>
     <bpmn:sequenceFlow id="f2" sourceRef="assignedUser" targetRef="externalService"/>
@@ -254,7 +254,7 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
           processId: parentId,
           xml: doc(parentId, process(parentId, "UAT Call Business Manual", `
     <bpmn:startEvent id="start"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
-    <bpmn:businessRuleTask id="rule" name="Rule" flowgo:decisionRef="decision_1"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:businessRuleTask>
+    <bpmn:businessRuleTask id="rule" name="Rule" artificialflow:decisionRef="decision_1"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:businessRuleTask>
     <bpmn:callActivity id="callChild" name="Call Child" calledElement="${childId}"><bpmn:incoming>f2</bpmn:incoming><bpmn:outgoing>f3</bpmn:outgoing></bpmn:callActivity>
     <bpmn:manualTask id="manualReview" name="Manual Review"><bpmn:incoming>f3</bpmn:incoming><bpmn:outgoing>f4</bpmn:outgoing></bpmn:manualTask>
     <bpmn:endEvent id="end"><bpmn:incoming>f4</bpmn:incoming></bpmn:endEvent>
@@ -338,8 +338,8 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
           processId,
           xml: doc(processId, process(processId, "UAT Service User Assignment", `
     <bpmn:startEvent id="start"><bpmn:outgoing>f1</bpmn:outgoing></bpmn:startEvent>
-    <bpmn:serviceTask id="externalService" name="External Service" flowgo:taskType="uat-worker"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:serviceTask>
-    <bpmn:userTask id="assignedUser" name="Assigned User" flowgo:assignee="admin" flowgo:candidateGroups="ops"><bpmn:incoming>f2</bpmn:incoming><bpmn:outgoing>f3</bpmn:outgoing></bpmn:userTask>
+    <bpmn:serviceTask id="externalService" name="External Service" artificialflow:taskType="uat-worker"><bpmn:incoming>f1</bpmn:incoming><bpmn:outgoing>f2</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:userTask id="assignedUser" name="Assigned User" artificialflow:assignee="admin" artificialflow:candidateGroups="ops"><bpmn:incoming>f2</bpmn:incoming><bpmn:outgoing>f3</bpmn:outgoing></bpmn:userTask>
     <bpmn:endEvent id="end"><bpmn:incoming>f3</bpmn:incoming></bpmn:endEvent>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="externalService"/>
     <bpmn:sequenceFlow id="f2" sourceRef="externalService" targetRef="assignedUser"/>

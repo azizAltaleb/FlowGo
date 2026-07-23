@@ -8,13 +8,13 @@ const BASE = __ENV.COMMAND_URL || "http://localhost:8080";
 const JOB_TYPE = "worker-perf-task";
 const WORKER_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-  xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn"
+  xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn"
   id="Definitions_worker_perf" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="worker-perf-workflow" name="Worker Perf Test" isExecutable="true">
     <bpmn:startEvent id="start1">
       <bpmn:outgoing>flow1</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:serviceTask id="task1" name="Worker Work" flowgo:taskType="${JOB_TYPE}">
+    <bpmn:serviceTask id="task1" name="Worker Work" artificialflow:taskType="${JOB_TYPE}">
       <bpmn:incoming>flow1</bpmn:incoming>
       <bpmn:outgoing>flow2</bpmn:outgoing>
     </bpmn:serviceTask>

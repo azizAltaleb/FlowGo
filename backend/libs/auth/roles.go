@@ -9,16 +9,6 @@ const (
 	RoleArtificialFlowAdmin   = "artificialflow admin"
 	RoleArtificialFlowModeler = "artificialflow modeler"
 	RoleArtificialFlowClient  = "artificialflow client"
-
-	LegacyRoleFlowGoAdmin   = "flowgo admin"
-	LegacyRoleFlowGoModeler = "flowgo modeler"
-	LegacyRoleFlowGoClient  = "flowgo client"
-
-	// Deprecated: use the RoleArtificialFlow* constants. These aliases keep
-	// public callers source-compatible while emitting canonical role names.
-	RoleFlowGoAdmin   = RoleArtificialFlowAdmin
-	RoleFlowGoModeler = RoleArtificialFlowModeler
-	RoleFlowGoClient  = RoleArtificialFlowClient
 )
 
 func StandardRoles() []string {
@@ -28,11 +18,11 @@ func StandardRoles() []string {
 func CanonicalRole(role string) string {
 	trimmed := strings.TrimSpace(role)
 	switch {
-	case strings.EqualFold(trimmed, RoleArtificialFlowAdmin), strings.EqualFold(trimmed, LegacyRoleFlowGoAdmin):
+	case strings.EqualFold(trimmed, RoleArtificialFlowAdmin):
 		return RoleArtificialFlowAdmin
-	case strings.EqualFold(trimmed, RoleArtificialFlowModeler), strings.EqualFold(trimmed, LegacyRoleFlowGoModeler):
+	case strings.EqualFold(trimmed, RoleArtificialFlowModeler):
 		return RoleArtificialFlowModeler
-	case strings.EqualFold(trimmed, RoleArtificialFlowClient), strings.EqualFold(trimmed, LegacyRoleFlowGoClient):
+	case strings.EqualFold(trimmed, RoleArtificialFlowClient):
 		return RoleArtificialFlowClient
 	default:
 		return trimmed

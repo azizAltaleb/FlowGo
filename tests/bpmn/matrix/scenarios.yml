@@ -10,13 +10,13 @@ scenarios:
     behavior: Parse BPMN XML into ArtificialFlow step definitions with expected step types.
 
   - id: parser-extension-properties
-    name: Parser maps legacy FlowGo extension properties and aliases
+    name: Parser maps legacy ArtificialFlow extension properties and aliases
     category: parser
     support_status: supported
     required: true
     command: go test ./backend/services/workflow-command/internal/domain/bpmn -run 'TestParse_(MapsExtendedElementsAndProperties|MapsPlainAttributeAliasesForCompatibility|MergesExtensionPropertiesWithoutOverridingMappedKeys|CanonicalizesExtensionPropertyAliases)' -count=1 -v
     elements: extensionElements,serviceTask,userTask,sequenceFlow
-    behavior: Preserve legacy FlowGo extension properties, plain aliases, and canonical names.
+    behavior: Preserve legacy ArtificialFlow extension properties, plain aliases, and canonical names.
 
   - id: parser-gateway-joins
     name: Parser populates gateway incoming edges

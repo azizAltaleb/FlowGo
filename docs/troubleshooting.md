@@ -35,7 +35,7 @@ make cqrs-e2e-smoke
   `AUTH_ISSUER_PUBLIC_URL`. In introspection mode, confirm the configured
   introspection endpoint accepts the token and returns `active=true`, a
   subject, the expected audience, and the required role claims.
-- In bundled ZITADEL mode, confirm command and query use `AUTH_TOKEN_MODE=introspection`, `AUTH_INTROSPECTION_URL` ends in `/oauth/v2/introspect`, and the generated `/flowgo/auth/flowgo-api-client-id` and `flowgo-api-client-secret` files are mounted and readable. Those legacy internal mount paths remain stable during the branding transition.
+- In bundled ZITADEL mode, confirm command and query use `AUTH_TOKEN_MODE=introspection`, `AUTH_INTROSPECTION_URL` ends in `/oauth/v2/introspect`, and the generated `/artificialflow/auth/artificialflow-api-client-id` and `artificialflow-api-client-secret` files are mounted and readable. Those legacy internal mount paths remain stable during the branding transition.
 - A removed key cannot mint new access tokens. Already-minted tokens remain valid until their short expiry unless the client is terminated/deleted.
 - During migration, legacy PATs remain accepted until explicitly revoked, but issuance and rotation are disabled by default.
 

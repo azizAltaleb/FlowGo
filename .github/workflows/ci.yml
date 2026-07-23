@@ -130,9 +130,6 @@ jobs:
       - name: Package dry run
         run: npm pack --dry-run
 
-      - name: Package deprecated wrapper dry run
-        working-directory: clients/nodejs-sdk-legacy
-        run: npm pack --dry-run
 
       - name: Validate clean package installation
         working-directory: .

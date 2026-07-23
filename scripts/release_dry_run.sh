@@ -65,7 +65,6 @@ if [[ "${RUN_NPM_CHECKS}" == "true" ]]; then
   run npm --prefix clients/nodejs-sdk test
   run npm --prefix clients/nodejs-sdk run validate:package
   run_in clients/nodejs-sdk npm pack --dry-run
-  run_in clients/nodejs-sdk-legacy npm pack --dry-run
   run bash scripts/validate_nodejs_sdk_install.sh
   echo "+ (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/artificialflow-nodejs-sdk-sbom.cdx.json)"
   (cd clients/nodejs-sdk && npm sbom --sbom-format cyclonedx --omit dev > /tmp/artificialflow-nodejs-sdk-sbom.cdx.json)

@@ -82,22 +82,22 @@ func TestParse_NormalizesSequenceFlowConditionExpression(t *testing.T) {
 
 func TestParse_MapsExtendedElementsAndProperties(t *testing.T) {
 	xml := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:message id="Message_OrderPlaced" name="OrderPlaced"/>
   <bpmn:error id="Error_Business" errorCode="BUSINESS_ERROR"/>
   <bpmn:process id="Process_Extended" name="Extended Process" isExecutable="true">
     <bpmn:startEvent id="start" name="Start"/>
     <bpmn:eventBasedGateway id="eventGateway" name="Event Gateway"/>
-    <bpmn:receiveTask id="receive" name="Receive" messageRef="Message_OrderPlaced" flowgo:correlationKey="orderId"/>
+    <bpmn:receiveTask id="receive" name="Receive" messageRef="Message_OrderPlaced" artificialflow:correlationKey="orderId"/>
     <bpmn:intermediateCatchEvent id="timerCatch" name="Wait Timer">
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT1S</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:intermediateCatchEvent>
     <bpmn:manualTask id="manual" name="Manual Review"/>
-    <bpmn:businessRuleTask id="rule" name="Decision" flowgo:decisionRef="decision_table" flowgo:resultVariable="decisionResult"/>
+    <bpmn:businessRuleTask id="rule" name="Decision" artificialflow:decisionRef="decision_table" artificialflow:resultVariable="decisionResult"/>
     <bpmn:callActivity id="call" name="Call Child" calledElement="ChildProcess"/>
-    <bpmn:userTask id="user" name="User Task" flowgo:assignee="alice" flowgo:candidateUsers="bob,charlie" flowgo:candidateGroups="ops" flowgo:dueDate="2026-01-01T00:00:00Z"/>
+    <bpmn:userTask id="user" name="User Task" artificialflow:assignee="alice" artificialflow:candidateUsers="bob,charlie" artificialflow:candidateGroups="ops" artificialflow:dueDate="2026-01-01T00:00:00Z"/>
     <bpmn:boundaryEvent id="boundaryTimer" attachedToRef="user" cancelActivity="false">
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT5M</bpmn:timeDuration>
@@ -229,27 +229,23 @@ func TestParse_ArtificialFlowNamespaceCompatibilityAndPrecedence(t *testing.T) {
 <bpmn:definitions
   xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
   xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn"
-  xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn"
-  id="Definitions_Namespace_Migration"
+  id="Definitions_ArtificialFlow_Attributes"
   targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="Process_Namespace_Migration" isExecutable="true">
+  <bpmn:process id="Process_ArtificialFlow_Attributes" isExecutable="true">
     <bpmn:startEvent id="start"/>
-    <bpmn:serviceTask id="canonical" artificialflow:taskType="canonical-worker" flowgo:taskType="legacy-worker" taskType="plain-worker">
+    <bpmn:serviceTask id="canonical" artificialflow:taskType="canonical-worker" taskType="plain-worker">
       <bpmn:extensionElements>
         <artificialflow:properties>
           <artificialflow:property name="source" value="canonical"/>
         </artificialflow:properties>
-        <flowgo:properties>
-          <flowgo:property name="source" value="legacy"/>
-        </flowgo:properties>
         <properties>
           <property name="source" value="plain"/>
         </properties>
       </bpmn:extensionElements>
     </bpmn:serviceTask>
-    <bpmn:serviceTask id="legacy" flowgo:taskType="legacy-worker"/>
+    <bpmn:serviceTask id="legacy" taskType="legacy-worker"/>
     <bpmn:serviceTask id="plain" taskType="plain-worker"/>
-    <bpmn:userTask id="user" artificialflow:assignee="canonical-user" flowgo:assignee="legacy-user" assignee="plain-user"/>
+    <bpmn:userTask id="user" artificialflow:assignee="canonical-user" assignee="plain-user"/>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="canonical"/>
     <bpmn:sequenceFlow id="f2" sourceRef="canonical" targetRef="legacy"/>
@@ -269,19 +265,19 @@ func TestParse_ArtificialFlowNamespaceCompatibilityAndPrecedence(t *testing.T) {
 	}
 
 	if steps["canonical"].Implementation != "canonical-worker" {
-		t.Fatalf("expected canonical task type precedence, got %q", steps["canonical"].Implementation)
+		t.Fatalf("expected artificialflow task type precedence, got %q", steps["canonical"].Implementation)
 	}
 	if steps["canonical"].Properties["source"] != "canonical" {
-		t.Fatalf("expected canonical extension precedence, got %v", steps["canonical"].Properties["source"])
+		t.Fatalf("expected artificialflow extension precedence, got %v", steps["canonical"].Properties["source"])
 	}
 	if steps["legacy"].Implementation != "legacy-worker" {
-		t.Fatalf("expected legacy task type compatibility, got %q", steps["legacy"].Implementation)
+		t.Fatalf("expected plain taskType attribute, got %q", steps["legacy"].Implementation)
 	}
 	if steps["plain"].Implementation != "plain-worker" {
-		t.Fatalf("expected unqualified task type compatibility, got %q", steps["plain"].Implementation)
+		t.Fatalf("expected unqualified task type, got %q", steps["plain"].Implementation)
 	}
 	if steps["user"].Properties["assignee"] != "canonical-user" {
-		t.Fatalf("expected canonical assignee precedence, got %v", steps["user"].Properties["assignee"])
+		t.Fatalf("expected artificialflow assignee precedence, got %v", steps["user"].Properties["assignee"])
 	}
 }
 
@@ -382,7 +378,7 @@ func TestParse_FailsForUnsupportedSendTaskReferences(t *testing.T) {
 func TestParse_ElementTypeMatrix(t *testing.T) {
 	wrap := func(extraDefs, processBody string) string {
 		return `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn" id="Definitions_Matrix" targetNamespace="http://bpmn.io/schema/bpmn">` + extraDefs + `
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_Matrix" targetNamespace="http://bpmn.io/schema/bpmn">` + extraDefs + `
   <bpmn:process id="Process_Matrix" name="Matrix" isExecutable="true">` + processBody + `
   </bpmn:process>
 </bpmn:definitions>`
@@ -398,7 +394,7 @@ func TestParse_ElementTypeMatrix(t *testing.T) {
 		{
 			name: "service task",
 			body: `<bpmn:startEvent id="start"/>
-    <bpmn:serviceTask id="target" flowgo:taskType="svc"/>
+    <bpmn:serviceTask id="target" artificialflow:taskType="svc"/>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="target"/>
     <bpmn:sequenceFlow id="f2" sourceRef="target" targetRef="end"/>`,
@@ -408,7 +404,7 @@ func TestParse_ElementTypeMatrix(t *testing.T) {
 		{
 			name: "user task",
 			body: `<bpmn:startEvent id="start"/>
-    <bpmn:userTask id="target" flowgo:assignee="alice"/>
+    <bpmn:userTask id="target" artificialflow:assignee="alice"/>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="target"/>
     <bpmn:sequenceFlow id="f2" sourceRef="target" targetRef="end"/>`,
@@ -449,7 +445,7 @@ func TestParse_ElementTypeMatrix(t *testing.T) {
 		{
 			name: "business rule task",
 			body: `<bpmn:startEvent id="start"/>
-    <bpmn:businessRuleTask id="target" flowgo:decisionRef="decision_1"/>
+    <bpmn:businessRuleTask id="target" artificialflow:decisionRef="decision_1"/>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="target"/>
     <bpmn:sequenceFlow id="f2" sourceRef="target" targetRef="end"/>`,
@@ -679,31 +675,31 @@ func TestParse_MapsPlainAttributeAliasesForCompatibility(t *testing.T) {
 
 func TestParse_MergesExtensionPropertiesWithoutOverridingMappedKeys(t *testing.T) {
 	xml := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn" id="Definitions_Extensions" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_Extensions" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_Extensions" name="Extensions Process" isExecutable="true">
     <bpmn:startEvent id="start">
       <bpmn:extensionElements>
-        <flowgo:properties>
-          <flowgo:property name="start_flag" value="true"/>
-        </flowgo:properties>
+        <artificialflow:properties>
+          <artificialflow:property name="start_flag" value="true"/>
+        </artificialflow:properties>
       </bpmn:extensionElements>
     </bpmn:startEvent>
 
     <bpmn:serviceTask id="service">
       <bpmn:extensionElements>
-        <flowgo:properties>
-          <flowgo:property name="taskType" value="ext_service_handler"/>
-          <flowgo:property name="service_custom_key" value="service_custom_value"/>
-        </flowgo:properties>
+        <artificialflow:properties>
+          <artificialflow:property name="taskType" value="ext_service_handler"/>
+          <artificialflow:property name="service_custom_key" value="service_custom_value"/>
+        </artificialflow:properties>
       </bpmn:extensionElements>
     </bpmn:serviceTask>
 
-    <bpmn:userTask id="user" flowgo:assignee="alice">
+    <bpmn:userTask id="user" artificialflow:assignee="alice">
       <bpmn:extensionElements>
-        <flowgo:properties>
-          <flowgo:property name="custom_note" value="vip_review"/>
-          <flowgo:property name="assignee" value="bob"/>
-        </flowgo:properties>
+        <artificialflow:properties>
+          <artificialflow:property name="custom_note" value="vip_review"/>
+          <artificialflow:property name="assignee" value="bob"/>
+        </artificialflow:properties>
       </bpmn:extensionElements>
     </bpmn:userTask>
 
@@ -763,24 +759,24 @@ func TestParse_MergesExtensionPropertiesWithoutOverridingMappedKeys(t *testing.T
 
 func TestParse_CanonicalizesExtensionPropertyAliases(t *testing.T) {
 	xml := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn" id="Definitions_ExtAlias" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_ExtAlias" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_ExtAlias" name="Extension Alias Process" isExecutable="true">
     <bpmn:startEvent id="start"/>
 
     <bpmn:userTask id="user">
       <bpmn:extensionElements>
-        <flowgo:properties>
-          <flowgo:property name="candidateUsers" value="u1,u2"/>
-          <flowgo:property name="dueDate" value="PT1H"/>
-        </flowgo:properties>
+        <artificialflow:properties>
+          <artificialflow:property name="candidateUsers" value="u1,u2"/>
+          <artificialflow:property name="dueDate" value="PT1H"/>
+        </artificialflow:properties>
       </bpmn:extensionElements>
     </bpmn:userTask>
 
     <bpmn:boundaryEvent id="boundary" attachedToRef="user">
       <bpmn:extensionElements>
-        <flowgo:properties>
-          <flowgo:property name="cancelActivity" value="false"/>
-        </flowgo:properties>
+        <artificialflow:properties>
+          <artificialflow:property name="cancelActivity" value="false"/>
+        </artificialflow:properties>
       </bpmn:extensionElements>
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT1S</bpmn:timeDuration>
@@ -823,16 +819,16 @@ func TestParse_CanonicalizesExtensionPropertyAliases(t *testing.T) {
 
 func TestParse_BoundaryCancelActivityAttributeTakesPrecedenceOverExtensionAlias(t *testing.T) {
 	xml := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn" id="Definitions_BoundaryPrecedence" targetNamespace="http://bpmn.io/schema/bpmn">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_BoundaryPrecedence" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_BoundaryPrecedence" name="Boundary Precedence" isExecutable="true">
     <bpmn:startEvent id="start"/>
     <bpmn:userTask id="user"/>
 
     <bpmn:boundaryEvent id="boundary" attachedToRef="user" cancelActivity="true">
       <bpmn:extensionElements>
-        <flowgo:properties>
-          <flowgo:property name="cancelActivity" value="false"/>
-        </flowgo:properties>
+        <artificialflow:properties>
+          <artificialflow:property name="cancelActivity" value="false"/>
+        </artificialflow:properties>
       </bpmn:extensionElements>
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>PT1S</bpmn:timeDuration>

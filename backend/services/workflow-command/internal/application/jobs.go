@@ -16,7 +16,6 @@ const (
 	defaultJobLockDuration = 30 * time.Second
 	activationPollInterval = 100 * time.Millisecond
 	UserTaskJobType        = "artificialflow:userTask"
-	LegacyUserTaskJobType  = "flowgo:userTask"
 )
 
 func (e *Engine) ActivateJobs(ctx context.Context, jobType, worker string, maxJobs int, requestTimeout, lockDuration time.Duration) ([]model.Job, error) {

@@ -20,18 +20,10 @@ func TestStandardRoles(t *testing.T) {
 	}
 }
 
-func TestDeprecatedRoleAliasesRemainCanonical(t *testing.T) {
-	if RoleFlowGoAdmin != RoleArtificialFlowAdmin ||
-		RoleFlowGoModeler != RoleArtificialFlowModeler ||
-		RoleFlowGoClient != RoleArtificialFlowClient {
-		t.Fatal("deprecated role aliases must emit canonical role values")
-	}
-}
-
 func TestPrincipalHasRole(t *testing.T) {
-	principal := Principal{Roles: []string{" FlowGo Admin "}}
+	principal := Principal{Roles: []string{" ArtificialFlow Admin "}}
 	if !principal.HasRole(RoleArtificialFlowAdmin) {
-		t.Fatal("expected legacy admin role to authorize as canonical admin")
+		t.Fatal("expected admin role to authorize as canonical admin")
 	}
 	if principal.HasRole(RoleArtificialFlowClient) {
 		t.Fatal("did not expect client role match")
@@ -41,11 +33,11 @@ func TestPrincipalHasRole(t *testing.T) {
 	}
 }
 
-func TestCanonicalizeRolesMigratesLegacyRolesAndPreservesCustomRoles(t *testing.T) {
+func TestCanonicalizeRolesNormalizesStandardRolesAndPreservesCustomRoles(t *testing.T) {
 	roles := CanonicalizeRoles([]string{
-		" FlowGo Admin ",
+		" ArtificialFlow Admin ",
 		"ARTIFICIALFLOW ADMIN",
-		"flowgo modeler",
+		"artificialflow modeler",
 		RoleArtificialFlowClient,
 		"Finance Reviewer",
 		" finance reviewer ",

@@ -40,7 +40,7 @@ func TestPrincipalFromClaims_MapsNestedRolesAndScopes(t *testing.T) {
 func TestPrincipalFromClaims_PreservesRoleNamesWithSpaces(t *testing.T) {
 	claims := map[string]any{
 		"sub":   "user-123",
-		"roles": "flowgo admin,finance reviewer",
+		"roles": "artificialflow admin,finance reviewer",
 	}
 
 	principal := principalFromClaims(claims, "", Config{ClaimRolesPath: "roles"}, TokenModeJWT)
@@ -59,9 +59,9 @@ func TestPrincipalFromClaims_CanonicalizesMixedStandardRoleClaims(t *testing.T) 
 	claims := map[string]any{
 		"sub": "user-123",
 		"roles": []any{
-			LegacyRoleFlowGoAdmin,
+			"ARTIFICIALFLOW ADMIN",
 			RoleArtificialFlowAdmin,
-			LegacyRoleFlowGoClient,
+			"artificialflow client",
 			"finance reviewer",
 		},
 	}
