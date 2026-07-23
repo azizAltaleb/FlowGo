@@ -1,13 +1,13 @@
 # IAM Guide
 
-FlowGo supports external OIDC and bundled ZITADEL. Authentication proves the
-identity and validates the token; authorization uses exact FlowGo role names
+ArtificialFlow supports external OIDC and bundled ZITADEL. Authentication proves the
+identity and validates the token; authorization uses exact ArtificialFlow role names
 from the configured roles claim.
 
 ## External IAM
 
 Use external mode when your organization already operates an OIDC provider.
-FlowGo validates its tokens but does not create or manage identities in that
+ArtificialFlow validates its tokens but does not create or manage identities in that
 provider.
 
 ### External IAM provisioning checklist
@@ -20,17 +20,17 @@ The external IAM administrator must create:
    use `workflow-frontend`.
 3. A confidential machine-to-machine client for each SDK, worker, or automation
    integration.
-4. The three standard FlowGo roles listed below.
+4. The three standard ArtificialFlow roles listed below.
 5. Token mappings that put assigned roles into one of the configured
    `AUTH_CLAIM_ROLES_PATH` claims.
 
 Configure the browser client for Authorization Code with PKCE and no client
 secret. Its redirect URI, silent redirect URI, post-logout redirect URI, and
-allowed web origin must be the FlowGo origin:
+allowed web origin must be the ArtificialFlow origin:
 
 - Local Compose: `http://localhost:9100`
-- Kubernetes: the public HTTPS FlowGo origin, for example
-  `https://flowgo.example.com`
+- Kubernetes: the public HTTPS ArtificialFlow origin, for example
+  `https://app.artificialflow.example.io`
 
 The frontend uses the browser origin for all three redirect URIs.
 
@@ -39,24 +39,24 @@ The frontend uses the browser origin for all three redirect URIs.
 Role names are matched case-insensitively after trimming, but providers and
 automation should use these exact lowercase names:
 
-- `flowgo admin`: human platform administrators. This role can administer
+- `artificialflow admin`: human platform administrators. This role can administer
   workflows and instances and access privileged platform operations.
-- `flowgo modeler`: human process designers. This role can access the process
+- `artificialflow modeler`: human process designers. This role can access the process
   catalog and modeler but is not a platform administrator.
-- `flowgo client`: non-human SDK, worker, API, and automation identities. It can
+- `artificialflow client`: non-human SDK, worker, API, and automation identities. It can
   start instances, publish messages/signals, and operate jobs. It must not be
   used as a general human login role.
 
 Recommended assignments:
 
-- FlowGo administrator: `flowgo admin`
-- Process designer: `flowgo modeler`
-- SDK/service account: `flowgo client` only
-- Backend-for-frontend calling SDK inbox APIs: `flowgo client` only; pass the
+- ArtificialFlow administrator: `artificialflow admin`
+- Process designer: `artificialflow modeler`
+- SDK/service account: `artificialflow client` only
+- Backend-for-frontend calling SDK inbox APIs: `artificialflow client` only; pass the
   signed-in user's acting identity separately and keep the service token on the
   server
 
-Do not grant `flowgo admin` to an SDK client. Some inbox operations explicitly
+Do not grant `artificialflow admin` to an SDK client. Some inbox operations explicitly
 reject integration identities that also have the admin role.
 
 The default role paths are:
@@ -65,7 +65,7 @@ The default role paths are:
 roles,realm_access.roles,groups
 ```
 
-FlowGo checks those comma-separated paths in order. Change
+ArtificialFlow checks those comma-separated paths in order. Change
 `AUTH_CLAIM_ROLES_PATH` in both the command and query services, or
 `iam.auth.claimRolesPath` in Helm, when your provider uses another claim.
 
@@ -108,37 +108,37 @@ AUTH_INTROSPECTION_AUTH_METHOD=basic
 Use `post` only if the provider requires credentials in the request body.
 Protect the introspection secret with a secret manager.
 
-`AUTH_ISSUER_INTERNAL_URL` is the endpoint reachable by FlowGo services.
+`AUTH_ISSUER_INTERNAL_URL` is the endpoint reachable by ArtificialFlow services.
 `AUTH_ISSUER_PUBLIC_URL` is the browser-visible/token issuer. Keep them equal
-and HTTPS when the public endpoint is reachable from FlowGo. If the deployment
+and HTTPS when the public endpoint is reachable from ArtificialFlow. If the deployment
 requires separate internal and public addresses,
 `AUTH_ALLOW_INSECURE_ISSUER=true` enables issuer-aware request rewriting; use
 it only with a trusted internal route and an explicit security review.
 
 ## Bundled ZITADEL
 
-Use bundled mode when FlowGo should deploy and bootstrap ZITADEL.
+Use bundled mode when ArtificialFlow should deploy and bootstrap ZITADEL.
 
 The bootstrap process creates:
 
-- The FlowGo project and project audience.
+- The ArtificialFlow project and project audience.
 - The public frontend OIDC application.
-- A dedicated FlowGo API application used to authenticate token-introspection
+- A dedicated ArtificialFlow API application used to authenticate token-introspection
   requests.
-- `flowgo admin`, `flowgo modeler`, and `flowgo client`.
-- The initial administrator with `flowgo admin`.
+- `artificialflow admin`, `artificialflow modeler`, and `artificialflow client`.
+- The initial administrator with `artificialflow admin`.
 - System machine users required by bootstrap and login internals.
 
 Operators do not manually create the standard roles, frontend client, backend
-audience, or introspection client in bundled mode. Use FlowGo's
+audience, or introspection client in bundled mode. Use ArtificialFlow's
 **Identity Management** page for human users and role assignments, and
 **SDK Clients** for non-human clients.
 
 Current bootstrap reconciliation keeps only the configured initial human
-administrator among users assigned `flowgo admin`; restarting the bundled IAM
-bootstrap deletes additional human FlowGo administrators. Do not rely on
+administrator among users assigned `artificialflow admin`; restarting the bundled IAM
+bootstrap deletes additional human ArtificialFlow administrators. Do not rely on
 multiple durable bundled-IAM administrators until this behavior is changed.
-External IAM is not affected because FlowGo does not reconcile provider users.
+External IAM is not affected because ArtificialFlow does not reconcile provider users.
 
 Default local admin:
 
@@ -152,22 +152,22 @@ must replace the sample administrator password and identity values.
 ## SDK Client Standard
 
 For SDK and automation usage, use a machine identity with only
-`flowgo client`. Do not use a human username/password flow for long-running
+`artificialflow client`. Do not use a human username/password flow for long-running
 integrations.
 
 In bundled mode, an administrator creates the machine user through
 **SDK Clients**. The browser generates an RSA key pair, uploads only the public
 key, and downloads a one-time service-account profile containing the private
-key. FlowGo and ZITADEL never receive or persist that private key.
+key. ArtificialFlow and ZITADEL never receive or persist that private key.
 
 The Node.js SDK signs a five-minute JWT Profile assertion and exchanges it at
 ZITADEL for a short-lived access token. Only the access token is sent to
-FlowGo. Bundled FlowGo validates browser JWTs, SDK access tokens, and temporary
+ArtificialFlow. Bundled ArtificialFlow validates browser JWTs, SDK access tokens, and temporary
 legacy PATs through authenticated introspection with project-audience
 enforcement.
 
 In external mode, create a provider-native client-credentials application,
-assign only `flowgo client`, include the FlowGo audience and role claim in its
+assign only `artificialflow client`, include the ArtificialFlow audience and role claim in its
 access tokens, and rotate its secret in the external provider.
 
 Rotate bundled keys with overlap: add and distribute a replacement key, verify
@@ -189,12 +189,12 @@ configured correctly. Verify a real access token:
 
 ```bash
 curl -fsS \
-  -H "Authorization: Bearer ${FLOWGO_TOKEN}" \
+  -H "Authorization: Bearer ${ARTIFICIALFLOW_TOKEN}" \
   http://localhost:9100/api/identity/me
 ```
 
 The response must show `authenticated: true`, the expected subject and issuer,
-the FlowGo backend audience, and the required role.
+the ArtificialFlow backend audience, and the required role.
 
 - `401 Unauthorized` means the token is missing, expired, has the wrong issuer
   or audience, cannot be introspected, or fails signature validation.
@@ -207,7 +207,7 @@ the FlowGo backend audience, and the required role.
 
 - Use HTTPS issuer URLs.
 - Keep audience validation enabled.
-- Grant only the minimum FlowGo role required by each identity.
+- Grant only the minimum ArtificialFlow role required by each identity.
 - Keep human and machine identities separate.
 - Keep assertions at five minutes or less and access tokens short-lived.
 - Rotate client secrets and private keys regularly.

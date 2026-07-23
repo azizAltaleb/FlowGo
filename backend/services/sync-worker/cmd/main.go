@@ -12,11 +12,11 @@ import (
 	"syscall"
 	"time"
 
-	esadapter "github.com/azizAltaleb/flowgo/backend/libs/elasticsearch"
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/infrastructure/messaging"
-	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/infrastructure/persistence"
+	esadapter "github.com/artificialflow/artificialflow/backend/libs/elasticsearch"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/services/sync-worker/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/sync-worker/internal/infrastructure/messaging"
+	"github.com/artificialflow/artificialflow/backend/services/sync-worker/internal/infrastructure/persistence"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 	defer cancel()
 
 	kafkaBrokers := envOrDefault("KAFKA_BROKERS", "localhost:9092")
-	groupID := envOrDefault("KAFKA_GROUP_ID", "flowgo-sync-worker")
+	groupID := envOrDefault("KAFKA_GROUP_ID", "artificialflow-sync-worker")
 	eventTopic := strings.TrimSpace(envOrDefault("KAFKA_TOPIC_EVENTS", "workflow.events.v1"))
 	projectionContract := normalizeProjectionContract(envOrDefault("SYNC_PROJECTION_CONTRACT", "hybrid"))
 	kafkaTopics := parseTopicsEnv(os.Getenv("KAFKA_TOPICS"))
@@ -46,19 +46,30 @@ func main() {
 		})
 		os.Exit(1)
 	}
+	if err := validateDebeziumIdentifierTransition(kafkaTopics, envBool("SYNC_ALLOW_MIXED_DEBEZIUM_PREFIXES", false)); err != nil {
+		log.Error(ctx, "unsafe Debezium identifier transition configuration", map[string]any{
+			"error":  err.Error(),
+			"topics": kafkaTopics,
+		})
+		os.Exit(1)
+	}
 	dlqTopic := strings.TrimSpace(envOrDefault("KAFKA_DLQ_TOPIC", "workflow.sync.dlq"))
 	maxProcessRetries := envInt("SYNC_MAX_PROCESS_RETRIES", 3)
 	retryBackoff := parseDurationEnv("SYNC_RETRY_BACKOFF", 500*time.Millisecond)
 
 	esAddr := envOrDefault("ES_ADDR", "http://localhost:9200")
-	indexPrefix := os.Getenv("ES_INDEX_PREFIX")
+	indexPrefix := envOrDefault("ES_INDEX_PREFIX", "artificialflow")
 	logLevel := envOrDefault("LOG_LEVEL", "INFO")
 	eventBusType := strings.ToLower(strings.TrimSpace(envOrDefault("EVENT_BUS_TYPE", "kafka")))
 	connectBootstrapEnabled := envBool("CONNECT_BOOTSTRAP_ENABLED", true)
 	connectURL := strings.TrimSpace(envOrDefault("CONNECT_URL", "http://connect:8083"))
-	connectorName := strings.TrimSpace(envOrDefault("CONNECTOR_NAME", "flowgo-postgres-connector"))
+	connectorName := strings.TrimSpace(envOrDefault("CONNECTOR_NAME", "artificialflow-postgres-connector"))
 	connectorFile := strings.TrimSpace(os.Getenv("CONNECTOR_FILE"))
 	connectorJSON := strings.TrimSpace(os.Getenv("CONNECTOR_JSON"))
+	connectorTopicPrefix := strings.TrimSpace(os.Getenv("CONNECTOR_TOPIC_PREFIX"))
+	connectorSlotName := strings.TrimSpace(os.Getenv("CONNECTOR_SLOT_NAME"))
+	connectorDatabaseUser := strings.TrimSpace(os.Getenv("CONNECTOR_DATABASE_USER"))
+	allowParallelConnectors := envBool("CONNECT_ALLOW_PARALLEL_IDENTIFIERS", false)
 	connectWaitTimeoutSec := envInt("CONNECT_WAIT_TIMEOUT_SEC", 180)
 	if connectWaitTimeoutSec < 1 {
 		connectWaitTimeoutSec = 180
@@ -133,13 +144,18 @@ func main() {
 
 	if eventBusType != "nats" {
 		if err := ensureConnectorBootstrap(ctx, log, connectorBootstrapOptions{
-			Enabled:       connectBootstrapEnabled,
-			ConnectURL:    connectURL,
-			ConnectorName: connectorName,
-			ConnectorFile: connectorFile,
-			ConnectorJSON: connectorJSON,
-			WaitTimeout:   connectWaitTimeout,
-			PollInterval:  3 * time.Second,
+			Enabled:                  connectBootstrapEnabled,
+			ConnectURL:               connectURL,
+			ConnectorName:            connectorName,
+			ConnectorFile:            connectorFile,
+			ConnectorJSON:            connectorJSON,
+			ConnectorTopicPrefix:     connectorTopicPrefix,
+			ConnectorSlotName:        connectorSlotName,
+			ConnectorDatabaseUser:    connectorDatabaseUser,
+			WaitTimeout:              connectWaitTimeout,
+			PollInterval:             3 * time.Second,
+			BlockedConnectorNames:    conflictingConnectorNames(connectorName),
+			AllowParallelIdentifiers: allowParallelConnectors,
 		}); err != nil {
 			log.Error(ctx, "failed to bootstrap connector", map[string]any{"error": err.Error()})
 			os.Exit(1)
@@ -287,6 +303,37 @@ func containsDebeziumTopics(topics []string) bool {
 		}
 	}
 	return false
+}
+
+func validateDebeziumIdentifierTransition(topics []string, allowMixed bool) error {
+	prefixes := make(map[string]struct{})
+	for _, topic := range topics {
+		parts := strings.Split(strings.TrimSpace(topic), ".")
+		if len(parts) < 3 || !strings.EqualFold(parts[len(parts)-2], "public") {
+			continue
+		}
+		prefix := strings.Join(parts[:len(parts)-2], ".")
+		if prefix == "artificialflow" || prefix == "flowgo" {
+			prefixes[prefix] = struct{}{}
+		}
+	}
+	if _, canonical := prefixes["artificialflow"]; canonical {
+		if _, legacy := prefixes["flowgo"]; legacy && !allowMixed {
+			return fmt.Errorf("KAFKA_TOPICS mixes artificialflow and flowgo Debezium topics; this can duplicate projections (set SYNC_ALLOW_MIXED_DEBEZIUM_PREFIXES=true only for a controlled recovery)")
+		}
+	}
+	return nil
+}
+
+func conflictingConnectorNames(connectorName string) []string {
+	switch strings.TrimSpace(connectorName) {
+	case "artificialflow-postgres-connector":
+		return []string{"flowgo-postgres-connector"}
+	case "flowgo-postgres-connector":
+		return []string{"artificialflow-postgres-connector"}
+	default:
+		return nil
+	}
 }
 
 func startSyncHealthServer(ctx context.Context, log *logger.Logger, addr string, provider messaging.ConsumerStatsProvider, sloSec int64, failOnStale bool) {

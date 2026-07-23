@@ -1,4 +1,4 @@
-# Contributing to FlowGo
+# Contributing to ArtificialFlow
 
 Thank you for your interest in contributing! We want to make this project a robust open-source solution for workflow orchestration.
 

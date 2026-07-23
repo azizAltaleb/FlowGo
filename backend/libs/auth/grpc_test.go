@@ -36,7 +36,7 @@ func testGRPCMiddleware(principal Principal) *Middleware {
 }
 
 func TestUnaryServerInterceptorRequiresAuthorizationMetadata(t *testing.T) {
-	interceptor := testGRPCMiddleware(Principal{Roles: []string{RoleFlowGoAdmin}}).UnaryServerInterceptor(RoleFlowGoAdmin)
+	interceptor := testGRPCMiddleware(Principal{Roles: []string{RoleArtificialFlowAdmin}}).UnaryServerInterceptor(RoleArtificialFlowAdmin)
 
 	_, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}, func(context.Context, any) (any, error) {
 		t.Fatal("handler should not be called without authorization metadata")
@@ -48,7 +48,7 @@ func TestUnaryServerInterceptorRequiresAuthorizationMetadata(t *testing.T) {
 }
 
 func TestUnaryServerInterceptorRejectsMissingRole(t *testing.T) {
-	interceptor := testGRPCMiddleware(Principal{Subject: "accountant", Roles: []string{"accountant"}}).UnaryServerInterceptor(RoleFlowGoAdmin)
+	interceptor := testGRPCMiddleware(Principal{Subject: "accountant", Roles: []string{"accountant"}}).UnaryServerInterceptor(RoleArtificialFlowAdmin)
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer token"))
 
 	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}, func(context.Context, any) (any, error) {
@@ -61,7 +61,7 @@ func TestUnaryServerInterceptorRejectsMissingRole(t *testing.T) {
 }
 
 func TestUnaryServerInterceptorAddsPrincipalToContext(t *testing.T) {
-	interceptor := testGRPCMiddleware(Principal{Subject: "client-1", Roles: []string{RoleFlowGoClient}}).UnaryServerInterceptor(RoleFlowGoAdmin, RoleFlowGoClient)
+	interceptor := testGRPCMiddleware(Principal{Subject: "client-1", Roles: []string{RoleArtificialFlowClient}}).UnaryServerInterceptor(RoleArtificialFlowAdmin, RoleArtificialFlowClient)
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer token"))
 
 	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}, func(ctx context.Context, _ any) (any, error) {
@@ -83,14 +83,14 @@ func TestUnaryServerInterceptorDisabledAuthAddsLocalPrincipal(t *testing.T) {
 	middleware := &Middleware{
 		provider: StaticConfigProvider{Config: Config{TokenValidationMode: TokenModeJWT}},
 	}
-	interceptor := middleware.UnaryServerInterceptor(RoleFlowGoAdmin)
+	interceptor := middleware.UnaryServerInterceptor(RoleArtificialFlowAdmin)
 
 	_, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}, func(ctx context.Context, _ any) (any, error) {
 		principal, ok := PrincipalFromContext(ctx)
 		if !ok {
 			t.Fatal("expected disabled-auth principal in context")
 		}
-		if !principal.HasRole(RoleFlowGoAdmin) {
+		if !principal.HasRole(RoleArtificialFlowAdmin) {
 			t.Fatal("expected disabled-auth principal to have admin role")
 		}
 		return nil, nil

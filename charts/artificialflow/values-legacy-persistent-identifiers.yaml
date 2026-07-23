@@ -1,0 +1,69 @@
+# Compatibility values for an in-place upgrade of the former chart installed
+# with release name "flowgo". They preserve old Kubernetes object names,
+# immutable selectors, PVC names, and persistent application identifiers.
+# For another release name, derive these three identity values from the live
+# manifests before upgrading; never guess them.
+compatibility:
+  legacyResourceNames:
+    enabled: true
+    fullnameOverride: flowgo
+    selectorNameOverride: flowgo
+    selectorInstanceOverride: flowgo
+  # The former bundled-IAM chart used these as its canonical login identity.
+  # Keep them for this compatibility release; changing issuer or frontend
+  # authority requires an explicit ZITADEL application and DNS migration.
+  legacyBundledIAM:
+    issuerInternalUrl: "http://flowgo-zitadel-api:8080"
+    issuerPublicUrl: "https://iam.flowgo.example.com"
+    frontendAuthority: "https://iam.flowgo.example.com"
+    frontendClientIdFile: /flowgo/bootstrap/flowgo-frontend-client-id
+
+cors:
+  allowedOrigins: "https://flowgo.example.com"
+
+ingress:
+  host: flowgo.example.com
+  tls:
+    secretName: flowgo-tls
+
+postgresql:
+  user: flowgo
+
+search:
+  indexPrefix: flowgo
+
+applicationState:
+  rootPath: /flowgo
+  filePrefix: flowgo
+  # Stock ArtificialFlow images run as UID/GID 10001. Keep this value unless
+  # inspection proves the deployed image was explicitly rebuilt with another
+  # APP_UID; UID 100 is valid only for an APP_UID=100 compatibility rebuild.
+  apiCredentialUID: "10001"
+  # Leave these empty for an in-place Helm upgrade so the chart keeps managing
+  # and annotating the existing flowgo-flowgo-* claims. Set exact existing claim
+  # names only when a separately named release intentionally attaches them.
+  bootstrapExistingClaim: ""
+  authExistingClaim: ""
+
+zitadel:
+  publicUrl: "https://iam.flowgo.example.com"
+  externalDomain: iam.flowgo.example.com
+  externalPort: 443
+  externalSecure: true
+  bootstrap:
+    frontendUrl: "https://flowgo.example.com"
+  ingress:
+    host: iam.flowgo.example.com
+    tls:
+      secretName: flowgo-iam-tls
+
+syncWorker:
+  env:
+    groupId: flowgo-sync-worker
+    topics: workflow.events.v1,flowgo.public.process,flowgo.public.process_instance,flowgo.public.element_instance,flowgo.public.variable,flowgo.public.job,flowgo.public.incident,flowgo.public.timer,flowgo.public.message_subscription
+    connectorName: flowgo-postgres-connector
+    connectorTopicPrefix: flowgo
+    connectorSlotName: flowgo_slot
+    connectorDatabaseUser: flowgo
+    connectBootstrapEnabled: "false"
+    allowMixedDebeziumPrefixes: "false"

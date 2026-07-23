@@ -2,15 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { DebouncedInput } from "@/components/ui/debounced-input";
+import {
+  getArtificialFlowProperties,
+  setArtificialFlowProperties,
+} from "@/lib/bpmn-namespaces";
 
 interface ExtensionPropsProps {
   data: Record<string, unknown> | null;
   onUpdate: (newData: Record<string, unknown>) => void;
-}
-
-interface WorkflowProperty {
-  "@_name": string;
-  "@_value": string;
 }
 
 // Fallback for crypto.randomUUID if not available
@@ -27,17 +26,7 @@ export default function ExtensionProps({ data, onUpdate }: ExtensionPropsProps) 
 
   useEffect(() => {
     const loadProperties = () => {
-      let propsArray: WorkflowProperty[] = [];
-      
-      if (data && data["bpmn:extensionElements"]) {
-          const extensionElements = data["bpmn:extensionElements"] as Record<string, unknown>;
-          const workflowProperties = extensionElements["flowgo:properties"] as Record<string, unknown>;
-          
-          if (workflowProperties && workflowProperties["flowgo:property"]) {
-              const props = workflowProperties["flowgo:property"];
-              propsArray = (Array.isArray(props) ? props : [props]) as WorkflowProperty[];
-          }
-      }
+      const propsArray = getArtificialFlowProperties(data);
 
       // Check if incoming props match our local state
       // We compare only name/value, as ID is local-only concept
@@ -77,27 +66,13 @@ export default function ExtensionProps({ data, onUpdate }: ExtensionPropsProps) 
   const updateBackend = (newProps: { name: string; value: string }[]) => {
     isLocalChange.current = true;
     
-    let newExtensionElements = null;
-    
-    if (newProps.length > 0) {
-        newExtensionElements = {
-            "flowgo:properties": {
-                "flowgo:property": newProps.map(p => ({
-                    "@_name": p.name,
-                    "@_value": p.value
-                }))
-            }
-        };
-    }
-
-    const newData = { ...data };
-    if (newExtensionElements) {
-        newData["bpmn:extensionElements"] = newExtensionElements;
-    } else {
-        delete newData["bpmn:extensionElements"];
-    }
-
-    onUpdate(newData);
+    onUpdate(setArtificialFlowProperties(
+      data,
+      newProps.map((property) => ({
+        "@_name": property.name,
+        "@_value": property.value,
+      })),
+    ));
   };
 
   const handleAdd = () => {

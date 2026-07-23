@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
-	"github.com/azizAltaleb/flowgo/backend/libs/iam"
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
-	workerproto "github.com/azizAltaleb/flowgo/backend/libs/worker"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/interfaces/http/dto"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/iam"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
+	workerproto "github.com/artificialflow/artificialflow/backend/libs/worker"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/interfaces/http/dto"
 
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
@@ -35,11 +35,16 @@ const idempotencyKeyHeader = "Idempotency-Key"
 const maxIdempotencyKeyLength = 128
 const maxBPMNDeployBodyBytes int64 = 20 << 20
 
-const actingSubjectHeader = "X-FlowGo-Acting-Subject"
-const actingUsernameHeader = "X-FlowGo-Acting-Username"
-const actingEmailHeader = "X-FlowGo-Acting-Email"
-const actingNameHeader = "X-FlowGo-Acting-Name"
-const actingRolesHeader = "X-FlowGo-Acting-Roles"
+const actingSubjectHeader = "X-ArtificialFlow-Acting-Subject"
+const actingUsernameHeader = "X-ArtificialFlow-Acting-Username"
+const actingEmailHeader = "X-ArtificialFlow-Acting-Email"
+const actingNameHeader = "X-ArtificialFlow-Acting-Name"
+const actingRolesHeader = "X-ArtificialFlow-Acting-Roles"
+const legacyActingSubjectHeader = "X-FlowGo-Acting-Subject"
+const legacyActingUsernameHeader = "X-FlowGo-Acting-Username"
+const legacyActingEmailHeader = "X-FlowGo-Acting-Email"
+const legacyActingNameHeader = "X-FlowGo-Acting-Name"
+const legacyActingRolesHeader = "X-FlowGo-Acting-Roles"
 
 func NewHandler(e *application.Engine, identityConfig iam.DeploymentConfig) *Handler {
 	return &Handler{
@@ -52,13 +57,13 @@ func NewHandler(e *application.Engine, identityConfig iam.DeploymentConfig) *Han
 
 func (h *Handler) RegisterRoutes(r *mux.Router) {
 	adminOnly := func(fn http.HandlerFunc) http.Handler {
-		return auth.RequireAnyRole(auth.RoleFlowGoAdmin)(http.HandlerFunc(fn))
+		return auth.RequireAnyRole(auth.RoleArtificialFlowAdmin)(http.HandlerFunc(fn))
 	}
 	adminOrClient := func(fn http.HandlerFunc) http.Handler {
-		return auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)(http.HandlerFunc(fn))
+		return auth.RequireAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient)(http.HandlerFunc(fn))
 	}
 	processDesigner := func(fn http.HandlerFunc) http.Handler {
-		return auth.RequireAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoModeler, auth.RoleFlowGoClient)(http.HandlerFunc(fn))
+		return auth.RequireAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowModeler, auth.RoleArtificialFlowClient)(http.HandlerFunc(fn))
 	}
 	scopedInstanceRead := func(fn http.HandlerFunc) http.Handler {
 		return auth.RequireAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +72,7 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			if principal.HasRole(auth.RoleFlowGoModeler) && !principal.HasAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient) {
+			if principal.HasRole(auth.RoleArtificialFlowModeler) && !principal.HasAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient) {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
@@ -75,13 +80,13 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 		}))
 	}
 	sdkInboxOnly := func(fn http.HandlerFunc) http.Handler {
-		return auth.RequireAnyRole(auth.RoleFlowGoClient)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		return auth.RequireAnyRole(auth.RoleArtificialFlowClient)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			integrationPrincipal, ok := auth.PrincipalFromContext(r.Context())
 			if !ok {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			if integrationPrincipal.HasRole(auth.RoleFlowGoAdmin) {
+			if integrationPrincipal.HasRole(auth.RoleArtificialFlowAdmin) {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
@@ -90,7 +95,7 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			if actingPrincipal.HasAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient) {
+			if actingPrincipal.HasAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient) {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
@@ -360,13 +365,13 @@ func (h *Handler) claimUserTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if !principal.HasRole(auth.RoleFlowGoAdmin) && !userTaskEligible(job, principal) {
+	if !principal.HasRole(auth.RoleArtificialFlowAdmin) && !userTaskEligible(job, principal) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
 	owner := taskOwner(principal)
-	claimed, err := h.engine.ClaimUserTask(r.Context(), instanceID, executionID, owner, principal.HasRole(auth.RoleFlowGoAdmin))
+	claimed, err := h.engine.ClaimUserTask(r.Context(), instanceID, executionID, owner, principal.HasRole(auth.RoleArtificialFlowAdmin))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
@@ -392,7 +397,7 @@ func (h *Handler) completeUserTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	admin := principal.HasRole(auth.RoleFlowGoAdmin)
+	admin := principal.HasRole(auth.RoleArtificialFlowAdmin)
 	if !admin {
 		if !userTaskEligible(job, principal) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
@@ -449,7 +454,7 @@ func (h *Handler) userTaskJobForPrincipal(ctx context.Context, instanceID, execu
 }
 
 func (h *Handler) userTaskResponseForPrincipal(job model.Job, principal auth.Principal) dto.UserTaskResponse {
-	admin := principal.HasRole(auth.RoleFlowGoAdmin)
+	admin := principal.HasRole(auth.RoleArtificialFlowAdmin)
 	eligible := admin || userTaskEligible(&job, principal)
 	ownsClaim := strings.TrimSpace(job.Worker) != "" && strings.EqualFold(strings.TrimSpace(job.Worker), taskOwner(principal))
 	return dto.ToUserTaskResponse(job, eligible, ownsClaim, admin)
@@ -496,7 +501,7 @@ func (h *Handler) canViewInstance(ctx context.Context, instanceID string, princi
 }
 
 func principalHasFullInstanceVisibility(principal auth.Principal) bool {
-	return principal.HasAnyRole(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)
+	return principal.HasAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient)
 }
 
 func userTaskEligible(job *model.Job, principal auth.Principal) bool {
@@ -556,10 +561,10 @@ func userTaskCompletedByPrincipal(job *model.Job, principal auth.Principal) bool
 }
 
 func actingPrincipalFromRequest(r *http.Request) (auth.Principal, error) {
-	subject := strings.TrimSpace(r.Header.Get(actingSubjectHeader))
-	username := strings.TrimSpace(r.Header.Get(actingUsernameHeader))
-	email := strings.TrimSpace(r.Header.Get(actingEmailHeader))
-	name := strings.TrimSpace(r.Header.Get(actingNameHeader))
+	subject := preferredHeader(r, actingSubjectHeader, legacyActingSubjectHeader)
+	username := preferredHeader(r, actingUsernameHeader, legacyActingUsernameHeader)
+	email := preferredHeader(r, actingEmailHeader, legacyActingEmailHeader)
+	name := preferredHeader(r, actingNameHeader, legacyActingNameHeader)
 	if subject == "" {
 		subject = username
 	}
@@ -576,9 +581,16 @@ func actingPrincipalFromRequest(r *http.Request) (auth.Principal, error) {
 		Subject: subject,
 		Email:   email,
 		Name:    name,
-		Roles:   splitAssignment(r.Header.Get(actingRolesHeader)),
+		Roles:   auth.CanonicalizeRoles(splitAssignment(preferredHeader(r, actingRolesHeader, legacyActingRolesHeader))),
 		Claims:  claims,
 	}, nil
+}
+
+func preferredHeader(r *http.Request, canonicalName, legacyName string) string {
+	if value := strings.TrimSpace(r.Header.Get(canonicalName)); value != "" {
+		return value
+	}
+	return strings.TrimSpace(r.Header.Get(legacyName))
 }
 
 func principalIdentifiers(principal auth.Principal) []string {

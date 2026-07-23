@@ -1,6 +1,6 @@
 # Compatibility Matrix
 
-FlowGo is pre-1.0 software. Compatibility guarantees are conservative until the public API, worker protocol, SDK, image tags, and Helm values are stabilized.
+ArtificialFlow is pre-1.0 software. Compatibility guarantees are conservative until the public API, worker protocol, SDK, image tags, and Helm values are stabilized.
 
 ## Versioning Policy
 
@@ -10,9 +10,9 @@ FlowGo is pre-1.0 software. Compatibility guarantees are conservative until the 
 | Command API | `v1` routes and generated protobuf API | Additive changes are preferred. Breaking changes require release notes. |
 | Query API | `v1` HTTP responses | Response fields may be added. Existing field meaning should remain stable. |
 | Worker API | Protocol headers and `/jobs/*` endpoints | Wire compatibility is protected by conformance checks. |
-| Node.js SDK | `@flowgo/nodejs-sdk@0.1.x` | Patch releases should preserve public method signatures where practical. |
-| Docker images | `azizaltaleb/*:v0.1.x` | Image environment variables and exposed ports should stay stable within a minor line. |
-| Helm chart | `charts/flowgo` `0.1.x` | Values may be added. Renames/removals require migration notes. |
+| Node.js SDK | `@artificialflow/nodejs-sdk@0.2.x` | Patch releases should preserve public method signatures where practical. |
+| Docker images | `artificialflow/*:v0.2.x` | Image environment variables and exposed ports should stay stable within a minor line; `azizaltaleb/*` is a same-digest alias for one transition release. |
+| Helm chart | `charts/artificialflow` `0.2.x` | Values may be added. Renames/removals require migration notes. |
 
 ## Supported Deployment Combinations
 
@@ -20,7 +20,7 @@ FlowGo is pre-1.0 software. Compatibility guarantees are conservative until the 
 | :--- | :--- | :--- | :--- |
 | Docker Compose external IAM | Existing OIDC provider | Postgres, Kafka, Debezium Connect, Elasticsearch | Development/evaluation supported. |
 | Docker Compose bundled ZITADEL | Bundled ZITADEL | Postgres, Kafka, Debezium Connect, Elasticsearch | Development/evaluation supported. |
-| Docker Compose release override | External IAM or bundled ZITADEL | Published `azizaltaleb/*` images | Release smoke validation path. |
+| Docker Compose release override | External IAM or bundled ZITADEL | Published `artificialflow/*` images; one-release `azizaltaleb/*` digest aliases | Release smoke validation path. |
 | Helm external IAM | Existing OIDC provider | Managed or chart-provided dependencies | Production-oriented path. |
 | Helm bundled ZITADEL | Bundled ZITADEL | Managed or chart-provided dependencies | Production-oriented path for solution-managed IAM. |
 
@@ -38,9 +38,11 @@ FlowGo is pre-1.0 software. Compatibility guarantees are conservative until the 
 
 | SDK package | Compatible platform target | Notes |
 | :--- | :--- | :--- |
-| `@flowgo/nodejs-sdk@0.1.x` | FlowGo `v0.1.x` | Use Node.js 20 or newer. |
+| `@artificialflow/nodejs-sdk@0.2.x` | ArtificialFlow `v0.2.x` | Use Node.js 20 or newer. |
+| `@flowgo/nodejs-sdk@0.2.x` | ArtificialFlow `v0.2.x` | Deprecated one-release wrapper that re-exports the canonical package. |
+| `@flowgo/nodejs-sdk@0.1.x` | FlowGo `v0.1.x` | Historical package and product line. |
 
-The SDK can target local Compose through `FLOWGO_BASE_URL=http://localhost:9100/api`. New bundled-ZITADEL clients use a service-account JSON profile and automatic JWT Profile exchange. The raw `token` option remains compatible with external IAM and staged legacy PAT migration.
+The SDK can target local Compose through `ARTIFICIALFLOW_BASE_URL=http://localhost:9100/api`; `FLOWGO_BASE_URL` remains a legacy fallback for one transition release. New bundled-ZITADEL clients use a service-account JSON profile and automatic JWT Profile exchange. The raw `token` option remains compatible with external IAM and staged legacy PAT migration.
 
 Key revocation prevents new exchanges but does not retroactively invalidate already-minted short-lived access tokens. Existing bundled PATs remain accepted and revocable during the migration window; new PAT creation and rotation are disabled by default.
 

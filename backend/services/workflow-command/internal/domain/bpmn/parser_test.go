@@ -1,7 +1,7 @@
 package bpmn
 
 import (
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"strings"
 	"testing"
 )
@@ -221,6 +221,67 @@ func TestParse_MapsExtendedElementsAndProperties(t *testing.T) {
 	manual := steps["manual"]
 	if len(manual.Incoming) != 2 || !containsString(manual.Incoming, "receive") || !containsString(manual.Incoming, "timerCatch") {
 		t.Fatalf("manual incoming mismatch: got %v", manual.Incoming)
+	}
+}
+
+func TestParse_ArtificialFlowNamespaceCompatibilityAndPrecedence(t *testing.T) {
+	xml := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn"
+  xmlns:flowgo="http://flowgo.com/schema/1.0/bpmn"
+  id="Definitions_Namespace_Migration"
+  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_Namespace_Migration" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:serviceTask id="canonical" artificialflow:taskType="canonical-worker" flowgo:taskType="legacy-worker" taskType="plain-worker">
+      <bpmn:extensionElements>
+        <artificialflow:properties>
+          <artificialflow:property name="source" value="canonical"/>
+        </artificialflow:properties>
+        <flowgo:properties>
+          <flowgo:property name="source" value="legacy"/>
+        </flowgo:properties>
+        <properties>
+          <property name="source" value="plain"/>
+        </properties>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="legacy" flowgo:taskType="legacy-worker"/>
+    <bpmn:serviceTask id="plain" taskType="plain-worker"/>
+    <bpmn:userTask id="user" artificialflow:assignee="canonical-user" flowgo:assignee="legacy-user" assignee="plain-user"/>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="canonical"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="canonical" targetRef="legacy"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="legacy" targetRef="plain"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="plain" targetRef="user"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="user" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>`
+
+	wf, err := Parse(strings.NewReader(xml))
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	steps := make(map[string]model.StepDefinition)
+	for _, step := range wf.Steps {
+		steps[step.ID] = step
+	}
+
+	if steps["canonical"].Implementation != "canonical-worker" {
+		t.Fatalf("expected canonical task type precedence, got %q", steps["canonical"].Implementation)
+	}
+	if steps["canonical"].Properties["source"] != "canonical" {
+		t.Fatalf("expected canonical extension precedence, got %v", steps["canonical"].Properties["source"])
+	}
+	if steps["legacy"].Implementation != "legacy-worker" {
+		t.Fatalf("expected legacy task type compatibility, got %q", steps["legacy"].Implementation)
+	}
+	if steps["plain"].Implementation != "plain-worker" {
+		t.Fatalf("expected unqualified task type compatibility, got %q", steps["plain"].Implementation)
+	}
+	if steps["user"].Properties["assignee"] != "canonical-user" {
+		t.Fatalf("expected canonical assignee precedence, got %v", steps["user"].Properties["assignee"])
 	}
 }
 

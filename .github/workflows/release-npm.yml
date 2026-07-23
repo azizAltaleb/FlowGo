@@ -1,13 +1,31 @@
 name: Release Node.js SDK
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
-  workflow_dispatch:
+  workflow_call:
     inputs:
+      tag:
+        description: Release tag that must match the package version
+        required: true
+        type: string
       publish:
         description: Publish to npm instead of running validation only
+        required: true
+        type: boolean
+      images_verified:
+        description: The required image reusable workflow completed successfully
+        required: true
+        type: boolean
+    secrets:
+      NPM_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to validate
+        required: true
+        default: v0.3.0
+      publish:
+        description: Direct publication is refused; use the Release orchestrator
         required: true
         default: false
         type: boolean
@@ -16,10 +34,46 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: release-npm-${{ inputs.tag }}-${{ inputs.publish }}
+  cancel-in-progress: false
+
 jobs:
-  publish-nodejs-sdk:
-    name: Publish @flowgo/nodejs-sdk
+  release-preflight:
+    name: Validate release identity and orchestration
     runs-on: ubuntu-latest
+    steps:
+      - name: Refuse npm publication without completed image workflow
+        if: ${{ inputs.publish && !inputs.images_verified }}
+        run: |
+          echo "npm publication must run through .github/workflows/release.yml after the image workflow succeeds" >&2
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate branding, version, and publication order
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          node scripts/validate_legacy_branding.mjs
+          node scripts/validate_release_version.mjs
+          node scripts/validate_release_workflows.mjs
+          node scripts/validate_nodejs_sdk_package.mjs
+
+  publish-nodejs-sdk:
+    name: Publish @artificialflow/nodejs-sdk
+    needs: release-preflight
+    runs-on: ubuntu-latest
+    outputs:
+      dist_tag: ${{ steps.release.outputs.dist_tag }}
+      publish: ${{ steps.release.outputs.publish }}
+      version: ${{ steps.release.outputs.version }}
     defaults:
       run:
         working-directory: clients/nodejs-sdk
@@ -38,6 +92,51 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Resolve version and distribution tag
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="${{ inputs.tag }}"
+          tag_version="${tag#v}"
+          test "${tag_version}" = "${version}" || {
+            echo "tag ${tag} does not match package version ${version}" >&2
+            exit 1
+          }
+          if [[ "${version}" == *-* ]]; then
+            dist_tag=next
+          else
+            dist_tag=latest
+          fi
+          {
+            echo "version=${version}"
+            echo "dist_tag=${dist_tag}"
+            echo "publish=${{ inputs.publish }}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Refuse existing exact npm versions
+        if: ${{ steps.release.outputs.publish == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.release.outputs.version }}"
+          for package in @artificialflow/nodejs-sdk @flowgo/nodejs-sdk; do
+            set +e
+            result="$(npm view "${package}@${version}" version --json 2>&1)"
+            status=$?
+            set -e
+            if [[ ${status} -eq 0 ]]; then
+              echo "exact npm version already exists: ${package}@${version}" >&2
+              exit 1
+            fi
+            if [[ "${result}" != *"E404"* && "${result}" != *"404 Not Found"* ]]; then
+              echo "could not verify npm version availability for ${package}@${version}" >&2
+              echo "${result}" >&2
+              exit "${status}"
+            fi
+          done
+
       - name: Test
         run: npm test
 
@@ -47,18 +146,56 @@ jobs:
       - name: Package dry run
         run: npm pack --dry-run
 
+      - name: Validate generated protobuf drift
+        working-directory: .
+        run: bash scripts/validate_generated_proto.sh
+
+      - name: Validate clean canonical and wrapper installation
+        working-directory: .
+        run: bash scripts/validate_nodejs_sdk_install.sh
+
       - name: Generate package SBOM
-        run: npm sbom --sbom-format cyclonedx --omit dev > flowgo-nodejs-sdk-sbom.cdx.json
+        run: npm sbom --sbom-format cyclonedx --omit dev > artificialflow-nodejs-sdk-sbom.cdx.json
 
       - name: Upload package SBOM
         uses: actions/upload-artifact@v4
         with:
-          name: flowgo-nodejs-sdk-sbom
-          path: clients/nodejs-sdk/flowgo-nodejs-sdk-sbom.cdx.json
+          name: artificialflow-nodejs-sdk-sbom
+          path: clients/nodejs-sdk/artificialflow-nodejs-sdk-sbom.cdx.json
           if-no-files-found: error
 
       - name: Publish
-        if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')) || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
-        run: npm publish --access public --provenance
+        if: ${{ steps.release.outputs.publish == 'true' }}
+        run: npm publish --access public --provenance --tag "${{ steps.release.outputs.dist_tag }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-legacy-wrapper:
+    name: Publish deprecated @flowgo/nodejs-sdk wrapper
+    needs: publish-nodejs-sdk
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify wrapper tracks canonical version
+        run: node scripts/validate_nodejs_sdk_package.mjs
+
+      - name: Package wrapper dry run
+        working-directory: clients/nodejs-sdk-legacy
+        run: npm pack --dry-run
+
+      # This job cannot run until the canonical publish job succeeds. A failed
+      # canonical publish therefore cannot leave a newer legacy wrapper behind.
+      - name: Publish compatibility wrapper
+        if: ${{ needs.publish-nodejs-sdk.outputs.publish == 'true' }}
+        working-directory: clients/nodejs-sdk-legacy
+        run: npm publish --access public --provenance --tag "${{ needs.publish-nodejs-sdk.outputs.dist_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

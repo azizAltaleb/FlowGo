@@ -32,9 +32,9 @@ RUN chmod +x /entrypoint.sh
 
 EXPOSE 80
 
-LABEL org.opencontainers.image.title="FlowGo Frontend" \
-      org.opencontainers.image.description="Frontend UI for FlowGo" \
-      org.opencontainers.image.source="https://github.com/azizAltaleb/FlowGo" \
+LABEL org.opencontainers.image.title="ArtificialFlow Frontend" \
+      org.opencontainers.image.description="Frontend UI for ArtificialFlow" \
+      org.opencontainers.image.source="https://github.com/artificialflow/artificialflow" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"

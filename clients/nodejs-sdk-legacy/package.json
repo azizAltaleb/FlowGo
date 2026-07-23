@@ -1,0 +1,29 @@
+{
+  "name": "@flowgo/nodejs-sdk",
+  "version": "0.3.0",
+  "description": "Deprecated compatibility wrapper for @artificialflow/nodejs-sdk",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "author": "ArtificialFlow contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artificialflow/artificialflow.git",
+    "directory": "clients/nodejs-sdk-legacy"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@artificialflow/nodejs-sdk": "0.3.0"
+  }
+}

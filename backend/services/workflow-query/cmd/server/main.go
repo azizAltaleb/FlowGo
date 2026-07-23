@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
-	esadapter "github.com/azizAltaleb/flowgo/backend/libs/elasticsearch"
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/infrastructure/persistence"
-	api "github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/interfaces/http"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
+	esadapter "github.com/artificialflow/artificialflow/backend/libs/elasticsearch"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-query/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-query/internal/infrastructure/persistence"
+	api "github.com/artificialflow/artificialflow/backend/services/workflow-query/internal/interfaces/http"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -145,9 +145,16 @@ func main() {
 	}
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   allowedOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Correlation-ID"},
+		AllowedOrigins: allowedOrigins,
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{
+			"Authorization", "Content-Type", "X-Correlation-ID",
+			"X-ArtificialFlow-Acting-Subject", "X-ArtificialFlow-Acting-Username",
+			"X-ArtificialFlow-Acting-Email", "X-ArtificialFlow-Acting-Name",
+			"X-ArtificialFlow-Acting-Roles",
+			"X-FlowGo-Acting-Subject", "X-FlowGo-Acting-Username",
+			"X-FlowGo-Acting-Email", "X-FlowGo-Acting-Name", "X-FlowGo-Acting-Roles",
+		},
 		AllowCredentials: allowCredentials,
 	})
 

@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/libs/metrics"
-	"github.com/azizAltaleb/flowgo/backend/libs/tracing"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/messaging"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/persistence"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/libs/metrics"
+	"github.com/artificialflow/artificialflow/backend/libs/tracing"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/infrastructure/messaging"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/infrastructure/persistence"
 )
 
 func main() {
@@ -42,7 +42,7 @@ func main() {
 
 	pgDSN := os.Getenv("PG_DSN")
 	if pgDSN == "" {
-		pgDSN = "host=localhost user=user password=password dbname=workflow_db port=5433 sslmode=disable TimeZone=UTC"
+		pgDSN = "host=localhost user=artificialflow password=password dbname=workflow_db port=5433 sslmode=disable TimeZone=UTC"
 	}
 
 	tickInterval := parseDurationEnv("RUNTIME_TICK_INTERVAL", time.Second)

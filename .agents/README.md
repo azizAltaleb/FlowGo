@@ -1,6 +1,6 @@
-# FlowGo Agent Prompts
+# ArtificialFlow Agent Prompts
 
-These prompts define advisory agents for FlowGo maintainers. They are intended for issue triage, community maintenance, PR review, quality gate review, QA planning, release readiness, security triage, and CI failure investigation.
+These prompts define advisory agents for ArtificialFlow maintainers. They are intended for issue triage, community maintenance, PR review, quality gate review, QA planning, release readiness, security triage, and CI failure investigation.
 
 Use `.agents/agentic-sdlc.yml` as the shared policy/config source. Durable review or fix outcomes should be written to an explicit ledger only when the workflow asks for it; do not overwrite `.agents/thermo-nuclear-review-history.md` during normal agentic SDLC work.
 

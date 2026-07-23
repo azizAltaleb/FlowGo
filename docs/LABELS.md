@@ -1,6 +1,6 @@
 # Labels
 
-Use labels to make FlowGo issues, PRs, and agent output easy to route. Agents may suggest labels, but maintainers decide whether to apply them unless write automation is explicitly enabled.
+Use labels to make ArtificialFlow issues, PRs, and agent output easy to route. Agents may suggest labels, but maintainers decide whether to apply them unless write automation is explicitly enabled.
 
 ## Kind
 

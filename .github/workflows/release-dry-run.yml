@@ -10,7 +10,7 @@ jobs:
   release-dry-run:
     name: Validate release candidate locally
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,8 +24,19 @@ jobs:
             frontend/package-lock.json
             clients/nodejs-sdk/package-lock.json
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.12"
+
+      - name: Install actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@latest
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
       - name: Run release dry run
         env:
-          VERSION: 0.2.0-dry-run
+          VERSION: 0.3.0-dry-run
           REVISION: ${{ github.sha }}
         run: bash scripts/release_dry_run.sh

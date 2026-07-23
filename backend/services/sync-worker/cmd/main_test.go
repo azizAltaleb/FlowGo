@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/infrastructure/messaging"
+	"github.com/artificialflow/artificialflow/backend/services/sync-worker/internal/infrastructure/messaging"
 )
 
 func TestParseTopicsEnv_DeduplicatesAndTrims(t *testing.T) {
@@ -245,5 +245,42 @@ func TestValidateProjectionContract(t *testing.T) {
 				t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
 			}
 		})
+	}
+}
+
+func TestValidateDebeziumIdentifierTransition(t *testing.T) {
+	if err := validateDebeziumIdentifierTransition([]string{
+		"workflow.events.v1",
+		"artificialflow.public.process",
+		"artificialflow.public.job",
+	}, false); err != nil {
+		t.Fatalf("canonical topics should be accepted: %v", err)
+	}
+	if err := validateDebeziumIdentifierTransition([]string{
+		"workflow.events.v1",
+		"flowgo.public.process",
+		"flowgo.public.job",
+	}, false); err != nil {
+		t.Fatalf("explicit legacy topics should be accepted: %v", err)
+	}
+
+	mixed := []string{"artificialflow.public.process", "flowgo.public.process"}
+	if err := validateDebeziumIdentifierTransition(mixed, false); err == nil {
+		t.Fatal("mixed canonical and legacy topics must be rejected by default")
+	}
+	if err := validateDebeziumIdentifierTransition(mixed, true); err != nil {
+		t.Fatalf("controlled recovery override should allow mixed topics: %v", err)
+	}
+}
+
+func TestConflictingConnectorNames(t *testing.T) {
+	if got := conflictingConnectorNames("artificialflow-postgres-connector"); len(got) != 1 || got[0] != "flowgo-postgres-connector" {
+		t.Fatalf("unexpected canonical conflict set: %v", got)
+	}
+	if got := conflictingConnectorNames("flowgo-postgres-connector"); len(got) != 1 || got[0] != "artificialflow-postgres-connector" {
+		t.Fatalf("unexpected legacy conflict set: %v", got)
+	}
+	if got := conflictingConnectorNames("custom"); len(got) != 0 {
+		t.Fatalf("custom connector should not infer conflicts: %v", got)
 	}
 }

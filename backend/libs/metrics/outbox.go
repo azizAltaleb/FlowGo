@@ -15,39 +15,69 @@ type OutboxSnapshotFn func() OutboxSnapshot
 
 // OutboxCollector is a Prometheus Collector that exposes outbox health metrics.
 type OutboxCollector struct {
-	snapshot   OutboxSnapshotFn
-	pending    *prometheus.Desc
-	success    *prometheus.Desc
-	failure    *prometheus.Desc
-	lagSeconds *prometheus.Desc
+	snapshot         OutboxSnapshotFn
+	pending          *prometheus.Desc
+	success          *prometheus.Desc
+	failure          *prometheus.Desc
+	lagSeconds       *prometheus.Desc
+	legacyPending    *prometheus.Desc
+	legacySuccess    *prometheus.Desc
+	legacyFailure    *prometheus.Desc
+	legacyLagSeconds *prometheus.Desc
 }
 
 // NewOutboxCollector creates and registers a new OutboxCollector.
 func NewOutboxCollector(snapshotFn OutboxSnapshotFn) *OutboxCollector {
+	c := NewUnregisteredOutboxCollector(snapshotFn)
+	prometheus.MustRegister(c)
+	return c
+}
+
+// NewUnregisteredOutboxCollector creates a collector for use with a caller-owned registry.
+func NewUnregisteredOutboxCollector(snapshotFn OutboxSnapshotFn) *OutboxCollector {
 	c := &OutboxCollector{
 		snapshot: snapshotFn,
 		pending: prometheus.NewDesc(
-			"flowgo_outbox_pending",
+			"artificialflow_outbox_pending",
 			"Number of outbox events pending publication.",
 			nil, nil,
 		),
 		success: prometheus.NewDesc(
-			"flowgo_outbox_publish_success_total",
+			"artificialflow_outbox_publish_success_total",
 			"Total outbox events successfully published.",
 			nil, nil,
 		),
 		failure: prometheus.NewDesc(
-			"flowgo_outbox_publish_failure_total",
+			"artificialflow_outbox_publish_failure_total",
 			"Total outbox events that failed to publish.",
 			nil, nil,
 		),
 		lagSeconds: prometheus.NewDesc(
-			"flowgo_outbox_publish_lag_seconds",
+			"artificialflow_outbox_publish_lag_seconds",
 			"Age in seconds of the oldest unpublished outbox event.",
 			nil, nil,
 		),
+		legacyPending: prometheus.NewDesc(
+			"flowgo_outbox_pending",
+			"Legacy mirror of artificialflow_outbox_pending for the transition release.",
+			nil, nil,
+		),
+		legacySuccess: prometheus.NewDesc(
+			"flowgo_outbox_publish_success_total",
+			"Legacy mirror of artificialflow_outbox_publish_success_total for the transition release.",
+			nil, nil,
+		),
+		legacyFailure: prometheus.NewDesc(
+			"flowgo_outbox_publish_failure_total",
+			"Legacy mirror of artificialflow_outbox_publish_failure_total for the transition release.",
+			nil, nil,
+		),
+		legacyLagSeconds: prometheus.NewDesc(
+			"flowgo_outbox_publish_lag_seconds",
+			"Legacy mirror of artificialflow_outbox_publish_lag_seconds for the transition release.",
+			nil, nil,
+		),
 	}
-	prometheus.MustRegister(c)
 	return c
 }
 
@@ -56,6 +86,10 @@ func (c *OutboxCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.success
 	ch <- c.failure
 	ch <- c.lagSeconds
+	ch <- c.legacyPending
+	ch <- c.legacySuccess
+	ch <- c.legacyFailure
+	ch <- c.legacyLagSeconds
 }
 
 func (c *OutboxCollector) Collect(ch chan<- prometheus.Metric) {
@@ -64,4 +98,8 @@ func (c *OutboxCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.success, prometheus.CounterValue, float64(s.PublishSuccess))
 	ch <- prometheus.MustNewConstMetric(c.failure, prometheus.CounterValue, float64(s.PublishFailure))
 	ch <- prometheus.MustNewConstMetric(c.lagSeconds, prometheus.GaugeValue, float64(s.PublishLagSec))
+	ch <- prometheus.MustNewConstMetric(c.legacyPending, prometheus.GaugeValue, float64(s.Pending))
+	ch <- prometheus.MustNewConstMetric(c.legacySuccess, prometheus.CounterValue, float64(s.PublishSuccess))
+	ch <- prometheus.MustNewConstMetric(c.legacyFailure, prometheus.CounterValue, float64(s.PublishFailure))
+	ch <- prometheus.MustNewConstMetric(c.legacyLagSeconds, prometheus.GaugeValue, float64(s.PublishLagSec))
 }

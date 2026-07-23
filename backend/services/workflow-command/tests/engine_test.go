@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/messaging"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/persistence"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/infrastructure/messaging"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/infrastructure/persistence"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"

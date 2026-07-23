@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize FlowGo test/report artifacts for agentic quality gate review."""
+"""Summarize ArtificialFlow test/report artifacts for agentic quality gate review."""
 
 from __future__ import annotations
 

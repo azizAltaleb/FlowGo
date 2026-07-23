@@ -1,4 +1,4 @@
-# Workflow SA Frontend
+# ArtificialFlow Frontend
 
 This is a standalone Single Page Application (SPA) built with Vite, React, TypeScript, and Tailwind CSS. It provides a BPMN Modeler and dashboards for monitoring processes and workflow instances.
 

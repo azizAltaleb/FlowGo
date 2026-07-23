@@ -1,7 +1,7 @@
 {
-  "name": "@flowgo/nodejs-sdk",
-  "version": "0.2.0",
-  "description": "Node.js SDK for FlowGo workflow, worker, identity, and management APIs",
+  "name": "@artificialflow/nodejs-sdk",
+  "version": "0.3.0",
+  "description": "Node.js SDK for ArtificialFlow workflow, worker, identity, and management APIs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,24 +13,24 @@
     "prepack": "npm run build"
   },
   "keywords": [
-    "flowgo",
+    "artificialflow",
     "workflow",
     "bpmn",
     "worker",
     "sdk",
     "oidc"
   ],
-  "author": "FlowGo contributors",
+  "author": "ArtificialFlow contributors",
   "license": "MIT",
   "type": "commonjs",
-  "homepage": "https://github.com/azizAltaleb/FlowGo#readme",
+  "homepage": "https://github.com/artificialflow/artificialflow#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/azizAltaleb/FlowGo.git",
+    "url": "git+https://github.com/artificialflow/artificialflow.git",
     "directory": "clients/nodejs-sdk"
   },
   "bugs": {
-    "url": "https://github.com/azizAltaleb/FlowGo/issues"
+    "url": "https://github.com/artificialflow/artificialflow/issues"
   },
   "engines": {
     "node": ">=20"

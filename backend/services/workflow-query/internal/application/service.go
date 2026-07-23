@@ -2,8 +2,8 @@ package application
 
 import (
 	"context"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-query/internal/domain/repository"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-query/internal/domain/repository"
 )
 
 type QueryService struct {

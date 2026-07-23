@@ -1,9 +1,12 @@
 const assert = require('assert');
 const {
+  ArtificialFlowApiError,
+  ArtificialFlowClient,
   HeaderWorkerProtocolVersion,
   FlowGoApiError,
   FlowGoClient,
   WorkerProtocolVersion,
+  resolveArtificialFlowEnvironment,
 } = require('../dist');
 
 function jsonResponse(status, payload) {
@@ -36,7 +39,8 @@ function createClient(responses) {
     }
     return typeof response === 'function' ? response(url, init) : response;
   };
-  const client = new FlowGoClient({
+  // Keep one legacy deployment URL fixture to verify endpoint compatibility.
+  const client = new ArtificialFlowClient({
     baseUrl: 'http://flowgo.local/api',
     token: async () => 'token-1',
     fetch,
@@ -180,7 +184,7 @@ async function testInboxOperations() {
   const actingUser = {
     subject: 'user-123',
     username: 'accountant',
-    email: 'accountant@flowgo.local',
+    email: 'accountant@artificialflow.io',
     name: 'Accounting User',
     roles: ['accountant'],
   };
@@ -189,18 +193,19 @@ async function testInboxOperations() {
     jsonResponse(200, [instance]),
     jsonResponse(200, instance),
     jsonResponse(200, { tasks: [task] }),
-    jsonResponse(200, { ...task, state: 'ACTIVATED', claimedBy: 'accountant@flowgo.local', canClaim: false, canComplete: true }),
+    jsonResponse(200, { ...task, state: 'ACTIVATED', claimedBy: 'accountant@artificialflow.io', canClaim: false, canComplete: true }),
     textResponse(200, 'Task completed'),
     jsonResponse(200, [completed]),
   ]);
 
   await client.listInboxItems({ actingUser });
   assert.strictEqual(calls[0].url, 'http://flowgo.local/api/inbox');
-  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Subject'], 'user-123');
-  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Username'], 'accountant');
-  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Email'], 'accountant@flowgo.local');
-  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Name'], 'Accounting User');
-  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Roles'], 'accountant');
+  assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Subject'], 'user-123');
+  assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Username'], 'accountant');
+  assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Email'], 'accountant@artificialflow.io');
+  assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Name'], 'Accounting User');
+  assert.strictEqual(calls[0].init.headers['X-ArtificialFlow-Acting-Roles'], 'accountant');
+  assert.strictEqual(calls[0].init.headers['X-FlowGo-Acting-Subject'], undefined);
 
   await client.listVisibleActiveInstances({ actingUser });
   assert.strictEqual(calls[1].url, 'http://flowgo.local/api/inbox');
@@ -294,8 +299,8 @@ async function testMessageObjectOverload() {
 async function testPlatformReadOperations() {
   const { client, calls } = createClient([
     jsonResponse(200, { outboxPending: 0, outboxPublishSuccess: 1, outboxPublishFailure: 0, outboxPublishLagSec: 0, outboxMaxAttempts: 5, idempotencyHit: 0, idempotencyMiss: 1 }),
-    jsonResponse(200, { authenticated: true, principal: { subject: 'admin', roles: ['flowgo admin'] } }),
-    jsonResponse(200, { deployment_mode: 'zitadel', configuration_source: 'env', provider_name: 'ZITADEL', auth_enabled: true, frontend_auth_enabled: true, frontend_oidc_authority: 'http://localhost:9180', frontend_oidc_client_id: '123', token_validation_mode: 'introspection', internal_issuer_url: 'http://zitadel-proxy', external_issuer_url: 'http://localhost:9180', client_id: '', introspection_url: 'http://zitadel-proxy/oauth/v2/introspect', introspection_client_id: 'flowgo-api', introspection_auth_method: 'basic', enforce_audience: false, allow_insecure_issuer: true, claim_subject_path: 'sub', claim_roles_path: 'roles', claim_scopes_path: 'scope', claim_tenant_path: 'tenant', claim_email_path: 'email', claim_name_path: 'name', standard_roles: ['flowgo admin'] }),
+    jsonResponse(200, { authenticated: true, principal: { subject: 'admin', roles: ['artificialflow admin'] } }),
+    jsonResponse(200, { deployment_mode: 'zitadel', configuration_source: 'env', provider_name: 'ZITADEL', auth_enabled: true, frontend_auth_enabled: true, frontend_oidc_authority: 'http://localhost:9180', frontend_oidc_client_id: '123', token_validation_mode: 'introspection', internal_issuer_url: 'http://zitadel-proxy', external_issuer_url: 'http://localhost:9180', client_id: '', introspection_url: 'http://zitadel-proxy/oauth/v2/introspect', introspection_client_id: 'artificialflow-api', introspection_auth_method: 'basic', enforce_audience: false, allow_insecure_issuer: true, claim_subject_path: 'sub', claim_roles_path: 'roles', claim_scopes_path: 'scope', claim_tenant_path: 'tenant', claim_email_path: 'email', claim_name_path: 'name', standard_roles: ['artificialflow admin'] }),
   ]);
 
   await client.getEngineMetrics();
@@ -310,10 +315,10 @@ async function testPlatformReadOperations() {
 }
 
 async function testIdentityManagementRequests() {
-  const user = { id: 'u1', username: 'admin', preferred_login_name: 'admin@admin.localhost', display_name: 'admin', given_name: 'admin', family_name: 'admin', email: 'admin@admin.localhost', email_verified: true, state: 'ACTIVE', type: 'human', created_at: '2026-01-01T00:00:00Z', changed_at: '2026-01-01T00:00:00Z', roles: ['flowgo admin'] };
-  const role = { key: 'flowgo admin', display_name: 'Admin', group: 'FlowGo' };
-  const clientToken = { client_id: 'client-1', username: 'sdk-orders', name: 'Orders SDK', description: 'Order service', environment: 'production', owner_email: 'platform@example.com', purpose: 'Order worker', role: 'flowgo client', token_id: 'pat-1', token: 'sdk-token', token_created_at: '2026-01-01T00:00:00Z', token_expires_at: '2027-01-01T00:00:00Z' };
-  const identityClient = { client_id: 'client-1', username: 'sdk-orders', name: 'Orders SDK', description: 'Order service', environment: 'production', owner_email: 'platform@example.com', purpose: 'Order worker', role: 'flowgo client', state: 'USER_STATE_ACTIVE', created_at: '2026-01-01T00:00:00Z', changed_at: '2026-01-01T00:00:00Z', tokens: [{ token_id: 'pat-1', token_created_at: '2026-01-01T00:00:00Z', token_changed_at: '2026-01-01T00:00:00Z', token_expires_at: '2027-01-01T00:00:00Z', status: 'active' }] };
+  const user = { id: 'u1', username: 'admin', preferred_login_name: 'admin@admin.localhost', display_name: 'admin', given_name: 'admin', family_name: 'admin', email: 'admin@admin.localhost', email_verified: true, state: 'ACTIVE', type: 'human', created_at: '2026-01-01T00:00:00Z', changed_at: '2026-01-01T00:00:00Z', roles: ['artificialflow admin'] };
+  const role = { key: 'artificialflow admin', display_name: 'Admin', group: 'ArtificialFlow' };
+  const clientToken = { client_id: 'client-1', username: 'sdk-orders', name: 'Orders SDK', description: 'Order service', environment: 'production', owner_email: 'platform@example.com', purpose: 'Order worker', role: 'artificialflow client', token_id: 'pat-1', token: 'sdk-token', token_created_at: '2026-01-01T00:00:00Z', token_expires_at: '2027-01-01T00:00:00Z' };
+  const identityClient = { client_id: 'client-1', username: 'sdk-orders', name: 'Orders SDK', description: 'Order service', environment: 'production', owner_email: 'platform@example.com', purpose: 'Order worker', role: 'artificialflow client', state: 'USER_STATE_ACTIVE', created_at: '2026-01-01T00:00:00Z', changed_at: '2026-01-01T00:00:00Z', tokens: [{ token_id: 'pat-1', token_created_at: '2026-01-01T00:00:00Z', token_changed_at: '2026-01-01T00:00:00Z', token_expires_at: '2027-01-01T00:00:00Z', status: 'active' }] };
   const { client, calls } = createClient([
     jsonResponse(200, { users: [user] }),
     jsonResponse(200, { users: [user] }),
@@ -368,7 +373,7 @@ async function testIdentityManagementRequests() {
   await client.createIdentityManagementClientToken({ name: 'Worker SDK' });
   assert.deepStrictEqual(body(calls[5]), { name: 'Worker SDK', username: '', description: '', environment: '', owner_email: '', purpose: '', token_expires_at: '' });
 
-  await client.createFlowGoClientToken({ name: 'API SDK', username: 'api-sdk' });
+  await client.createArtificialFlowClientToken({ name: 'API SDK', username: 'api-sdk' });
   assert.deepStrictEqual(body(calls[6]), { name: 'API SDK', username: 'api-sdk', description: '', environment: '', owner_email: '', purpose: '', token_expires_at: '' });
 
   await client.listIdentityClients();
@@ -377,7 +382,7 @@ async function testIdentityManagementRequests() {
   await client.getIdentityManagementClients();
   assert.strictEqual(calls[8].url, 'http://flowgo.local/api/identity/management/clients');
 
-  await client.listFlowGoClients();
+  await client.listArtificialFlowClients();
   assert.strictEqual(calls[9].url, 'http://flowgo.local/api/identity/management/clients');
 
   await client.rotateIdentityClientToken('client-1', { token_expires_at: '2028-01-01T00:00:00Z' });
@@ -401,10 +406,10 @@ async function testIdentityManagementRequests() {
   await client.deleteIdentityManagementClient('client-2');
   assert.strictEqual(calls[15].url, 'http://flowgo.local/api/identity/management/clients/client-2');
 
-  await client.updateIdentityUser('u1', { given_name: 'Admin', roles: ['flowgo admin'] });
+  await client.updateIdentityUser('u1', { given_name: 'Admin', roles: ['artificialflow admin'] });
   assert.strictEqual(calls[16].url, 'http://flowgo.local/api/identity/management/users/u1');
   assert.strictEqual(calls[16].init.method, 'PUT');
-  assert.deepStrictEqual(body(calls[16]), { given_name: 'Admin', roles: ['flowgo admin'] });
+  assert.deepStrictEqual(body(calls[16]), { given_name: 'Admin', roles: ['artificialflow admin'] });
 
   await client.updateIdentityManagementUser('u1', { display_name: 'Admin User' });
   assert.strictEqual(calls[17].url, 'http://flowgo.local/api/identity/management/users/u1');
@@ -435,7 +440,7 @@ async function testIdentityManagementRequests() {
   assert.strictEqual(calls[25].url, 'http://flowgo.local/api/identity/management/roles');
 
   await client.createIdentityRole({ key: 'custom', display_name: 'Custom' });
-  assert.deepStrictEqual(body(calls[26]), { key: 'custom', display_name: 'Custom', group: 'FlowGo' });
+  assert.deepStrictEqual(body(calls[26]), { key: 'custom', display_name: 'Custom', group: 'ArtificialFlow' });
 
   await client.createIdentityManagementRole({ key: 'custom-2', display_name: 'Custom 2', group: 'Custom' });
   assert.deepStrictEqual(body(calls[27]), { key: 'custom-2', display_name: 'Custom 2', group: 'Custom' });
@@ -504,11 +509,52 @@ async function testApiErrors() {
   const { client } = createClient([textResponse(500, 'broken')]);
   await assert.rejects(
     () => client.health(),
-    (error) => error instanceof FlowGoApiError && error.status === 500 && error.body === 'broken',
+    (error) => error instanceof ArtificialFlowApiError && error.status === 500 && error.body === 'broken',
   );
 }
 
+function testCanonicalExportsAndEnvironmentPrecedence() {
+  assert.strictEqual(FlowGoClient, ArtificialFlowClient);
+  assert.strictEqual(FlowGoApiError, ArtificialFlowApiError);
+  assert.deepStrictEqual(
+    resolveArtificialFlowEnvironment({
+      ARTIFICIALFLOW_BASE_URL: 'https://api.artificialflow.example.io',
+      FLOWGO_BASE_URL: 'https://legacy.example/api',
+      ARTIFICIALFLOW_TOKEN: 'canonical-token',
+      FLOWGO_TOKEN: 'legacy-token',
+    }, () => 123),
+    {
+      baseUrl: 'https://api.artificialflow.example.io',
+      token: 'canonical-token',
+      zitadelProfileFile: '',
+      workflowKey: '<WORKFLOW_DEFINITION_KEY_OR_ID_TO_START>',
+      businessKey: 'sdk-smoke-123',
+      messageName: '<OPTIONAL_BPMN_MESSAGE_NAME>',
+      messageCorrelationKey: '<OPTIONAL_MESSAGE_CORRELATION_KEY>',
+      workerJobType: '<OPTIONAL_SERVICE_TASK_JOB_TYPE>',
+    },
+  );
+  const legacy = resolveArtificialFlowEnvironment({
+    FLOWGO_BASE_URL: 'https://legacy.example/api',
+    FLOWGO_TOKEN: 'legacy-token',
+  }, () => 456);
+  assert.strictEqual(legacy.baseUrl, 'https://legacy.example/api');
+  assert.strictEqual(legacy.token, 'legacy-token');
+
+  const legacyApiUrl = resolveArtificialFlowEnvironment({
+    FLOWGO_API_URL: 'https://legacy-api.example/api',
+  });
+  assert.strictEqual(legacyApiUrl.baseUrl, 'https://legacy-api.example/api');
+
+  const canonicalApiUrl = resolveArtificialFlowEnvironment({
+    ARTIFICIALFLOW_API_URL: 'https://canonical-api.example/api',
+    FLOWGO_BASE_URL: 'https://legacy-base.example/api',
+  });
+  assert.strictEqual(canonicalApiUrl.baseUrl, 'https://canonical-api.example/api');
+}
+
 async function main() {
+  testCanonicalExportsAndEnvironmentPrecedence();
   await testHealthAuthHeaders();
   await testAllWorkflowOperations();
   await testAllInstanceOperations();

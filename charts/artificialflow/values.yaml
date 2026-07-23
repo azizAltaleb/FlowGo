@@ -1,0 +1,339 @@
+global:
+  imagePullSecrets: []
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Use only when upgrading the former flowgo chart in place. These values keep
+# every resource name and immutable workload selector equal to the live release.
+# Fresh installs must leave this disabled.
+compatibility:
+  legacyResourceNames:
+    enabled: false
+    fullnameOverride: ""
+    selectorNameOverride: ""
+    selectorInstanceOverride: ""
+  # Used only with bundled ZITADEL during an in-place legacy-resource upgrade.
+  # External IAM continues to use the operator-supplied live issuer values.
+  legacyBundledIAM:
+    issuerInternalUrl: ""
+    issuerPublicUrl: ""
+    frontendAuthority: ""
+    frontendClientIdFile: ""
+
+replicaCount:
+  command: 2
+  query: 2
+  runtime: 1
+  syncWorker: 1
+  frontend: 2
+  gateway: 2
+
+images:
+  command:
+    repository: artificialflow/workflow-command
+    tag: "0.3.0"
+    pullPolicy: IfNotPresent
+  query:
+    repository: artificialflow/workflow-query
+    tag: "0.3.0"
+    pullPolicy: IfNotPresent
+  runtime:
+    repository: artificialflow/workflow-runtime
+    tag: "0.3.0"
+    pullPolicy: IfNotPresent
+  syncWorker:
+    repository: artificialflow/sync-worker
+    tag: "0.3.0"
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: artificialflow/frontend
+    tag: "0.3.0"
+    pullPolicy: IfNotPresent
+  gateway:
+    repository: nginx
+    tag: "1.27-alpine"
+    pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+applicationState:
+  rootPath: /artificialflow
+  filePrefix: artificialflow
+  apiCredentialUID: "10001"
+  bootstrapExistingClaim: ""
+  authExistingClaim: ""
+
+# Fresh installs use canonical persistent identifiers. Existing installations can
+# keep legacy identifiers by explicitly overriding these values during cutover.
+postgresql:
+  dsn: ""
+  host: "postgres.example.internal"
+  port: 5432
+  database: workflow_db
+  user: artificialflow
+  password: "change-me"
+  sslMode: require
+  existingSecret: ""
+  existingSecretKey: PG_DSN
+
+search:
+  backend: elasticsearch
+  address: "https://elasticsearch.example.internal:9200"
+  indexPrefix: artificialflow
+
+eventBus:
+  type: kafka
+  kafka:
+    brokers: "kafka.example.internal:9092"
+    eventTopic: workflow.events.v1
+  nats:
+    url: "nats://nats.example.internal:4222"
+
+cors:
+  allowedOrigins: "https://app.artificialflow.example.io"
+  allowCredentials: false
+
+iam:
+  mode: external
+  providerName: "External OIDC Provider"
+  auth:
+    issuerInternalUrl: "https://login.example.com"
+    issuerPublicUrl: "https://login.example.com"
+    clientId: workflow-backend
+    tokenMode: jwt
+    introspectionUrl: ""
+    introspectionClientId: ""
+    introspectionClientSecret: ""
+    introspectionAuthMethod: basic
+    claimSubjectPath: sub
+    claimRolesPath: roles,realm_access.roles,groups
+    claimScopesPath: scope,scp
+    claimTenantPath: tenant_id
+    claimEmailPath: email
+    claimNamePath: name
+    enforceAudience: true
+    allowInsecureIssuer: false
+  frontend:
+    oidcAuthority: "https://login.example.com"
+    oidcClientId: workflow-frontend
+    oidcClientIdFile: ""
+
+command:
+  service:
+    type: ClusterIP
+    port: 8080
+  env:
+    serverAddr: 0.0.0.0:8080
+    runtimeEnabled: "false"
+    outboxRelayEnabled: "true"
+    outboxRelayInterval: 1s
+    outboxRelayTimeout: 5s
+    outboxRelayBatchSize: "200"
+    outboxRelayMaxAttempts: "10"
+    idempotencyCleanupEnabled: "true"
+    idempotencyRetention: 168h
+    idempotencyCleanupInterval: 1h
+    idempotencyCleanupTimeout: 10s
+    idempotencyCleanupBatchSize: "500"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+query:
+  service:
+    type: ClusterIP
+    port: 8081
+  env:
+    serverAddr: 0.0.0.0:8081
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+runtime:
+  enabled: true
+  env:
+    runtimeEnabled: "true"
+    tickInterval: 1s
+    taskTimeout: 5s
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+syncWorker:
+  enabled: true
+  service:
+    type: ClusterIP
+    port: 8092
+  env:
+    groupId: artificialflow-sync-worker
+    topics: workflow.events.v1,artificialflow.public.process,artificialflow.public.process_instance,artificialflow.public.element_instance,artificialflow.public.variable,artificialflow.public.job,artificialflow.public.incident,artificialflow.public.timer,artificialflow.public.message_subscription
+    projectionContract: hybrid
+    dlqTopic: workflow.sync.dlq
+    connectBootstrapEnabled: "true"
+    connectUrl: "http://debezium-connect.example.internal:8083"
+    connectorName: artificialflow-postgres-connector
+    connectorTopicPrefix: artificialflow
+    connectorSlotName: artificialflow_slot
+    connectorDatabaseUser: artificialflow
+    connectorFile: ""
+    connectorJson: ""
+    allowParallelConnectors: "false"
+    connectWaitTimeoutSec: "180"
+    maxProcessRetries: "3"
+    retryBackoff: 500ms
+    metricsAddr: ":8092"
+    freshnessSloSec: "120"
+    healthFailOnStale: "false"
+    allowMixedDebeziumPrefixes: "false"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+frontend:
+  service:
+    type: ClusterIP
+    port: 80
+  env:
+    apiUrl: /api
+    oidcClientIdFileTimeoutSeconds: "240"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+gateway:
+  enabled: true
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  host: app.artificialflow.example.io
+  tls:
+    enabled: true
+    secretName: artificialflow-tls
+
+zitadel:
+  enabled: false
+  publicUrl: "https://iam.artificialflow.example.io"
+  externalDomain: iam.artificialflow.example.io
+  externalPort: 443
+  externalSecure: true
+  masterkey: MasterkeyNeedsToHave32Characters
+  existingSecret: ""
+  bootstrap:
+    waitSeconds: "240"
+    accessTokenLifetime: 900s
+    ownerPatExpiration: "2099-01-01T00:00:00Z"
+    loginPatExpiration: "2099-01-01T00:00:00Z"
+    clientKeyDefaultLifetime: 2160h
+    clientKeyMaxLifetime: 8760h
+    enableLegacyPatCreation: false
+    enableLegacyPatRotation: false
+    projectName: ArtificialFlow
+    frontendAppName: ArtificialFlow Frontend
+    frontendUrl: "https://app.artificialflow.example.io"
+    adminUsername: admin
+    adminPassword: "change-me"
+    adminGivenName: admin
+    adminFamilyName: admin
+    adminDisplayName: admin
+    adminEmail: admin@example.com
+    adminLoginName: admin
+  api:
+    machineKeySize: 2048
+    applicationKeySize: 2048
+    image:
+      repository: ghcr.io/zitadel/zitadel
+      tag: v4.13.0
+      pullPolicy: IfNotPresent
+    replicas: 1
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+  login:
+    image:
+      repository: ghcr.io/zitadel/zitadel-login
+      tag: v4.13.0
+      pullPolicy: IfNotPresent
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  postgresql:
+    enabled: true
+    image:
+      repository: postgres
+      tag: 17.2-alpine
+      pullPolicy: IfNotPresent
+    database: zitadel
+    user: postgres
+    password: "change-me"
+    storageClassName: ""
+    size: 20Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  bootstrapStorage:
+    existingClaim: ""
+    storageClassName: ""
+    accessModes:
+      - ReadWriteMany
+    size: 1Gi
+  ingress:
+    enabled: true
+    className: nginx
+    annotations: {}
+    host: iam.artificialflow.example.io
+    tls:
+      enabled: true
+      secretName: artificialflow-iam-tls

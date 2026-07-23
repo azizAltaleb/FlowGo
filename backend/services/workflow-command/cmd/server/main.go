@@ -12,17 +12,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/libs/auth"
-	"github.com/azizAltaleb/flowgo/backend/libs/iam"
-	"github.com/azizAltaleb/flowgo/backend/libs/logger"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/application"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/persistence"
-	api "github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/interfaces/http"
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
+	"github.com/artificialflow/artificialflow/backend/libs/iam"
+	"github.com/artificialflow/artificialflow/backend/libs/logger"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/infrastructure/persistence"
+	api "github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/interfaces/http"
 
-	pb "github.com/azizAltaleb/flowgo/backend/api/v1/go"
-	"github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/infrastructure/messaging"
-	grpcImpl "github.com/azizAltaleb/flowgo/backend/services/workflow-command/internal/interfaces/grpc"
+	pb "github.com/artificialflow/artificialflow/backend/api/v1/go"
+	"github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/infrastructure/messaging"
+	grpcImpl "github.com/artificialflow/artificialflow/backend/services/workflow-command/internal/interfaces/grpc"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -37,7 +37,7 @@ func main() {
 
 	pgDSN := os.Getenv("PG_DSN")
 	if pgDSN == "" {
-		pgDSN = "host=localhost user=user password=password dbname=workflow_db port=5433 sslmode=disable TimeZone=UTC"
+		pgDSN = "host=localhost user=artificialflow password=password dbname=workflow_db port=5433 sslmode=disable TimeZone=UTC"
 	}
 
 	serverAddr := os.Getenv("SERVER_ADDR")
@@ -324,9 +324,17 @@ func main() {
 	}
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   allowedOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Correlation-ID", "Idempotency-Key", "X-Workflow-Worker-Protocol-Version"},
+		AllowedOrigins: allowedOrigins,
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{
+			"Authorization", "Content-Type", "X-Correlation-ID", "Idempotency-Key",
+			"X-Workflow-Worker-Protocol-Version",
+			"X-ArtificialFlow-Acting-Subject", "X-ArtificialFlow-Acting-Username",
+			"X-ArtificialFlow-Acting-Email", "X-ArtificialFlow-Acting-Name",
+			"X-ArtificialFlow-Acting-Roles",
+			"X-FlowGo-Acting-Subject", "X-FlowGo-Acting-Username",
+			"X-FlowGo-Acting-Email", "X-FlowGo-Acting-Name", "X-FlowGo-Acting-Roles",
+		},
 		AllowCredentials: allowCredentials,
 	})
 
@@ -348,8 +356,10 @@ func main() {
 
 	// Start gRPC Server
 	grpcAddr := envOrDefault("GRPC_ADDR", ":50051")
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(authMiddleware.UnaryServerInterceptor(auth.RoleFlowGoAdmin, auth.RoleFlowGoClient)))
-	pb.RegisterJobWorkerServiceServer(grpcServer, grpcImpl.NewServer(eng))
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(authMiddleware.UnaryServerInterceptor(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient)))
+	jobWorkerServer := grpcImpl.NewServer(eng)
+	pb.RegisterJobWorkerServiceServer(grpcServer, jobWorkerServer)
+	pb.RegisterLegacyJobWorkerServiceServer(grpcServer, jobWorkerServer)
 
 	go func() {
 		log.Info(ctx, "starting grpc server", map[string]any{"addr": grpcAddr})

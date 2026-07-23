@@ -4,6 +4,11 @@ import { type Node, type Edge } from '@xyflow/react';
 import ExtensionProps from "./ExtensionProps";
 import { DebouncedInput } from "@/components/ui/debounced-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  type ArtificialFlowAttributeName,
+  getArtificialFlowAttribute,
+  setArtificialFlowAttribute,
+} from "@/lib/bpmn-namespaces";
 
 interface PropertiesPanelProps {
   element: Node | Edge | null;
@@ -41,6 +46,11 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
     onUpdate(element.id, newData);
   };
 
+  const updateExtensionField = (key: ArtificialFlowAttributeName, value: string) => {
+    if (!element) return;
+    onUpdate(element.id, setArtificialFlowAttribute(element.data || {}, key, value));
+  };
+
   if (!element) {
     return (
       <div className="p-4 text-sm text-gray-500 text-center mt-10">
@@ -55,21 +65,21 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
   const elementName = (data.label as string) || '';
   
   // User Task properties
-  const assignee = (data['@_flowgo:assignee'] as string) || '';
-  const candidateUsers = (data['@_flowgo:candidateUsers'] as string) || '';
-  const candidateGroups = (data['@_flowgo:candidateGroups'] as string) || '';
+  const assignee = (getArtificialFlowAttribute(data, "assignee") as string) || '';
+  const candidateUsers = (getArtificialFlowAttribute(data, "candidateUsers") as string) || '';
+  const candidateGroups = (getArtificialFlowAttribute(data, "candidateGroups") as string) || '';
   
   // Business Rule Task properties
-  const decisionRef = (data['@_flowgo:decisionRef'] as string) || '';
-  const brResultVariable = (data['@_flowgo:resultVariable'] as string) || '';
+  const decisionRef = (getArtificialFlowAttribute(data, "decisionRef") as string) || '';
+  const brResultVariable = (getArtificialFlowAttribute(data, "resultVariable") as string) || '';
 
   // Service Task properties
-  const topic = (data['@_flowgo:topic'] as string) || '';
-  const taskType = (data['@_flowgo:taskType'] as string) || '';
+  const topic = (getArtificialFlowAttribute(data, "topic") as string) || '';
+  const taskType = (getArtificialFlowAttribute(data, "taskType") as string) || '';
 
   // Script Task properties
-  const scriptFormat = (data['@_scriptFormat'] as string) || '';
-  const scriptResultVariable = (data['@_flowgo:resultVariable'] as string) || '';
+  const scriptFormat = (getArtificialFlowAttribute(data, "scriptFormat") as string) || '';
+  const scriptResultVariable = (getArtificialFlowAttribute(data, "resultVariable") as string) || '';
 
   // Sequence Flow properties
   let condition = '';
@@ -143,7 +153,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Assignee</Label>
                                     <DebouncedInput
                                     value={assignee}
-                                    onValueChange={(val) => updateField('@_flowgo:assignee', val)}
+                                    onValueChange={(val) => updateExtensionField('assignee', val)}
                                     placeholder="e.g. user@example.com"
                                     className="bg-white"
                                     />
@@ -152,7 +162,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Candidate Users</Label>
                                     <DebouncedInput
                                     value={candidateUsers}
-                                    onValueChange={(val) => updateField('@_flowgo:candidateUsers', val)}
+                                    onValueChange={(val) => updateExtensionField('candidateUsers', val)}
                                     placeholder="e.g. user1,user2"
                                     className="bg-white"
                                     />
@@ -161,7 +171,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Candidate Groups</Label>
                                     <DebouncedInput
                                     value={candidateGroups}
-                                    onValueChange={(val) => updateField('@_flowgo:candidateGroups', val)}
+                                    onValueChange={(val) => updateExtensionField('candidateGroups', val)}
                                     placeholder="e.g. managers,hr"
                                     className="bg-white"
                                     />
@@ -179,7 +189,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Decision Ref</Label>
                                     <DebouncedInput
                                     value={decisionRef}
-                                    onValueChange={(val) => updateField('@_flowgo:decisionRef', val)}
+                                    onValueChange={(val) => updateExtensionField('decisionRef', val)}
                                     placeholder="e.g. approve_decision"
                                     className="bg-white"
                                     />
@@ -188,7 +198,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Result Variable</Label>
                                     <DebouncedInput
                                     value={brResultVariable}
-                                    onValueChange={(val) => updateField('@_flowgo:resultVariable', val)}
+                                    onValueChange={(val) => updateExtensionField('resultVariable', val)}
                                     placeholder="e.g. decisionResult"
                                     className="bg-white"
                                     />
@@ -206,7 +216,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Topic</Label>
                                     <DebouncedInput
                                     value={topic}
-                                    onValueChange={(val) => updateField('@_flowgo:topic', val)}
+                                    onValueChange={(val) => updateExtensionField('topic', val)}
                                     placeholder="e.g. payment_processing"
                                     className="bg-white"
                                     />
@@ -215,7 +225,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Task Type</Label>
                                     <DebouncedInput
                                     value={taskType}
-                                    onValueChange={(val) => updateField('@_flowgo:taskType', val)}
+                                    onValueChange={(val) => updateExtensionField('taskType', val)}
                                     placeholder="e.g. external"
                                     className="bg-white"
                                     />
@@ -233,7 +243,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Script Format</Label>
                                     <DebouncedInput
                                     value={scriptFormat}
-                                    onValueChange={(val) => updateField('@_scriptFormat', val)}
+                                    onValueChange={(val) => updateExtensionField('scriptFormat', val)}
                                     placeholder="e.g. javascript"
                                     className="bg-white"
                                     />
@@ -242,7 +252,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                                     <Label>Result Variable</Label>
                                     <DebouncedInput
                                     value={scriptResultVariable}
-                                    onValueChange={(val) => updateField('@_flowgo:resultVariable', val)}
+                                    onValueChange={(val) => updateExtensionField('resultVariable', val)}
                                     placeholder="e.g. scriptResult"
                                     className="bg-white"
                                     />

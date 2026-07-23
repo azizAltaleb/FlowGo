@@ -3,7 +3,7 @@ package messaging
 import (
 	"context"
 	"fmt"
-	"github.com/azizAltaleb/flowgo/backend/libs/id"
+	"github.com/artificialflow/artificialflow/backend/libs/id"
 	"time"
 
 	"github.com/nats-io/nats.go"

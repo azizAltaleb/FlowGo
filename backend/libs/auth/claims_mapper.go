@@ -28,7 +28,7 @@ func principalFromClaims(claims map[string]any, fallbackSubject string, cfg Conf
 	}
 
 	principal.Audience = claimFirstStringSlice(claims, "aud")
-	principal.Roles = dedupeStrings(principal.Roles)
+	principal.Roles = CanonicalizeRoles(principal.Roles)
 	principal.Scopes = dedupeStrings(principal.Scopes)
 	principal.Audience = dedupeStrings(principal.Audience)
 	return principal

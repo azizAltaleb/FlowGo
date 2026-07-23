@@ -3,11 +3,16 @@ package bpmn
 import (
 	"encoding/xml"
 	"fmt"
-	"github.com/azizAltaleb/flowgo/backend/libs/model"
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"html"
 	"io"
 	"strconv"
 	"strings"
+)
+
+const (
+	ArtificialFlowNamespace = "http://artificialflow.io/schema/1.0/bpmn"
+	LegacyFlowGoNamespace   = "http://flowgo.com/schema/1.0/bpmn"
 )
 
 // Definitions represents the top-level element in a BPMN 2.0 XML file.
@@ -104,50 +109,60 @@ type EndEvent struct {
 }
 
 type ServiceTask struct {
-	ID                string             `xml:"id,attr"`
-	Name              string             `xml:"name,attr"`
-	JobType           string             `xml:"jobType,attr"`
-	ExtensionElements *ExtensionElements `xml:"extensionElements"`
-	Topic             string             `xml:"http://flowgo.com/schema/1.0/bpmn topic,attr"`
-	PlainTopic        string             `xml:"topic,attr"`
-	TaskType          string             `xml:"http://flowgo.com/schema/1.0/bpmn taskType,attr"`
-	PlainTaskType     string             `xml:"taskType,attr"`
+	ID                     string             `xml:"id,attr"`
+	Name                   string             `xml:"name,attr"`
+	JobType                string             `xml:"jobType,attr"`
+	ExtensionElements      *ExtensionElements `xml:"extensionElements"`
+	ArtificialFlowTopic    string             `xml:"http://artificialflow.io/schema/1.0/bpmn topic,attr"`
+	LegacyFlowGoTopic      string             `xml:"http://flowgo.com/schema/1.0/bpmn topic,attr"`
+	PlainTopic             string             `xml:"topic,attr"`
+	ArtificialFlowTaskType string             `xml:"http://artificialflow.io/schema/1.0/bpmn taskType,attr"`
+	LegacyFlowGoTaskType   string             `xml:"http://flowgo.com/schema/1.0/bpmn taskType,attr"`
+	PlainTaskType          string             `xml:"taskType,attr"`
 }
 
 type ScriptTask struct {
-	ID                  string             `xml:"id,attr"`
-	Name                string             `xml:"name,attr"`
-	ExtensionElements   *ExtensionElements `xml:"extensionElements"`
-	ScriptFormat        string             `xml:"http://flowgo.com/schema/1.0/bpmn scriptFormat,attr"`
-	PlainScriptFormat   string             `xml:"scriptFormat,attr"`
-	ResultVariable      string             `xml:"http://flowgo.com/schema/1.0/bpmn resultVariable,attr"`
-	PlainResultVariable string             `xml:"resultVariable,attr"`
-	Timeout             string             `xml:"http://flowgo.com/schema/1.0/bpmn timeout,attr"`
-	PlainTimeout        string             `xml:"timeout,attr"`
-	Script              string             `xml:"script"`
+	ID                           string             `xml:"id,attr"`
+	Name                         string             `xml:"name,attr"`
+	ExtensionElements            *ExtensionElements `xml:"extensionElements"`
+	ArtificialFlowScriptFormat   string             `xml:"http://artificialflow.io/schema/1.0/bpmn scriptFormat,attr"`
+	LegacyFlowGoScriptFormat     string             `xml:"http://flowgo.com/schema/1.0/bpmn scriptFormat,attr"`
+	PlainScriptFormat            string             `xml:"scriptFormat,attr"`
+	ArtificialFlowResultVariable string             `xml:"http://artificialflow.io/schema/1.0/bpmn resultVariable,attr"`
+	LegacyFlowGoResultVariable   string             `xml:"http://flowgo.com/schema/1.0/bpmn resultVariable,attr"`
+	PlainResultVariable          string             `xml:"resultVariable,attr"`
+	ArtificialFlowTimeout        string             `xml:"http://artificialflow.io/schema/1.0/bpmn timeout,attr"`
+	LegacyFlowGoTimeout          string             `xml:"http://flowgo.com/schema/1.0/bpmn timeout,attr"`
+	PlainTimeout                 string             `xml:"timeout,attr"`
+	Script                       string             `xml:"script"`
 }
 
 type UserTask struct {
-	ID                   string             `xml:"id,attr"`
-	Name                 string             `xml:"name,attr"`
-	ExtensionElements    *ExtensionElements `xml:"extensionElements"`
-	Assignee             string             `xml:"assignee,attr"`
-	WorkflowAssignee     string             `xml:"http://flowgo.com/schema/1.0/bpmn assignee,attr"`
-	CandidateUsers       string             `xml:"http://flowgo.com/schema/1.0/bpmn candidateUsers,attr"`
-	PlainCandidateUsers  string             `xml:"candidateUsers,attr"`
-	CandidateGroups      string             `xml:"http://flowgo.com/schema/1.0/bpmn candidateGroups,attr"`
-	PlainCandidateGroups string             `xml:"candidateGroups,attr"`
-	DueDate              string             `xml:"http://flowgo.com/schema/1.0/bpmn dueDate,attr"`
-	PlainDueDate         string             `xml:"dueDate,attr"`
+	ID                            string             `xml:"id,attr"`
+	Name                          string             `xml:"name,attr"`
+	ExtensionElements             *ExtensionElements `xml:"extensionElements"`
+	ArtificialFlowAssignee        string             `xml:"http://artificialflow.io/schema/1.0/bpmn assignee,attr"`
+	LegacyFlowGoAssignee          string             `xml:"http://flowgo.com/schema/1.0/bpmn assignee,attr"`
+	PlainAssignee                 string             `xml:"assignee,attr"`
+	ArtificialFlowCandidateUsers  string             `xml:"http://artificialflow.io/schema/1.0/bpmn candidateUsers,attr"`
+	LegacyFlowGoCandidateUsers    string             `xml:"http://flowgo.com/schema/1.0/bpmn candidateUsers,attr"`
+	PlainCandidateUsers           string             `xml:"candidateUsers,attr"`
+	ArtificialFlowCandidateGroups string             `xml:"http://artificialflow.io/schema/1.0/bpmn candidateGroups,attr"`
+	LegacyFlowGoCandidateGroups   string             `xml:"http://flowgo.com/schema/1.0/bpmn candidateGroups,attr"`
+	PlainCandidateGroups          string             `xml:"candidateGroups,attr"`
+	ArtificialFlowDueDate         string             `xml:"http://artificialflow.io/schema/1.0/bpmn dueDate,attr"`
+	LegacyFlowGoDueDate           string             `xml:"http://flowgo.com/schema/1.0/bpmn dueDate,attr"`
+	PlainDueDate                  string             `xml:"dueDate,attr"`
 }
 
 type ReceiveTask struct {
-	ID                  string             `xml:"id,attr"`
-	Name                string             `xml:"name,attr"`
-	ExtensionElements   *ExtensionElements `xml:"extensionElements"`
-	MessageRef          string             `xml:"messageRef,attr"`
-	CorrelationKey      string             `xml:"http://flowgo.com/schema/1.0/bpmn correlationKey,attr"`
-	PlainCorrelationKey string             `xml:"correlationKey,attr"`
+	ID                           string             `xml:"id,attr"`
+	Name                         string             `xml:"name,attr"`
+	ExtensionElements            *ExtensionElements `xml:"extensionElements"`
+	MessageRef                   string             `xml:"messageRef,attr"`
+	ArtificialFlowCorrelationKey string             `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
+	LegacyFlowGoCorrelationKey   string             `xml:"http://flowgo.com/schema/1.0/bpmn correlationKey,attr"`
+	PlainCorrelationKey          string             `xml:"correlationKey,attr"`
 }
 
 type ManualTask struct {
@@ -157,13 +172,15 @@ type ManualTask struct {
 }
 
 type BusinessRuleTask struct {
-	ID                  string             `xml:"id,attr"`
-	Name                string             `xml:"name,attr"`
-	ExtensionElements   *ExtensionElements `xml:"extensionElements"`
-	DecisionRef         string             `xml:"http://flowgo.com/schema/1.0/bpmn decisionRef,attr"`
-	PlainDecisionRef    string             `xml:"decisionRef,attr"`
-	ResultVariable      string             `xml:"http://flowgo.com/schema/1.0/bpmn resultVariable,attr"`
-	PlainResultVariable string             `xml:"resultVariable,attr"`
+	ID                           string             `xml:"id,attr"`
+	Name                         string             `xml:"name,attr"`
+	ExtensionElements            *ExtensionElements `xml:"extensionElements"`
+	ArtificialFlowDecisionRef    string             `xml:"http://artificialflow.io/schema/1.0/bpmn decisionRef,attr"`
+	LegacyFlowGoDecisionRef      string             `xml:"http://flowgo.com/schema/1.0/bpmn decisionRef,attr"`
+	PlainDecisionRef             string             `xml:"decisionRef,attr"`
+	ArtificialFlowResultVariable string             `xml:"http://artificialflow.io/schema/1.0/bpmn resultVariable,attr"`
+	LegacyFlowGoResultVariable   string             `xml:"http://flowgo.com/schema/1.0/bpmn resultVariable,attr"`
+	PlainResultVariable          string             `xml:"resultVariable,attr"`
 }
 
 type CallActivity struct {
@@ -195,53 +212,62 @@ type CompensateEventDefinition struct {
 }
 
 type IntermediateCatchEvent struct {
-	ID                     string                  `xml:"id,attr"`
-	Name                   string                  `xml:"name,attr"`
-	ExtensionElements      *ExtensionElements      `xml:"extensionElements"`
-	TimerDuration          string                  `xml:"http://flowgo.com/schema/1.0/bpmn timerDuration,attr"`
-	PlainTimerDuration     string                  `xml:"timerDuration,attr"`
-	CorrelationKey         string                  `xml:"http://flowgo.com/schema/1.0/bpmn correlationKey,attr"`
-	PlainCorrelationKey    string                  `xml:"correlationKey,attr"`
-	TimerEventDefinition   *TimerEventDefinition   `xml:"timerEventDefinition"`
-	MessageEventDefinition *MessageEventDefinition `xml:"messageEventDefinition"`
-	SignalEventDefinition  *SignalEventDefinition  `xml:"signalEventDefinition"`
+	ID                           string                  `xml:"id,attr"`
+	Name                         string                  `xml:"name,attr"`
+	ExtensionElements            *ExtensionElements      `xml:"extensionElements"`
+	ArtificialFlowTimerDuration  string                  `xml:"http://artificialflow.io/schema/1.0/bpmn timerDuration,attr"`
+	LegacyFlowGoTimerDuration    string                  `xml:"http://flowgo.com/schema/1.0/bpmn timerDuration,attr"`
+	PlainTimerDuration           string                  `xml:"timerDuration,attr"`
+	ArtificialFlowCorrelationKey string                  `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
+	LegacyFlowGoCorrelationKey   string                  `xml:"http://flowgo.com/schema/1.0/bpmn correlationKey,attr"`
+	PlainCorrelationKey          string                  `xml:"correlationKey,attr"`
+	TimerEventDefinition         *TimerEventDefinition   `xml:"timerEventDefinition"`
+	MessageEventDefinition       *MessageEventDefinition `xml:"messageEventDefinition"`
+	SignalEventDefinition        *SignalEventDefinition  `xml:"signalEventDefinition"`
 }
 
 type IntermediateThrowEvent struct {
-	ID                        string                     `xml:"id,attr"`
-	Name                      string                     `xml:"name,attr"`
-	ExtensionElements         *ExtensionElements         `xml:"extensionElements"`
-	CorrelationKey            string                     `xml:"http://flowgo.com/schema/1.0/bpmn correlationKey,attr"`
-	PlainCorrelationKey       string                     `xml:"correlationKey,attr"`
-	ErrorCode                 string                     `xml:"http://flowgo.com/schema/1.0/bpmn errorCode,attr"`
-	PlainErrorCode            string                     `xml:"errorCode,attr"`
-	ErrorMessage              string                     `xml:"http://flowgo.com/schema/1.0/bpmn errorMessage,attr"`
-	PlainErrorMessage         string                     `xml:"errorMessage,attr"`
-	MessageEventDefinition    *MessageEventDefinition    `xml:"messageEventDefinition"`
-	SignalEventDefinition     *SignalEventDefinition     `xml:"signalEventDefinition"`
-	ErrorEventDefinition      *ErrorEventDefinition      `xml:"errorEventDefinition"`
-	CompensateEventDefinition *CompensateEventDefinition `xml:"compensateEventDefinition"`
+	ID                           string                     `xml:"id,attr"`
+	Name                         string                     `xml:"name,attr"`
+	ExtensionElements            *ExtensionElements         `xml:"extensionElements"`
+	ArtificialFlowCorrelationKey string                     `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
+	LegacyFlowGoCorrelationKey   string                     `xml:"http://flowgo.com/schema/1.0/bpmn correlationKey,attr"`
+	PlainCorrelationKey          string                     `xml:"correlationKey,attr"`
+	ArtificialFlowErrorCode      string                     `xml:"http://artificialflow.io/schema/1.0/bpmn errorCode,attr"`
+	LegacyFlowGoErrorCode        string                     `xml:"http://flowgo.com/schema/1.0/bpmn errorCode,attr"`
+	PlainErrorCode               string                     `xml:"errorCode,attr"`
+	ArtificialFlowErrorMessage   string                     `xml:"http://artificialflow.io/schema/1.0/bpmn errorMessage,attr"`
+	LegacyFlowGoErrorMessage     string                     `xml:"http://flowgo.com/schema/1.0/bpmn errorMessage,attr"`
+	PlainErrorMessage            string                     `xml:"errorMessage,attr"`
+	MessageEventDefinition       *MessageEventDefinition    `xml:"messageEventDefinition"`
+	SignalEventDefinition        *SignalEventDefinition     `xml:"signalEventDefinition"`
+	ErrorEventDefinition         *ErrorEventDefinition      `xml:"errorEventDefinition"`
+	CompensateEventDefinition    *CompensateEventDefinition `xml:"compensateEventDefinition"`
 }
 
 type BoundaryEvent struct {
-	ID                        string                     `xml:"id,attr"`
-	Name                      string                     `xml:"name,attr"`
-	ExtensionElements         *ExtensionElements         `xml:"extensionElements"`
-	AttachedToRef             string                     `xml:"attachedToRef,attr"`
-	CancelActivity            string                     `xml:"cancelActivity,attr"`
-	TimerDuration             string                     `xml:"http://flowgo.com/schema/1.0/bpmn timerDuration,attr"`
-	PlainTimerDuration        string                     `xml:"timerDuration,attr"`
-	CorrelationKey            string                     `xml:"http://flowgo.com/schema/1.0/bpmn correlationKey,attr"`
-	PlainCorrelationKey       string                     `xml:"correlationKey,attr"`
-	ErrorCode                 string                     `xml:"http://flowgo.com/schema/1.0/bpmn errorCode,attr"`
-	PlainErrorCode            string                     `xml:"errorCode,attr"`
-	ErrorMessage              string                     `xml:"http://flowgo.com/schema/1.0/bpmn errorMessage,attr"`
-	PlainErrorMessage         string                     `xml:"errorMessage,attr"`
-	TimerEventDefinition      *TimerEventDefinition      `xml:"timerEventDefinition"`
-	MessageEventDefinition    *MessageEventDefinition    `xml:"messageEventDefinition"`
-	SignalEventDefinition     *SignalEventDefinition     `xml:"signalEventDefinition"`
-	ErrorEventDefinition      *ErrorEventDefinition      `xml:"errorEventDefinition"`
-	CompensateEventDefinition *CompensateEventDefinition `xml:"compensateEventDefinition"`
+	ID                           string                     `xml:"id,attr"`
+	Name                         string                     `xml:"name,attr"`
+	ExtensionElements            *ExtensionElements         `xml:"extensionElements"`
+	AttachedToRef                string                     `xml:"attachedToRef,attr"`
+	CancelActivity               string                     `xml:"cancelActivity,attr"`
+	ArtificialFlowTimerDuration  string                     `xml:"http://artificialflow.io/schema/1.0/bpmn timerDuration,attr"`
+	LegacyFlowGoTimerDuration    string                     `xml:"http://flowgo.com/schema/1.0/bpmn timerDuration,attr"`
+	PlainTimerDuration           string                     `xml:"timerDuration,attr"`
+	ArtificialFlowCorrelationKey string                     `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
+	LegacyFlowGoCorrelationKey   string                     `xml:"http://flowgo.com/schema/1.0/bpmn correlationKey,attr"`
+	PlainCorrelationKey          string                     `xml:"correlationKey,attr"`
+	ArtificialFlowErrorCode      string                     `xml:"http://artificialflow.io/schema/1.0/bpmn errorCode,attr"`
+	LegacyFlowGoErrorCode        string                     `xml:"http://flowgo.com/schema/1.0/bpmn errorCode,attr"`
+	PlainErrorCode               string                     `xml:"errorCode,attr"`
+	ArtificialFlowErrorMessage   string                     `xml:"http://artificialflow.io/schema/1.0/bpmn errorMessage,attr"`
+	LegacyFlowGoErrorMessage     string                     `xml:"http://flowgo.com/schema/1.0/bpmn errorMessage,attr"`
+	PlainErrorMessage            string                     `xml:"errorMessage,attr"`
+	TimerEventDefinition         *TimerEventDefinition      `xml:"timerEventDefinition"`
+	MessageEventDefinition       *MessageEventDefinition    `xml:"messageEventDefinition"`
+	SignalEventDefinition        *SignalEventDefinition     `xml:"signalEventDefinition"`
+	ErrorEventDefinition         *ErrorEventDefinition      `xml:"errorEventDefinition"`
+	CompensateEventDefinition    *CompensateEventDefinition `xml:"compensateEventDefinition"`
 }
 
 type ExclusiveGateway struct {
@@ -272,11 +298,13 @@ type EventBasedGateway struct {
 
 // SequenceFlow represents a connection between two elements.
 type SequenceFlow struct {
-	ID                  string               `xml:"id,attr"`
-	SourceRef           string               `xml:"sourceRef,attr"`
-	TargetRef           string               `xml:"targetRef,attr"`
-	ConditionExpression *ConditionExpression `xml:"conditionExpression"`
-	WorkflowCondition   string               `xml:"http://flowgo.com/schema/1.0/bpmn condition,attr"`
+	ID                      string               `xml:"id,attr"`
+	SourceRef               string               `xml:"sourceRef,attr"`
+	TargetRef               string               `xml:"targetRef,attr"`
+	ConditionExpression     *ConditionExpression `xml:"conditionExpression"`
+	ArtificialFlowCondition string               `xml:"http://artificialflow.io/schema/1.0/bpmn condition,attr"`
+	LegacyFlowGoCondition   string               `xml:"http://flowgo.com/schema/1.0/bpmn condition,attr"`
+	PlainCondition          string               `xml:"condition,attr"`
 }
 
 // ConditionExpression holds the logic for a conditional flow.
@@ -285,13 +313,15 @@ type ConditionExpression struct {
 }
 
 type ExtensionElements struct {
-	WorkflowProperties      *WorkflowProperties `xml:"http://flowgo.com/schema/1.0/bpmn properties"`
-	PlainWorkflowProperties *WorkflowProperties `xml:"properties"`
+	ArtificialFlowProperties *WorkflowProperties `xml:"http://artificialflow.io/schema/1.0/bpmn properties"`
+	LegacyFlowGoProperties   *WorkflowProperties `xml:"http://flowgo.com/schema/1.0/bpmn properties"`
+	PlainWorkflowProperties  *WorkflowProperties `xml:"properties"`
 }
 
 type WorkflowProperties struct {
-	Properties      []WorkflowProperty `xml:"http://flowgo.com/schema/1.0/bpmn property"`
-	PlainProperties []WorkflowProperty `xml:"property"`
+	ArtificialFlowProperties []WorkflowProperty `xml:"http://artificialflow.io/schema/1.0/bpmn property"`
+	LegacyFlowGoProperties   []WorkflowProperty `xml:"http://flowgo.com/schema/1.0/bpmn property"`
+	PlainProperties          []WorkflowProperty `xml:"property"`
 }
 
 type WorkflowProperty struct {
@@ -449,8 +479,8 @@ func parseFlowElements(
 
 	for _, st := range serviceTasks {
 		props := make(map[string]any)
-		setStringProperty(props, "topic", firstNonEmpty(st.Topic, st.PlainTopic))
-		setStringProperty(props, "task_type", firstNonEmpty(st.TaskType, st.PlainTaskType))
+		setStringProperty(props, "topic", firstNonEmpty(st.ArtificialFlowTopic, st.LegacyFlowGoTopic, st.PlainTopic))
+		setStringProperty(props, "task_type", firstNonEmpty(st.ArtificialFlowTaskType, st.LegacyFlowGoTaskType, st.PlainTaskType))
 		props = mergeExtensionProperties(props, st.ExtensionElements)
 
 		impl := strings.TrimSpace(st.JobType)
@@ -477,10 +507,10 @@ func parseFlowElements(
 
 	for _, ut := range userTasks {
 		props := make(map[string]any)
-		setStringProperty(props, "assignee", firstNonEmpty(ut.WorkflowAssignee, ut.Assignee))
-		setStringProperty(props, "candidate_users", firstNonEmpty(ut.CandidateUsers, ut.PlainCandidateUsers))
-		setStringProperty(props, "candidate_groups", firstNonEmpty(ut.CandidateGroups, ut.PlainCandidateGroups))
-		setStringProperty(props, "due_date", firstNonEmpty(ut.DueDate, ut.PlainDueDate))
+		setStringProperty(props, "assignee", firstNonEmpty(ut.ArtificialFlowAssignee, ut.LegacyFlowGoAssignee, ut.PlainAssignee))
+		setStringProperty(props, "candidate_users", firstNonEmpty(ut.ArtificialFlowCandidateUsers, ut.LegacyFlowGoCandidateUsers, ut.PlainCandidateUsers))
+		setStringProperty(props, "candidate_groups", firstNonEmpty(ut.ArtificialFlowCandidateGroups, ut.LegacyFlowGoCandidateGroups, ut.PlainCandidateGroups))
+		setStringProperty(props, "due_date", firstNonEmpty(ut.ArtificialFlowDueDate, ut.LegacyFlowGoDueDate, ut.PlainDueDate))
 		props = mergeExtensionProperties(props, ut.ExtensionElements)
 		steps = append(steps, model.StepDefinition{
 			ID:         ut.ID,
@@ -492,9 +522,9 @@ func parseFlowElements(
 
 	for _, st := range scriptTasks {
 		props := make(map[string]any)
-		setStringProperty(props, "script_format", firstNonEmpty(st.ScriptFormat, st.PlainScriptFormat))
-		setStringProperty(props, "result_variable", firstNonEmpty(st.ResultVariable, st.PlainResultVariable))
-		setStringProperty(props, "timeout", firstNonEmpty(st.Timeout, st.PlainTimeout))
+		setStringProperty(props, "script_format", firstNonEmpty(st.ArtificialFlowScriptFormat, st.LegacyFlowGoScriptFormat, st.PlainScriptFormat))
+		setStringProperty(props, "result_variable", firstNonEmpty(st.ArtificialFlowResultVariable, st.LegacyFlowGoResultVariable, st.PlainResultVariable))
+		setStringProperty(props, "timeout", firstNonEmpty(st.ArtificialFlowTimeout, st.LegacyFlowGoTimeout, st.PlainTimeout))
 		setStringProperty(props, "script", strings.TrimSpace(st.Script))
 		props = mergeExtensionProperties(props, st.ExtensionElements)
 		steps = append(steps, model.StepDefinition{
@@ -508,7 +538,7 @@ func parseFlowElements(
 	for _, rt := range receiveTasks {
 		props := make(map[string]any)
 		setStringProperty(props, "message_ref", resolveRef(rt.MessageRef, refs.messageByID))
-		setStringProperty(props, "correlation_key", firstNonEmpty(rt.CorrelationKey, rt.PlainCorrelationKey))
+		setStringProperty(props, "correlation_key", firstNonEmpty(rt.ArtificialFlowCorrelationKey, rt.LegacyFlowGoCorrelationKey, rt.PlainCorrelationKey))
 		props = mergeExtensionProperties(props, rt.ExtensionElements)
 
 		steps = append(steps, model.StepDefinition{
@@ -526,8 +556,8 @@ func parseFlowElements(
 
 	for _, br := range businessRuleTasks {
 		props := make(map[string]any)
-		setStringProperty(props, "decision_ref", firstNonEmpty(br.DecisionRef, br.PlainDecisionRef))
-		setStringProperty(props, "result_variable", firstNonEmpty(br.ResultVariable, br.PlainResultVariable))
+		setStringProperty(props, "decision_ref", firstNonEmpty(br.ArtificialFlowDecisionRef, br.LegacyFlowGoDecisionRef, br.PlainDecisionRef))
+		setStringProperty(props, "result_variable", firstNonEmpty(br.ArtificialFlowResultVariable, br.LegacyFlowGoResultVariable, br.PlainResultVariable))
 		props = mergeExtensionProperties(props, br.ExtensionElements)
 
 		steps = append(steps, model.StepDefinition{
@@ -555,7 +585,7 @@ func parseFlowElements(
 		props := make(map[string]any)
 		stepType := model.StepTypeIntermediateCatchEvent
 
-		timerDuration := firstNonEmpty(catchEvent.TimerDuration, catchEvent.PlainTimerDuration, extractTimerDuration(catchEvent.TimerEventDefinition))
+		timerDuration := firstNonEmpty(catchEvent.ArtificialFlowTimerDuration, catchEvent.LegacyFlowGoTimerDuration, catchEvent.PlainTimerDuration, extractTimerDuration(catchEvent.TimerEventDefinition))
 		if timerDuration != "" {
 			stepType = model.StepTypeIntermediateTimerCatchEvent
 			setStringProperty(props, "timer_duration", timerDuration)
@@ -567,7 +597,7 @@ func parseFlowElements(
 		if catchEvent.SignalEventDefinition != nil {
 			setStringProperty(props, "signal_ref", resolveRef(catchEvent.SignalEventDefinition.SignalRef, refs.signalByID))
 		}
-		setStringProperty(props, "correlation_key", firstNonEmpty(catchEvent.CorrelationKey, catchEvent.PlainCorrelationKey))
+		setStringProperty(props, "correlation_key", firstNonEmpty(catchEvent.ArtificialFlowCorrelationKey, catchEvent.LegacyFlowGoCorrelationKey, catchEvent.PlainCorrelationKey))
 		props = mergeExtensionProperties(props, catchEvent.ExtensionElements)
 
 		steps = append(steps, model.StepDefinition{
@@ -597,9 +627,9 @@ func parseFlowElements(
 			setStringProperty(props, "activity_ref", throwEvent.CompensateEventDefinition.ActivityRef)
 		}
 
-		setStringProperty(props, "correlation_key", firstNonEmpty(throwEvent.CorrelationKey, throwEvent.PlainCorrelationKey))
-		setStringProperty(props, "error_code", firstNonEmpty(throwEvent.ErrorCode, throwEvent.PlainErrorCode))
-		setStringProperty(props, "error_message", firstNonEmpty(throwEvent.ErrorMessage, throwEvent.PlainErrorMessage))
+		setStringProperty(props, "correlation_key", firstNonEmpty(throwEvent.ArtificialFlowCorrelationKey, throwEvent.LegacyFlowGoCorrelationKey, throwEvent.PlainCorrelationKey))
+		setStringProperty(props, "error_code", firstNonEmpty(throwEvent.ArtificialFlowErrorCode, throwEvent.LegacyFlowGoErrorCode, throwEvent.PlainErrorCode))
+		setStringProperty(props, "error_message", firstNonEmpty(throwEvent.ArtificialFlowErrorMessage, throwEvent.LegacyFlowGoErrorMessage, throwEvent.PlainErrorMessage))
 		props = mergeExtensionProperties(props, throwEvent.ExtensionElements)
 
 		steps = append(steps, model.StepDefinition{
@@ -622,7 +652,7 @@ func parseFlowElements(
 			props["cancel_activity"] = cancelActivity
 		}
 
-		timerDuration := firstNonEmpty(boundaryEvent.TimerDuration, boundaryEvent.PlainTimerDuration, extractTimerDuration(boundaryEvent.TimerEventDefinition))
+		timerDuration := firstNonEmpty(boundaryEvent.ArtificialFlowTimerDuration, boundaryEvent.LegacyFlowGoTimerDuration, boundaryEvent.PlainTimerDuration, extractTimerDuration(boundaryEvent.TimerEventDefinition))
 		setStringProperty(props, "timer_duration", timerDuration)
 
 		if boundaryEvent.MessageEventDefinition != nil {
@@ -641,9 +671,9 @@ func parseFlowElements(
 			setStringProperty(props, "activity_ref", boundaryEvent.CompensateEventDefinition.ActivityRef)
 		}
 
-		setStringProperty(props, "correlation_key", firstNonEmpty(boundaryEvent.CorrelationKey, boundaryEvent.PlainCorrelationKey))
-		setStringProperty(props, "error_code", firstNonEmpty(boundaryEvent.ErrorCode, boundaryEvent.PlainErrorCode))
-		setStringProperty(props, "error_message", firstNonEmpty(boundaryEvent.ErrorMessage, boundaryEvent.PlainErrorMessage))
+		setStringProperty(props, "correlation_key", firstNonEmpty(boundaryEvent.ArtificialFlowCorrelationKey, boundaryEvent.LegacyFlowGoCorrelationKey, boundaryEvent.PlainCorrelationKey))
+		setStringProperty(props, "error_code", firstNonEmpty(boundaryEvent.ArtificialFlowErrorCode, boundaryEvent.LegacyFlowGoErrorCode, boundaryEvent.PlainErrorCode))
+		setStringProperty(props, "error_message", firstNonEmpty(boundaryEvent.ArtificialFlowErrorMessage, boundaryEvent.LegacyFlowGoErrorMessage, boundaryEvent.PlainErrorMessage))
 		props = mergeExtensionProperties(props, boundaryEvent.ExtensionElements)
 
 		steps = append(steps, model.StepDefinition{
@@ -744,8 +774,8 @@ func parseFlowElements(
 		}
 
 		transition := model.Transition{ID: flow.ID, TargetRef: targetID}
-		if flow.WorkflowCondition != "" {
-			transition.Condition = normalizeConditionExpression(flow.WorkflowCondition)
+		if condition := firstNonEmpty(flow.ArtificialFlowCondition, flow.LegacyFlowGoCondition, flow.PlainCondition); condition != "" {
+			transition.Condition = normalizeConditionExpression(condition)
 		} else if flow.ConditionExpression != nil {
 			transition.Condition = normalizeConditionExpression(flow.ConditionExpression.Content)
 		}
@@ -797,14 +827,19 @@ func mergeExtensionProperties(props map[string]any, extensions *ExtensionElement
 		props = make(map[string]any)
 	}
 
-	groups := []*WorkflowProperties{extensions.WorkflowProperties, extensions.PlainWorkflowProperties}
+	groups := []*WorkflowProperties{
+		extensions.ArtificialFlowProperties,
+		extensions.LegacyFlowGoProperties,
+		extensions.PlainWorkflowProperties,
+	}
 	for _, group := range groups {
 		if group == nil {
 			continue
 		}
 
-		allProps := make([]WorkflowProperty, 0, len(group.Properties)+len(group.PlainProperties))
-		allProps = append(allProps, group.Properties...)
+		allProps := make([]WorkflowProperty, 0, len(group.ArtificialFlowProperties)+len(group.LegacyFlowGoProperties)+len(group.PlainProperties))
+		allProps = append(allProps, group.ArtificialFlowProperties...)
+		allProps = append(allProps, group.LegacyFlowGoProperties...)
 		allProps = append(allProps, group.PlainProperties...)
 
 		for _, property := range allProps {

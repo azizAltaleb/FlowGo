@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/azizAltaleb/flowgo/backend/services/sync-worker/internal/application"
+	"github.com/artificialflow/artificialflow/backend/services/sync-worker/internal/application"
 	"github.com/segmentio/kafka-go"
 )
 

@@ -12,6 +12,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/artificialflow/artificialflow/backend/libs/auth"
 )
 
 func testRSASPKI(t *testing.T, bits int) string {
@@ -125,5 +127,46 @@ func TestLegacyPATIssuanceDisabledByDefault(t *testing.T) {
 	}
 	if _, err := client.RotateClientToken(t.Context(), "client-1", ManagedClientTokenRotate{}); !errors.Is(err, ErrLegacyPATRotationDisabled) {
 		t.Fatalf("expected PAT rotation to be disabled, got %v", err)
+	}
+}
+
+func TestClientDescriptionUsesCanonicalPrefixAndReadsBothPrefixes(t *testing.T) {
+	client := ManagedClient{
+		Description: "Order system",
+		Environment: "production",
+		OwnerEmail:  "platform@example.com",
+		Purpose:     "Order worker",
+	}
+	encoded := encodeClientDescription(client)
+	const canonicalPrefix = "artificialflow-client:"
+	if len(encoded) <= len(canonicalPrefix) || encoded[:len(canonicalPrefix)] != canonicalPrefix {
+		t.Fatalf("expected canonical client metadata prefix, got %q", encoded)
+	}
+
+	for _, value := range []string{
+		encoded,
+		"flowgo-client:" + encoded[len(canonicalPrefix):],
+	} {
+		description, environment, ownerEmail, purpose := decodeClientDescription(value)
+		if description != client.Description || environment != client.Environment || ownerEmail != client.OwnerEmail || purpose != client.Purpose {
+			t.Fatalf("unexpected decoded metadata from %q: %q %q %q %q", value, description, environment, ownerEmail, purpose)
+		}
+	}
+}
+
+func TestNormalizeRoleKeysCanonicalizesLegacyPlatformRoles(t *testing.T) {
+	roles := normalizeRoleKeys([]string{
+		auth.LegacyRoleFlowGoClient,
+		auth.RoleArtificialFlowClient,
+		"finance reviewer",
+	})
+	expected := []string{auth.RoleArtificialFlowClient, "finance reviewer"}
+	if len(roles) != len(expected) {
+		t.Fatalf("expected roles %#v, got %#v", expected, roles)
+	}
+	for index := range expected {
+		if roles[index] != expected[index] {
+			t.Fatalf("expected role %q at index %d, got %q", expected[index], index, roles[index])
+		}
 	}
 }
