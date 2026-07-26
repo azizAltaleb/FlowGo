@@ -13,8 +13,8 @@ vi.mock("react-oidc-context", () => ({
   withAuthenticationRequired: (Component: React.ComponentType) => Component,
 }));
 
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
   return {
     ...actual,
     BrowserRouter: ({ children }: { children: React.ReactNode }) => (
