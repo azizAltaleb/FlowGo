@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router";
 import { useAuth } from "react-oidc-context";
 import { setAccessToken } from "@/lib/api";
 import DashboardLayout from "@/layouts/DashboardLayout";

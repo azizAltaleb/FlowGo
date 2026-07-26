@@ -1,4 +1,4 @@
-import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation } from "react-router";
 import { LayoutDashboard, Layers, Activity, ShieldUser, Menu, X, LogOut, KeyRound, History } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";

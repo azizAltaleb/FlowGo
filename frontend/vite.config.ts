@@ -20,7 +20,7 @@ export default defineConfig({
           if (id.includes("react-oidc-context") || id.includes("oidc-client-ts")) {
             return "vendor-auth"
           }
-          if (id.includes("react") || id.includes("react-dom") || id.includes("react-router-dom")) {
+          if (id.includes("react") || id.includes("react-dom") || id.includes("react-router")) {
             return "vendor-react"
           }
         },
