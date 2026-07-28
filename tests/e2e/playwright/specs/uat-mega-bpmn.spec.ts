@@ -134,17 +134,37 @@ test.describe("uat-mega-bpmn", () => {
     expect(deploy.res.status).toBeGreaterThanOrEqual(400);
   });
 
-  test("negative: escalation start is rejected (Tier-2 honesty)", async () => {
+  test("negative: complex gateway remains unsupported", async () => {
     const bad = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D2" targetNamespace="t">
-  <bpmn:process id="bad_escalation" isExecutable="true">
-    <bpmn:startEvent id="start"><bpmn:escalationEventDefinition/></bpmn:startEvent>
+  <bpmn:process id="bad_complex" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:complexGateway id="cg"/>
     <bpmn:endEvent id="end"/>
-    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="cg"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="cg" targetRef="end"/>
   </bpmn:process>
 </bpmn:definitions>`;
     const deploy = await api("POST", "/workflows", bad, true);
     expect(deploy.res.status).toBeGreaterThanOrEqual(400);
-    expect(deploy.text.toLowerCase()).toContain("escalation");
+  });
+
+  test("positive: escalation boundary deploys (Tier-2 Supported)", async () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D3" targetNamespace="t">
+  <bpmn:escalation id="Esc_1" escalationCode="NEED_HELP"/>
+  <bpmn:process id="uat_escalation" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:userTask id="work"/>
+    <bpmn:boundaryEvent id="esc" attachedToRef="work"><bpmn:escalationEventDefinition escalationRef="Esc_1"/></bpmn:boundaryEvent>
+    <bpmn:endEvent id="end"/>
+    <bpmn:endEvent id="endEsc"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="work"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="work" targetRef="end"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="esc" targetRef="endEsc"/>
+  </bpmn:process>
+</bpmn:definitions>`;
+    const deploy = await api("POST", "/workflows", xml, true);
+    expect(deploy.res.status, deploy.text).toBeLessThan(300);
   });
 });

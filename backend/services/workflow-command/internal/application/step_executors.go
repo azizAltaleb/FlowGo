@@ -532,14 +532,49 @@ func (x *CallActivityExecutor) Execute(ctx context.Context, e *Engine, instance 
 	return nil
 }
 
-// IntermediateCatchEventExecutor waits for message/signal correlation, or passes through link catches.
+// IntermediateCatchEventExecutor waits for message/signal/escalation/conditional, or passes through link catches.
 type IntermediateCatchEventExecutor struct{}
 
 func (x *IntermediateCatchEventExecutor) Execute(ctx context.Context, e *Engine, instance *model.WorkflowInstance, step *model.StepDefinition, execID string, wf *model.WorkflowDefinition) error {
-	if evtType, ok := step.Properties["event_definition_type"].(string); ok && evtType == "link" {
-		return e.proceedToken(ctx, instance, execID, wf)
+	if step.Properties != nil {
+		if evtType, ok := step.Properties["event_definition_type"].(string); ok && evtType == "link" {
+			return e.proceedToken(ctx, instance, execID, wf)
+		}
+		if evtType, ok := step.Properties["event_definition_type"].(string); ok && evtType == "conditional" {
+			if cond, _ := step.Properties["condition"].(string); cond != "" && e.evaluateCondition(ctx, cond, instance.Context) {
+				return e.proceedToken(ctx, instance, execID, wf)
+			}
+			return nil
+		}
 	}
-	// Message/signal catches wait for PublishMessage / publishSignal.
+	// Message/signal/escalation/cancel catches wait for publish / cancel.
+	return nil
+}
+
+// ManualTaskExecutor waits for CompleteTask (human work without job assignment).
+type ManualTaskExecutor struct{}
+
+func (x *ManualTaskExecutor) Execute(ctx context.Context, e *Engine, instance *model.WorkflowInstance, step *model.StepDefinition, execID string, wf *model.WorkflowDefinition) error {
+	return nil
+}
+
+// StartEventExecutor proceeds unless parked on a conditional start awaiting true condition.
+type StartEventExecutor struct{}
+
+func (x *StartEventExecutor) Execute(ctx context.Context, e *Engine, instance *model.WorkflowInstance, step *model.StepDefinition, execID string, wf *model.WorkflowDefinition) error {
+	if step.Properties != nil && step.Properties["event_definition_type"] == "conditional" {
+		cond, _ := step.Properties["condition"].(string)
+		if cond != "" && !e.evaluateCondition(ctx, cond, instance.Context) {
+			return nil
+		}
+	}
+	return e.proceedToken(ctx, instance, execID, wf)
+}
+
+// EventSubProcessExecutor is never entered via sequence flow; triggers use tryStartEventSubProcesses.
+type EventSubProcessExecutor struct{}
+
+func (x *EventSubProcessExecutor) Execute(ctx context.Context, e *Engine, instance *model.WorkflowInstance, step *model.StepDefinition, execID string, wf *model.WorkflowDefinition) error {
 	return nil
 }
 
@@ -596,6 +631,12 @@ func (x *IntermediateThrowEventExecutor) Execute(ctx context.Context, e *Engine,
 			}
 		}
 		return e.proceedToken(ctx, instance, execID, wf)
+	} else if escCode, ok := step.Properties["escalation_code"].(string); ok && strings.TrimSpace(escCode) != "" {
+		err = e.publishEscalation(ctx, escCode, nil)
+		_ = e.tryStartEventSubProcesses(ctx, instance, wf, "escalation", escCode, nil)
+	} else if escRef, ok := step.Properties["escalation_ref"].(string); ok && strings.TrimSpace(escRef) != "" {
+		err = e.publishEscalation(ctx, escRef, nil)
+		_ = e.tryStartEventSubProcesses(ctx, instance, wf, "escalation", escRef, nil)
 	}
 
 	if err != nil {
@@ -703,6 +744,30 @@ func (x *PassthroughExecutor) Execute(ctx context.Context, e *Engine, instance *
 				if status == "ACTIVE" || status == "WAITING" || status == "" {
 					instance.Executions[i].Status = "CANCELLED"
 				}
+			}
+		}
+		if evtType, ok := step.Properties["event_definition_type"].(string); ok && evtType == "escalation" {
+			code, _ := step.Properties["escalation_code"].(string)
+			if code == "" {
+				code, _ = step.Properties["escalation_ref"].(string)
+			}
+			if code != "" {
+				if err := e.publishEscalation(ctx, code, nil); err != nil {
+					return err
+				}
+				_ = e.tryStartEventSubProcesses(ctx, instance, wf, "escalation", code, nil)
+			}
+		}
+		if evtType, ok := step.Properties["event_definition_type"].(string); ok && evtType == "cancel" {
+			var exec *model.Execution
+			for i := range instance.Executions {
+				if instance.Executions[i].ID == execID {
+					exec = &instance.Executions[i]
+					break
+				}
+			}
+			if exec != nil && exec.ParentID != "" {
+				return e.cancelTransactionScope(ctx, instance, exec.ParentID, wf)
 			}
 		}
 	}

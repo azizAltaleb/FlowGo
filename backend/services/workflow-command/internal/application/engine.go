@@ -1006,10 +1006,12 @@ func (e *Engine) registerStepExecutors() {
 	e.stepExecutors[model.StepTypeIntermediateThrowEvent] = &IntermediateThrowEventExecutor{}
 	e.stepExecutors[model.StepTypeIntermediateCatchEvent] = &IntermediateCatchEventExecutor{}
 	e.stepExecutors[model.StepTypeReceiveTask] = &ReceiveTaskExecutor{}
+	e.stepExecutors[model.StepTypeManualTask] = &ManualTaskExecutor{}
+	e.stepExecutors[model.StepTypeEventSubProcess] = &EventSubProcessExecutor{}
+	e.stepExecutors[model.StepTypeStart] = &StartEventExecutor{}
 
 	// Automatic steps that just pass through
 	passthrough := &PassthroughExecutor{}
-	e.stepExecutors[model.StepTypeStart] = passthrough
 	e.stepExecutors[model.StepTypeEnd] = passthrough
 
 	gateway := &GatewayExecutor{}

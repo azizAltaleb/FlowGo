@@ -940,32 +940,51 @@ func TestParse_TerminateAndLink(t *testing.T) {
 	}
 }
 
-func TestParse_RejectsEscalationAndEventSubProcess(t *testing.T) {
+func TestParse_SupportsEscalationAndEventSubProcess(t *testing.T) {
 	esc := `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:escalation id="Esc_1" name="Esc" escalationCode="ESC_1"/>
   <bpmn:process id="P" isExecutable="true">
-    <bpmn:startEvent id="start"><bpmn:escalationEventDefinition/></bpmn:startEvent>
+    <bpmn:startEvent id="start"><bpmn:escalationEventDefinition escalationRef="Esc_1"/></bpmn:startEvent>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="end"/>
   </bpmn:process>
 </bpmn:definitions>`
-	if _, err := Parse(strings.NewReader(esc)); err == nil || !strings.Contains(err.Error(), "escalation") {
-		t.Fatalf("expected escalation rejection, got %v", err)
+	wf, err := Parse(strings.NewReader(esc))
+	if err != nil {
+		t.Fatalf("expected escalation parse ok, got %v", err)
+	}
+	if wf.Steps[0].Properties["event_definition_type"] != "escalation" {
+		t.Fatalf("expected escalation start, got %#v", wf.Steps[0].Properties)
 	}
 	esp := `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D2" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="P2" isExecutable="true">
     <bpmn:startEvent id="start"/>
     <bpmn:subProcess id="esp" triggeredByEvent="true">
-      <bpmn:startEvent id="espStart"/>
+      <bpmn:startEvent id="espStart"><bpmn:messageEventDefinition messageRef="M1"/></bpmn:startEvent>
       <bpmn:endEvent id="espEnd"/>
       <bpmn:sequenceFlow id="ef" sourceRef="espStart" targetRef="espEnd"/>
     </bpmn:subProcess>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="end"/>
   </bpmn:process>
+  <bpmn:message id="M1" name="M1"/>
 </bpmn:definitions>`
-	if _, err := Parse(strings.NewReader(esp)); err == nil || !strings.Contains(err.Error(), "event sub-process") {
-		t.Fatalf("expected event sub-process rejection, got %v", err)
+	wf2, err := Parse(strings.NewReader(esp))
+	if err != nil {
+		t.Fatalf("expected event sub-process parse ok, got %v", err)
+	}
+	found := false
+	for _, s := range wf2.Steps {
+		if s.ID == "esp" {
+			found = true
+			if s.Type != model.StepTypeEventSubProcess {
+				t.Fatalf("expected EVENT_SUB_PROCESS, got %s", s.Type)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("event sub-process step missing")
 	}
 }

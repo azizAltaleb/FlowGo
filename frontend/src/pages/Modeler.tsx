@@ -223,6 +223,15 @@ function ModelerContent() {
           setDeployError("BPMN lint: process needs at least one start event.");
           return;
         }
+        // Visual-only nodes must not be wired into sequence flows (engine has no tokens for them).
+        const visualIds = new Set(
+          nodes.filter((n) => n.data?.visualOnly || n.type === "visualArtifact").map((n) => n.id)
+        );
+        const badEdge = edges.find((e) => visualIds.has(e.source) || visualIds.has(e.target));
+        if (badEdge) {
+          setDeployError("BPMN lint: visual-only shapes (pool/lane/data) cannot be connected with sequence flows.");
+          return;
+        }
         const xml = generateBpmnXml(nodes, edges, processId, processName);
         const wf = await api.deployWorkflow(xml);
         setPendingWorkflowSync(wf.id);
@@ -268,7 +277,7 @@ function ModelerContent() {
       if (!canEditDiagram) return;
 
       const type = event.dataTransfer.getData('application/reactflow/type');
-      const originalType = event.dataTransfer.getData('application/reactflow/originalType');
+      const rawOriginalType = event.dataTransfer.getData('application/reactflow/originalType');
       const label = event.dataTransfer.getData('application/reactflow/label');
 
       // check if the dropped element is valid
@@ -281,13 +290,31 @@ function ModelerContent() {
         y: event.clientY,
       });
 
+      // Palette may use "bpmn:endEvent:terminate" style markers for event definitions.
+      const [baseType, eventKind] = rawOriginalType.split(":")[0] === "bpmn"
+        ? (() => {
+            const parts = rawOriginalType.split(":");
+            if (parts.length >= 3) return [`${parts[0]}:${parts[1]}`, parts[2]];
+            return [rawOriginalType, ""];
+          })()
+        : [rawOriginalType, ""];
+      const originalType = baseType;
       const size = getElementSize(originalType);
+      const visualKind = type === "visualArtifact" ? originalType.replace("bpmn:", "") : undefined;
 
       const newNode: Node = {
         id: `${type}_${Date.now()}`,
         type,
         position,
-        data: { label, originalType },
+        data: {
+          label,
+          originalType,
+          ...(eventKind ? { eventDefinitionType: eventKind } : {}),
+          ...(visualKind ? { visualKind, visualOnly: true } : {}),
+          ...(eventKind === "link" ? { link_name: "Link_1" } : {}),
+          ...(eventKind === "escalation" ? { escalation_code: "ESC_1" } : {}),
+          ...(eventKind === "conditional" ? { condition: "true" } : {}),
+        },
         style: { width: size.width, height: size.height },
         selected: true, // Auto-select on drop
       };

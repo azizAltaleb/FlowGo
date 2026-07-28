@@ -11,27 +11,26 @@ Statuses must match runtime behavior (honesty over fake parity).
 | Partial | Usable for common patterns; edge cases need fixtures before production reliance. |
 | Not supported | Deploy/lint fails or element is not modeled; do not claim support. |
 | Visual-only | Modeler/XML round-trip only; not an execution primitive (Tier-3). |
-| Planned (Tier-2) | Targeted after 1.0 for partner-blocking Camunda imports. |
 
-## Core / Tier-1 (1.0 release train)
+## Core / Tier-1
 
 | BPMN feature | Status | Notes |
 | :--- | :--- | :--- |
 | Process deployment | Supported | BPMN XML via modeler or API. |
 | None start / end events | Supported | Standard start and end. |
-| Message start events | Partial | Parsed (`message_ref` on start); instance creation still via API start or message correlation patterns — prefer receive/boundary for production. |
+| Message start events | Supported | `PublishMessage` starts matching definitions. |
 | Message catch / throw / boundary | Supported | Correlation covered by regression tests. |
 | Timer start / catch / boundary | Supported | Duration/date patterns; boundary interrupting and non-interrupting. |
-| Signal start events | Partial | `signal_ref` parsed on start; prefer catch/throw for production. |
+| Signal start events | Supported | `PublishSignal` / throw starts matching definitions. |
 | Signal catch / throw / boundary | Supported | Throw→catch + boundary covered by regression tests. |
 | Error boundary / end | Supported | Boundary covered by regression tests. |
 | User tasks | Supported | Assignee / candidates / due date. |
 | Service tasks | Supported | External jobs via `taskType` / topic. |
 | Script tasks | Supported | JavaScript via configured script runtime. |
 | Business rule tasks | Supported | `decisionRef` → JSON decision tables ([DMN.md](DMN.md)). UI may be hidden. |
-| Send tasks | Supported | External job (default type `io.artificialflow.connector.send`); complete via worker/connector. |
+| Send tasks | Supported | External job (default type `io.artificialflow.connector.send`). |
 | Receive tasks | Supported | Waits for correlated message. |
-| Manual tasks | Supported | Pass-through / auto-complete style execution. |
+| Manual tasks | Supported | Waits for `CompleteTask` (no job assignment). |
 | Exclusive gateway (XOR) | Supported | Conditional + default flows. |
 | Parallel gateway (AND) | Supported | Fork/join. |
 | Inclusive gateway (OR) | Supported | Reachability-aware join/branch. |
@@ -42,17 +41,17 @@ Statuses must match runtime behavior (honesty over fake parity).
 | Sequence flows (conditional / default) | Supported | Core token routing. |
 | Camunda / Zeebe extensions | Not native | See [CAMUNDA_BPMN_IMPORT.md](CAMUNDA_BPMN_IMPORT.md). |
 
-## Tier-2 (engine)
+## Tier-2
 
 | BPMN feature | Status | Notes |
 | :--- | :--- | :--- |
-| Escalation events | Not supported | Deploy/parse fails with clear error (no silent no-op). |
-| Conditional events | Not supported | Deploy/parse fails with clear error. |
+| Escalation events | Supported | Throw/end/boundary/catch + `PublishEscalation`; start fan-out supported. |
+| Conditional events | Supported | Catch/boundary/start wait until condition true (`CheckConditionals` / timer tick). |
 | Terminate end event | Supported | Cancels sibling tokens; completes instance. |
-| Cancel event + transaction sub-process | Not supported | Deploy/parse fails with clear error. |
+| Cancel event + transaction sub-process | Supported | `<transaction>` + cancel end + cancel boundary. |
 | Link catch/throw | Supported | Throw jumps to matching `linkEventDefinition` name. |
-| Compensation (full graphs) | Partial | Subset exists; expand fixtures before claiming Supported. |
-| Event sub-process | Not supported | `triggeredByEvent=true` rejected at parse. |
+| Compensation | Supported | Boundary handlers + throw/end compensate (XML + unit fixtures). |
+| Event sub-process | Supported | `triggeredByEvent=true`; started by matching message/signal/escalation/etc. |
 | Complex gateway | Not supported | Rare; defer. |
 | Ad-hoc sub-process | Not supported | |
 
@@ -60,18 +59,20 @@ Statuses must match runtime behavior (honesty over fake parity).
 
 | BPMN feature | Status | Notes |
 | :--- | :--- | :--- |
-| Data object / store / input / output | Visual-only | Modeler round-trip; variables remain the execution model. |
-| Pool / lane / message flow | Visual-only | Collaboration shapes in modeler; not executable tokens. |
-| Text annotation / group / association | Visual-only | Documentation artifacts in diagram XML. |
+| Data object / store / input / output | Visual-only | Modeler shapes; variables remain the execution model. |
+| Pool / lane / message flow | Visual-only | Collaboration shapes; lane label → user-task `candidateGroups` hint on export. |
+| Text annotation / group / association | Visual-only | Documentation artifacts. |
 
 ## Examples
 
 - Gateway patterns: [examples/bpmn/gateways/](../examples/bpmn/gateways/)
 - Golden demo: [examples/golden-demo/](../examples/golden-demo/)
+- Visual collaboration notes: [BPMN_VISUAL_COLLABORATION.md](BPMN_VISUAL_COLLABORATION.md)
 
 ## Tests
 
 ```bash
 make test-bpmn-matrix
 make test-bpmn-exhaustive
+go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(Escalation|Conditional|MessageStart|Transaction|Compensation)|TestManualTaskWaits' -count=1
 ```

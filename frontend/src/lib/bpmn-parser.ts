@@ -220,6 +220,8 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
     { tag: "bpmn:dataObjectReference", type: "visualArtifact" },
     { tag: "bpmn:dataStoreReference", type: "visualArtifact" },
     { tag: "bpmn:textAnnotation", type: "visualArtifact" },
+    { tag: "bpmn:lane", type: "visualArtifact" },
+    { tag: "bpmn:participant", type: "visualArtifact" },
   ];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -532,12 +534,24 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const nodeXmlObjects: Record<string, Record<string, any>> = {};
   
+  // Lane → candidateGroups hint for contained user tasks (visual collaboration helper).
+  const laneById = new Map(
+    nodes
+      .filter((n) => n.data.originalType === "bpmn:lane" || n.data.visualKind === "lane")
+      .map((n) => [n.id, String(n.data.label || n.id)])
+  );
+
   // Group nodes by parent
   nodes.forEach(node => {
+    const tag = (node.data.originalType as string) || "bpmn:task";
+    // Pools/participants live in collaboration, not the executable process body.
+    if (tag === "bpmn:participant") {
+      return;
+    }
+
     const parentId = effectiveParentMap[node.id] || processId;
     const container = containers[parentId] || containers[processId];
     
-    const tag = node.data.originalType as string || "bpmn:task";
     if (!container[tag]) container[tag] = [];
     
     const nodeEl: Record<string, unknown> = {
@@ -546,10 +560,39 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
     };
 
     const normalizedData = normalizeBpmnData(node.data);
+    const skipKeys = new Set([
+      "originalType", "label", "width", "height", "visualKind", "visualOnly",
+      "executionStatus", "eventDefinitionType", "link_name", "escalation_code", "condition",
+    ]);
+
+    // Emit BPMN event definitions from palette markers.
+    const evt = String(node.data.eventDefinitionType || "");
+    if (evt === "terminate") {
+      nodeEl["bpmn:terminateEventDefinition"] = {};
+    } else if (evt === "link") {
+      nodeEl["bpmn:linkEventDefinition"] = { "@_name": node.data.link_name || node.data.label || "Link" };
+    } else if (evt === "escalation") {
+      nodeEl["bpmn:escalationEventDefinition"] = {};
+      if (node.data.escalation_code) {
+        nodeEl[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:escalationCode`] = node.data.escalation_code;
+      }
+    } else if (evt === "conditional") {
+      nodeEl["bpmn:conditionalEventDefinition"] = {
+        "bpmn:condition": { "#text": String(node.data.condition || "true") },
+      };
+    }
+
+    // Lane containment → user task candidateGroups
+    if (tag === "bpmn:userTask") {
+      const laneParent = node.parentId && laneById.has(node.parentId) ? laneById.get(node.parentId) : undefined;
+      if (laneParent && !normalizedData["@_candidateGroups"] && !normalizedData.candidateGroups) {
+        nodeEl[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:candidateGroups`] = laneParent;
+      }
+    }
 
     // Add other properties
     Object.keys(normalizedData).forEach(key => {
-        if (key !== 'originalType' && key !== 'label' && key !== 'width' && key !== 'height' && key !== 'visualKind' && key !== 'visualOnly' && key !== 'executionStatus') {
+        if (!skipKeys.has(key)) {
              const value = normalizedData[key];
              if (typeof value === 'object' && value !== null) {
                  // It's a child element (like extensionElements)
@@ -562,12 +605,13 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
         }
     });
     
-    // Add incoming/outgoing refs based on edges
-    const incoming = edges.filter(e => e.target === node.id).map(e => e.id);
-    const outgoing = edges.filter(e => e.source === node.id).map(e => e.id);
-    
-    if (incoming.length > 0) nodeEl["bpmn:incoming"] = incoming;
-    if (outgoing.length > 0) nodeEl["bpmn:outgoing"] = outgoing;
+    // Add incoming/outgoing refs based on edges (skip for visual-only artifacts)
+    if (!node.data.visualOnly) {
+      const incoming = edges.filter(e => e.target === node.id).map(e => e.id);
+      const outgoing = edges.filter(e => e.source === node.id).map(e => e.id);
+      if (incoming.length > 0) nodeEl["bpmn:incoming"] = incoming;
+      if (outgoing.length > 0) nodeEl["bpmn:outgoing"] = outgoing;
+    }
 
     container[tag].push(nodeEl);
     nodeXmlObjects[node.id] = nodeEl;

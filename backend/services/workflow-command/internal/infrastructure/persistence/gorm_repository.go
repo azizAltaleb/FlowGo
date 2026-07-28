@@ -734,3 +734,8 @@ func (s *GormRepository) ListProcesses(ctx context.Context) ([]*model.Process, e
 	}
 	return processes, nil
 }
+
+// ListProcessesForEventStarts supports message/signal/escalation start fan-out.
+func (s *GormRepository) ListProcessesForEventStarts(ctx context.Context) ([]*model.Process, error) {
+	return s.ListProcesses(ctx)
+}

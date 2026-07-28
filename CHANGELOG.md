@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- BPMN Tier-2 before 1.0 GA: Escalation, Conditional, Cancel/transaction, Event sub-process, Message/Signal start fan-out, Compensation XML fixtures, Manual Task wait semantics.
+- Modeler Visual palette (Pool/Lane/Data/Annotation), event markers (link/terminate/escalation/conditional), deploy lint against sequence flows on visual-only shapes.
+
 ## [0.4.0] - 2026-07-28
 
 ### Added

@@ -3,6 +3,7 @@ import {
   User, Settings, FileCode, MessageSquare, 
   ClipboardList, HelpingHand, ExternalLink, 
   Layers, X, Plus, Circle, Play, Ban, Timer, Zap, Send,
+  Link2, OctagonX, AlertTriangle, Filter, Database, Box, Users, Rows3,
   type LucideProps
 } from "lucide-react";
 
@@ -32,6 +33,11 @@ export default function Palette({ onDragStart }: PaletteProps) {
         { type: "endEvent", originalType: "bpmn:endEvent", label: "End Event", icon: Ban, color: "text-red-600" },
         { type: "intermediateCatchEvent", originalType: "bpmn:intermediateCatchEvent", label: "Timer Catch", icon: Timer, color: "text-yellow-600" },
         { type: "intermediateThrowEvent", originalType: "bpmn:intermediateThrowEvent", label: "Message Throw", icon: Zap, color: "text-blue-600" },
+        { type: "intermediateThrowEvent", originalType: "bpmn:intermediateThrowEvent:link", label: "Link Throw", icon: Link2, color: "text-slate-600" },
+        { type: "intermediateCatchEvent", originalType: "bpmn:intermediateCatchEvent:link", label: "Link Catch", icon: Link2, color: "text-slate-600" },
+        { type: "endEvent", originalType: "bpmn:endEvent:terminate", label: "Terminate End", icon: OctagonX, color: "text-red-700" },
+        { type: "intermediateThrowEvent", originalType: "bpmn:intermediateThrowEvent:escalation", label: "Escalation Throw", icon: AlertTriangle, color: "text-orange-600" },
+        { type: "intermediateCatchEvent", originalType: "bpmn:intermediateCatchEvent:conditional", label: "Conditional Catch", icon: Filter, color: "text-violet-600" },
       ]
     },
     {
@@ -56,6 +62,16 @@ export default function Palette({ onDragStart }: PaletteProps) {
         { type: "inclusiveGateway", originalType: "bpmn:inclusiveGateway", label: "Inclusive", icon: Circle, color: "text-amber-600" },
         { type: "eventBasedGateway", originalType: "bpmn:eventBasedGateway", label: "Event Based", icon: Zap, color: "text-amber-600" },
       ]
+    },
+    {
+      title: "Visual",
+      items: [
+        { type: "visualArtifact", originalType: "bpmn:participant", label: "Pool", icon: Users, color: "text-slate-500" },
+        { type: "visualArtifact", originalType: "bpmn:lane", label: "Lane", icon: Rows3, color: "text-slate-500" },
+        { type: "visualArtifact", originalType: "bpmn:dataObject", label: "Data Object", icon: Box, color: "text-slate-500" },
+        { type: "visualArtifact", originalType: "bpmn:dataStoreReference", label: "Data Store", icon: Database, color: "text-slate-500" },
+        { type: "visualArtifact", originalType: "bpmn:textAnnotation", label: "Annotation", icon: FileCode, color: "text-slate-500" },
+      ]
     }
   ];
 
@@ -68,7 +84,7 @@ export default function Palette({ onDragStart }: PaletteProps) {
           </div>
           {category.items.map((item) => (
             <div
-              key={item.originalType}
+              key={`${item.originalType}-${item.label}`}
               title={item.label}
               aria-label={item.label}
               className="w-full min-h-9 bg-white border rounded-md shadow-sm flex items-center gap-2 px-2 py-1.5 cursor-grab hover:bg-slate-100 hover:border-primary transition-colors"

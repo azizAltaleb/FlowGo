@@ -24,8 +24,11 @@ Close triaged GitHub issues with evidence ([ISSUE_TRIAGE_v0.4.md](ISSUE_TRIAGE_v
 
 ## Freeze 1.0 RC
 
+BPMN full coverage (Escalation, Conditional, Cancel/transaction, Event sub-process, Message/Signal start, Compensation, Manual wait, visual Pool/Lane/Data) lands on `release/1.0` before GA. Matrix: [BPMN_SUPPORT_MATRIX.md](BPMN_SUPPORT_MATRIX.md).
+
 ```bash
-git checkout -b release/1.0 v0.4.0   # or from train commit after green suite
+git checkout release/1.0
+make test-bpmn-matrix
 # freeze surfaces per docs/STABILITY_POLICY.md
 git tag -s v1.0.0-rc.1 -m "ArtificialFlow v1.0.0-rc.1"
 # re-run full Phase T on RC images
