@@ -21,7 +21,7 @@ on:
       tag:
         description: Image tag to publish
         required: true
-        default: v0.4.0
+        default: v1.0.0-rc.1
       publish:
         description: Publish images instead of running a dry-run build
         required: true
