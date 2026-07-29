@@ -1,10 +1,11 @@
 import { Handle, Position, type NodeProps, NodeResizer } from '@xyflow/react';
-import { User, Settings, FileCode, MessageSquare, ClipboardList, HelpingHand, ExternalLink, Layers } from "lucide-react";
+import { User, Settings, FileCode, MessageSquare, ClipboardList, HelpingHand, ExternalLink, Layers, Send } from "lucide-react";
 import { ContextPad } from "../ContextPad";
 
 const icons: Record<string, React.ElementType> = {
   userTask: User,
   serviceTask: Settings,
+  sendTask: Send,
   scriptTask: FileCode,
   receiveTask: MessageSquare,
   manualTask: HelpingHand,

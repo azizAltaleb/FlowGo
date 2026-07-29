@@ -3,6 +3,7 @@
  */
 import http from "k6/http";
 import { check, sleep } from "k6";
+import { authHeaders } from "../lib/auth.js";
 
 const QUERY_BASE = __ENV.QUERY_URL || "http://localhost:8081";
 
@@ -10,7 +11,7 @@ export function queryReadLoad() {
   // List instances with various filters
   const listRes = http.get(
     `${QUERY_BASE}/instances?limit=20&offset=0`,
-    { tags: { name: "list_instances" } }
+    { headers: authHeaders(), tags: { name: "list_instances" } }
   );
   check(listRes, {
     "list instances 200": (r) => r.status === 200,
@@ -20,7 +21,7 @@ export function queryReadLoad() {
   // List workflows
   const workflowsRes = http.get(
     `${QUERY_BASE}/workflows?limit=10`,
-    { tags: { name: "list_workflows" } }
+    { headers: authHeaders(), tags: { name: "list_workflows" } }
   );
   check(workflowsRes, {
     "list workflows 200": (r) => r.status === 200,
@@ -30,6 +31,7 @@ export function queryReadLoad() {
   const notFoundRes = http.get(
     `${QUERY_BASE}/instances/999999999999999999`,
     {
+      headers: authHeaders(),
       tags: { name: "get_instance_404" },
       responseCallback: http.expectedStatuses(200, 404),
     }

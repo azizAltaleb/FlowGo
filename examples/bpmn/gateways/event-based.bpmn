@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_EventBased" targetNamespace="https://artificialflow.io/examples/gateways">
+  <bpmn:message id="MsgContinue" name="continue"/>
+  <bpmn:process id="event_based_demo" name="Event Based Gateway Demo" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:eventBasedGateway id="eg" name="Wait"/>
+    <bpmn:intermediateCatchEvent id="msgCatch" name="Message">
+      <bpmn:messageEventDefinition messageRef="MsgContinue"/>
+    </bpmn:intermediateCatchEvent>
+    <bpmn:intermediateCatchEvent id="timerCatch" name="Timeout">
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>PT1H</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:intermediateCatchEvent>
+    <bpmn:endEvent id="endMsg"/>
+    <bpmn:endEvent id="endTimer"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="eg"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="eg" targetRef="msgCatch"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="eg" targetRef="timerCatch"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="msgCatch" targetRef="endMsg"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="timerCatch" targetRef="endTimer"/>
+  </bpmn:process>
+</bpmn:definitions>

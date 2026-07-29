@@ -23,6 +23,7 @@ import '@xyflow/react/dist/style.css';
 
 import { api } from "@/lib/api";
 import { parseBpmnXml, generateBpmnXml, getElementSize } from "@/lib/bpmn-parser";
+import { VisualArtifactNode } from "@/components/bpmn/nodes/VisualArtifactNode";
 import { setPendingWorkflowSync, waitForWorkflowInCatalog } from "@/lib/cqrsSync";
 import PropertiesPanel from "@/components/bpmn/PropertiesPanel";
 import Palette from "@/components/bpmn/Palette";
@@ -41,6 +42,7 @@ const nodeTypes = {
   boundaryEvent: EventNode,
   userTask: TaskNode,
   serviceTask: TaskNode,
+  sendTask: TaskNode,
   scriptTask: TaskNode,
   businessRuleTask: TaskNode,
   receiveTask: TaskNode,
@@ -51,6 +53,7 @@ const nodeTypes = {
   parallelGateway: GatewayNode,
   inclusiveGateway: GatewayNode,
   eventBasedGateway: GatewayNode,
+  visualArtifact: VisualArtifactNode,
 };
 
 const edgeTypes = {
@@ -98,6 +101,7 @@ function ModelerContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deploySyncNotice, setDeploySyncNotice] = useState<string | null>(null);
   const [deploySyncing, setDeploySyncing] = useState(false);
+  const [deployError, setDeployError] = useState<string | null>(null);
 
   const isNewDiagram = searchParams.get("new") === "true";
   const workflowId = searchParams.get("id");
@@ -209,7 +213,25 @@ function ModelerContent() {
   
   const handleDeploy = async () => {
     if (!canEditDiagram) return;
+    setDeployError(null);
     try {
+        if (!processId.trim()) {
+          setDeployError("Process ID is required before deploy.");
+          return;
+        }
+        if (!nodes.some((n) => n.type === "startEvent" || n.data?.originalType === "bpmn:startEvent")) {
+          setDeployError("BPMN lint: process needs at least one start event.");
+          return;
+        }
+        // Visual-only nodes must not be wired into sequence flows (engine has no tokens for them).
+        const visualIds = new Set(
+          nodes.filter((n) => n.data?.visualOnly || n.type === "visualArtifact").map((n) => n.id)
+        );
+        const badEdge = edges.find((e) => visualIds.has(e.source) || visualIds.has(e.target));
+        if (badEdge) {
+          setDeployError("BPMN lint: visual-only shapes (pool/lane/data) cannot be connected with sequence flows.");
+          return;
+        }
         const xml = generateBpmnXml(nodes, edges, processId, processName);
         const wf = await api.deployWorkflow(xml);
         setPendingWorkflowSync(wf.id);
@@ -229,7 +251,8 @@ function ModelerContent() {
         );
     } catch (err) {
         console.error("Deploy failed", err);
-        alert(err instanceof Error ? err.message : "Failed to deploy workflow");
+        const message = err instanceof Error ? err.message : "Failed to deploy workflow";
+        setDeployError(message);
     } finally {
         setDeploySyncing(false);
     }
@@ -254,7 +277,7 @@ function ModelerContent() {
       if (!canEditDiagram) return;
 
       const type = event.dataTransfer.getData('application/reactflow/type');
-      const originalType = event.dataTransfer.getData('application/reactflow/originalType');
+      const rawOriginalType = event.dataTransfer.getData('application/reactflow/originalType');
       const label = event.dataTransfer.getData('application/reactflow/label');
 
       // check if the dropped element is valid
@@ -267,13 +290,31 @@ function ModelerContent() {
         y: event.clientY,
       });
 
+      // Palette may use "bpmn:endEvent:terminate" style markers for event definitions.
+      const [baseType, eventKind] = rawOriginalType.split(":")[0] === "bpmn"
+        ? (() => {
+            const parts = rawOriginalType.split(":");
+            if (parts.length >= 3) return [`${parts[0]}:${parts[1]}`, parts[2]];
+            return [rawOriginalType, ""];
+          })()
+        : [rawOriginalType, ""];
+      const originalType = baseType;
       const size = getElementSize(originalType);
+      const visualKind = type === "visualArtifact" ? originalType.replace("bpmn:", "") : undefined;
 
       const newNode: Node = {
         id: `${type}_${Date.now()}`,
         type,
         position,
-        data: { label, originalType },
+        data: {
+          label,
+          originalType,
+          ...(eventKind ? { eventDefinitionType: eventKind } : {}),
+          ...(visualKind ? { visualKind, visualOnly: true } : {}),
+          ...(eventKind === "link" ? { link_name: "Link_1" } : {}),
+          ...(eventKind === "escalation" ? { escalation_code: "ESC_1" } : {}),
+          ...(eventKind === "conditional" ? { condition: "true" } : {}),
+        },
         style: { width: size.width, height: size.height },
         selected: true, // Auto-select on drop
       };
@@ -310,6 +351,61 @@ function ModelerContent() {
       return edge;
     }));
   };
+
+  const handleRenameId = (oldId: string, newId: string): string | null => {
+    if (!canEditDiagram) return "Diagram is read-only";
+    if (nodes.some((n) => n.id === newId) || edges.some((e) => e.id === newId)) {
+      return "ID must be unique in this diagram";
+    }
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.id === oldId) {
+          return { ...node, id: newId };
+        }
+        return node;
+      }),
+    );
+    setEdges((eds) =>
+      eds.map((edge) => {
+        let next = edge;
+        if (edge.id === oldId) {
+          next = { ...next, id: newId };
+        }
+        if (edge.source === oldId) {
+          next = { ...next, source: newId };
+        }
+        if (edge.target === oldId) {
+          next = { ...next, target: newId };
+        }
+        const attached = next.data?.["@_attachedToRef"];
+        if (attached === oldId) {
+          next = {
+            ...next,
+            data: { ...next.data, "@_attachedToRef": newId },
+          };
+        }
+        return next;
+      }),
+    );
+    setNodes((nds) =>
+      nds.map((node) => {
+        const attached = node.data?.["@_attachedToRef"];
+        if (attached === oldId) {
+          return { ...node, data: { ...node.data, "@_attachedToRef": newId } };
+        }
+        return node;
+      }),
+    );
+    if (selectedElementId === oldId) {
+      setSelectedElementId(newId);
+    }
+    return null;
+  };
+
+  const diagramIds = [
+    ...nodes.map((n) => n.id),
+    ...edges.map((e) => e.id),
+  ];
 
   return (
     <div className="h-full flex flex-col space-y-4">
@@ -355,6 +451,12 @@ function ModelerContent() {
         </div>
       ) : null}
 
+      {deployError ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive whitespace-pre-wrap" role="alert">
+          <div className="font-semibold mb-1">BPMN validation / deploy failed</div>
+          {deployError}
+        </div>
+      ) : null}
       {deploySyncNotice ? (
         <div className="rounded-md border bg-muted p-3 text-sm text-muted-foreground">
           {deploySyncing ? "Syncing... " : null}
@@ -401,7 +503,9 @@ function ModelerContent() {
           <PropertiesPanel 
             key={selectedElement?.id} 
             element={selectedElement} 
-            onUpdate={handleUpdateElement} 
+            onUpdate={handleUpdateElement}
+            onRenameId={handleRenameId}
+            existingIds={diagramIds} 
           />
         </div>
       </div>

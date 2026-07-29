@@ -9,15 +9,34 @@ This roadmap communicates the intended direction for the open-source project. It
 - **npm readiness**: public `@artificialflow/nodejs-sdk` package with package provenance.
 - **Documentation**: quickstart, IAM guide, SDK guide, worker API guide, Helm deployment guide, and operations runbooks.
 
-## Near Term
+## P0 — Trust / 1.0 readiness
 
-- **Compatibility**: expand the API, worker protocol, SDK, and deployment compatibility matrix.
-- **Helm hardening**: production examples for external Postgres, Kafka/NATS, Elasticsearch/OpenSearch, ingress, TLS, and secrets.
-- **Observability**: finalize tracing, logs, metrics, and IAM-integrated observability guidance.
-- **Testing**: expand browser E2E, SDK conformance, Helm template, and image vulnerability gates.
+Compete with Camunda 8 self-managed on reliability, upgrade, and BPMN honesty before marketing as an alternative.
 
-## Later
+- **1.0 contract**: freeze worker, inbox, SDK, Helm, IAM, and BPMN semantics ([docs/COMPATIBILITY_MATRIX.md](docs/COMPATIBILITY_MATRIX.md), [docs/STABILITY_POLICY.md](docs/STABILITY_POLICY.md)).
+- **HA evidence**: supported replica topology, runtime safety, k6 capacity numbers ([docs/HA_REFERENCE.md](docs/HA_REFERENCE.md)).
+- **Day-2 ops**: upgrade guide, CQRS rebuild, outbox drain, lag SLOs ([docs/UPGRADE.md](docs/UPGRADE.md)).
+- **BPMN honesty**: matrix aligned with runtime; Camunda/Zeebe import guide ([docs/BPMN_SUPPORT_MATRIX.md](docs/BPMN_SUPPORT_MATRIX.md), [docs/CAMUNDA_BPMN_IMPORT.md](docs/CAMUNDA_BPMN_IMPORT.md)).
+- **Golden demo**: human task + worker + timer bake-off path under `examples/golden-demo/`.
 
-- **Scale guidance**: HA reference architectures and load-test evidence.
-- **Plugin model**: safer extension points for custom task handlers and connectors.
-- **Deployment automation**: optional GitOps examples and Kubernetes production runbooks.
+## P1 — Daily experience
+
+- **Browser Task Inbox** on existing `/inbox` APIs.
+- **Instance ops**: failed job retry, stuck-job playbooks, clearer worker vs user-task states.
+- **CQRS productization**: lag indicator, rebuild action, metrics guidance.
+- **Worker DX**: published Go worker library, Node + Go samples; Python worker after Go is solid.
+- **IAM recipes**: Keycloak, Entra ID, Auth0; harden bundled ZITADEL bootstrap constraints.
+
+## P2 — Selective Camunda parity
+
+- **DMN**: real decision-table evaluation for `decisionRef` business-rule tasks.
+- **Connectors**: HTTP first, then a small official set (~8), not a marketplace.
+- **Versioning**: start-on-version and open-instance migrate vs drain guidance.
+
+## Explicitly deferred
+
+- Camunda Optimize / process mining.
+- Connector marketplace.
+- Zeebe throughput leaderboard competition.
+- Real multi-tenancy (tenant fields exist but deployments use `default`).
+- Managed cloud / support SKU until after P1 design-partner traction.

@@ -94,3 +94,5 @@ The chart validates IAM combinations during rendering. For example, `iam.mode=zi
 - Keep `iam.auth.enforceAudience=true` unless a documented compatibility exception is required.
 - Prefer externally managed Postgres, Kafka/NATS, Elasticsearch/OpenSearch, and secret management.
 - Use signed ArtificialFlow release images and verify SBOM/provenance artifacts when available.
+- PodDisruptionBudgets are enabled by default for command/query/frontend/gateway when replicas ≥ 2.
+- Optional HPAs are under `autoscaling.*` (disabled by default). Do not HPA the runtime (single-active lease); see [HA_REFERENCE.md](../../docs/HA_REFERENCE.md).

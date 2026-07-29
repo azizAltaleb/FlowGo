@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn"
+                  id="Definitions_golden_demo"
+                  targetNamespace="https://artificialflow.io/golden-demo">
+  <bpmn:process id="golden_order_approval" name="Golden Order Approval" isExecutable="true">
+    <bpmn:startEvent id="start" name="Order received"/>
+    <bpmn:serviceTask id="validateOrder" name="Validate order" artificialflow:taskType="golden-validate"/>
+    <bpmn:userTask id="approveOrder" name="Approve order"
+                   artificialflow:assignee="approver"
+                   artificialflow:candidateGroups="approvers"
+                   artificialflow:dueDate="PT1H"/>
+    <bpmn:boundaryEvent id="approveTimer" name="Approval SLA" attachedToRef="approveOrder" cancelActivity="false">
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>PT1H</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:endEvent id="endApproved" name="Approved"/>
+    <bpmn:endEvent id="endSla" name="SLA noted"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="validateOrder"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="validateOrder" targetRef="approveOrder"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="approveOrder" targetRef="endApproved"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="approveTimer" targetRef="endSla"/>
+  </bpmn:process>
+</bpmn:definitions>

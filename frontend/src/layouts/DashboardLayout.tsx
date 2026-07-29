@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, Layers, Activity, ShieldUser, Menu, X, LogOut, KeyRound, History } from "lucide-react";
+import { LayoutDashboard, Layers, Activity, ShieldUser, Menu, X, LogOut, KeyRound, History, Inbox, Scale, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { api, type IdentityConfigResponse, type IdentityResponse } from "@/lib/api";
@@ -13,11 +13,19 @@ import {
   isClientOnly,
   isModeler,
 } from "@/lib/roles";
+import { CqrsStatusBanner } from "@/components/CqrsStatusBanner";
 
-const sidebarItems = [
+// Keep in sync with App.tsx — Decisions/DMN UI hidden until the next release train.
+const SHOW_DECISIONS_UI = false;
+
+type SidebarItem = { icon: LucideIcon; label: string; href: string };
+
+const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
   { icon: Layers, label: "Processes", href: "/processes" },
+  ...(SHOW_DECISIONS_UI ? [{ icon: Scale, label: "Decisions", href: "/decisions" }] : []),
   { icon: Activity, label: "Instances", href: "/instances" },
+  { icon: Inbox, label: "Task Inbox", href: "/inbox" },
   { icon: History, label: "History", href: "/history" },
   { icon: ShieldUser, label: "Identity", href: "/identity" },
   { icon: KeyRound, label: "SDK Clients", href: "/sdk-clients" },
@@ -44,8 +52,11 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
     if (item.href === "/") {
       return admin;
     }
-    if (item.href === "/processes") {
+    if (item.href === "/processes" || (SHOW_DECISIONS_UI && item.href === "/decisions")) {
       return admin || modeler;
+    }
+    if (item.href === "/inbox") {
+      return flexUser && !clientOnly && !admin && !modeler;
     }
     if (item.href === "/instances" || item.href === "/history") {
       return admin || (flexUser && !clientOnly);
@@ -113,7 +124,8 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
   const path = location.pathname;
   const isAllowedPath =
     admin ||
-    (modeler && (path === "/processes" || path.startsWith("/modeler"))) ||
+    (modeler && (path === "/processes" || (SHOW_DECISIONS_UI && path === "/decisions") || path.startsWith("/modeler"))) ||
+    (flexUser && !modeler && !admin && path === "/inbox") ||
     (flexUser && !modeler && (path === "/instances" || path.startsWith("/instances/") || path === "/history"));
 
   if (path === "/" && firstAllowedPath && firstAllowedPath !== "/") {
@@ -190,18 +202,21 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 border-b flex items-center justify-between px-6 bg-card">
-          <h1 className="text-xl font-semibold capitalize">
+        <header className="h-16 border-b flex items-center justify-between px-6 bg-card gap-4">
+          <h1 className="text-xl font-semibold capitalize shrink-0">
             {location.pathname === "/"
               ? "Dashboard"
               : location.pathname.substring(1).replace("-", " ")}
           </h1>
-          {onLogout && (
-            <Button variant="outline" size="sm" onClick={onLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
-          )}
+          <div className="flex-1 flex justify-end items-center gap-4">
+            <CqrsStatusBanner admin={admin} />
+            {onLogout && (
+              <Button variant="outline" size="sm" onClick={onLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
+            )}
+          </div>
         </header>
         <div className="flex-1 overflow-auto p-6">
           <Outlet />

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
-import { api, type IdentityResponse, type UserTask, type WorkflowInstance } from "@/lib/api";
+import { api, type IdentityResponse, type InstanceJob, type UserTask, type WorkflowInstance } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Save, RefreshCw } from "lucide-react";
 import BpmnViewer from "@/components/bpmn/BpmnViewer";
 import { isAdmin } from "@/lib/roles";
+import { Link } from "react-router";
 
 export default function InstanceDetails() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,7 @@ export default function InstanceDetails() {
   const [saving, setSaving] = useState(false);
   const [bpmnXml, setBpmnXml] = useState<string>("");
   const [identity, setIdentity] = useState<IdentityResponse | null>(null);
+  const [jobs, setJobs] = useState<InstanceJob[]>([]);
 
   const fetchInstance = useCallback(async (isRefresh = false) => {
     if (!id) return;
@@ -44,6 +46,16 @@ export default function InstanceDetails() {
       try {
           const currentIdentity = await api.getIdentity();
           setIdentity(currentIdentity);
+          if (isAdmin(currentIdentity)) {
+            try {
+              setJobs(await api.listInstanceJobs(id));
+            } catch (jobsErr) {
+              console.error("Failed to load jobs:", jobsErr);
+              setJobs([]);
+            }
+          } else {
+            setJobs([]);
+          }
       } catch (identityErr) {
           console.error("Failed to load identity:", identityErr);
       }
@@ -246,8 +258,8 @@ export default function InstanceDetails() {
                                             Take Task
                                           </Button>
                                         ) : exec.task.canClaim || exec.task.canComplete ? (
-                                          <Button size="sm" disabled>
-                                            Use Transaction Inbox
+                                          <Button size="sm" variant="outline" asChild>
+                                            <Link to="/inbox">Open Task Inbox</Link>
                                           </Button>
                                         ) : (
                                           <Button size="sm" disabled>
@@ -273,6 +285,69 @@ export default function InstanceDetails() {
                     )}
                 </CardContent>
             </Card>
+
+            {canManageTasks && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Jobs / incidents</CardTitle>
+                  <div className="text-xs text-muted-foreground">
+                    Retry failed or unlocked jobs. Fail stuck activated jobs from ops.
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {jobs.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No jobs for this instance.</div>
+                  ) : (
+                    jobs.map((job) => (
+                      <div key={String(job.key)} className="flex items-center justify-between rounded-md border p-3">
+                        <div className="space-y-1 text-sm">
+                          <div className="font-medium">{job.type || "job"} · {job.elementId}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {job.state}
+                            {job.worker ? ` · worker ${job.worker}` : ""}
+                            {` · retries ${job.retries}`}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {(job.state === "FAILED" || job.state === "CREATED" || job.state === "ACTIVATED") && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  await api.retryJob(job.key);
+                                  await fetchInstance(true);
+                                } catch (err) {
+                                  alert(err instanceof Error ? err.message : "Retry failed");
+                                }
+                              }}
+                            >
+                              Retry
+                            </Button>
+                          )}
+                          {job.state === "ACTIVATED" && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={async () => {
+                                try {
+                                  await api.failJob(job.key);
+                                  await fetchInstance(true);
+                                } catch (err) {
+                                  alert(err instanceof Error ? err.message : "Fail job failed");
+                                }
+                              }}
+                            >
+                              Fail
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            )}
         </div>
 
         <Card>

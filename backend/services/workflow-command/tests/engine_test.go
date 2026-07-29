@@ -38,6 +38,7 @@ func setupTestEngine(t *testing.T) *application.Engine {
 		&model.MessageSubscription{},
 		&model.IdempotencyRecord{},
 		&model.OutboxMessage{},
+		&model.DecisionDefinition{},
 	); err != nil {
 		t.Fatalf("Failed to migrate schema: %v", err)
 	}

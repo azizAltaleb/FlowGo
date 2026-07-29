@@ -10,6 +10,12 @@ Use external mode when your organization already operates an OIDC provider.
 ArtificialFlow validates its tokens but does not create or manage identities in that
 provider.
 
+Provider recipes:
+
+- [Keycloak](iam/KEYCLOAK.md)
+- [Microsoft Entra ID](iam/ENTRA.md)
+- [Auth0](iam/AUTH0.md)
+
 ### External IAM provisioning checklist
 
 The external IAM administrator must create:

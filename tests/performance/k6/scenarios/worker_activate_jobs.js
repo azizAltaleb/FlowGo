@@ -3,6 +3,7 @@
  */
 import http from "k6/http";
 import { check, sleep } from "k6";
+import { authHeaders } from "../lib/auth.js";
 
 const BASE = __ENV.COMMAND_URL || "http://localhost:8080";
 const JOB_TYPE = "worker-perf-task";
@@ -35,7 +36,7 @@ function ensureWorkerWorkflow() {
   const deployRes = http.post(
     `${BASE}/workflows`,
     WORKER_BPMN,
-    { headers: { "Content-Type": "text/xml; charset=utf-8" } }
+    { headers: authHeaders({ "Content-Type": "text/xml; charset=utf-8" }) }
   );
   if (deployRes.status !== 200) {
     return null;
@@ -57,7 +58,7 @@ export function workerActivateJobs() {
         workflow_id: workflowId,
         context: { worker_load_test: true, vu: __VU, iter: __ITER },
       }),
-      { headers: { "Content-Type": "application/json" } }
+      { headers: authHeaders({ "Content-Type": "application/json" }) }
     );
   }
 
@@ -72,7 +73,7 @@ export function workerActivateJobs() {
       lockDurationMs: 30000,
     }),
     {
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders({ "Content-Type": "application/json" }),
       tags: { name: "activate_jobs" },
     }
   );
@@ -96,7 +97,7 @@ export function workerActivateJobs() {
         `${BASE}/jobs/${jobKey}/complete`,
         JSON.stringify({ worker, variables: { done: true } }),
         {
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders({ "Content-Type": "application/json" }),
           tags: { name: "complete_job" },
         }
       );
@@ -108,6 +109,7 @@ export function workerActivateJobs() {
 
   // Get worker capabilities
   const capsRes = http.get(`${BASE}/jobs/capabilities`, {
+    headers: authHeaders(),
     tags: { name: "job_capabilities" },
   });
   check(capsRes, {

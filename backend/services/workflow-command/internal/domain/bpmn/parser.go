@@ -17,11 +17,18 @@ const (
 // Definitions represents the top-level element in a BPMN 2.0 XML file.
 // It's simplified to focus on the process definition.
 type Definitions struct {
-	XMLName  xml.Name          `xml:"definitions"`
-	Process  Process           `xml:"process"`
-	Messages []MessageElement  `xml:"message"`
-	Signals  []SignalElement   `xml:"signal"`
-	Errors   []ErrorElementDef `xml:"error"`
+	XMLName     xml.Name             `xml:"definitions"`
+	Process     Process              `xml:"process"`
+	Messages    []MessageElement     `xml:"message"`
+	Signals     []SignalElement      `xml:"signal"`
+	Errors      []ErrorElementDef    `xml:"error"`
+	Escalations []EscalationElement  `xml:"escalation"`
+}
+
+type EscalationElement struct {
+	ID             string `xml:"id,attr"`
+	Name           string `xml:"name,attr"`
+	EscalationCode string `xml:"escalationCode,attr"`
 }
 
 type MessageElement struct {
@@ -49,6 +56,7 @@ type Process struct {
 	StartEvents             []StartEvent             `xml:"startEvent"`
 	EndEvents               []EndEvent               `xml:"endEvent"`
 	ServiceTasks            []ServiceTask            `xml:"serviceTask"`
+	SendTasks               []SendTask               `xml:"sendTask"`
 	UserTasks               []UserTask               `xml:"userTask"`
 	ScriptTasks             []ScriptTask             `xml:"scriptTask"`
 	ReceiveTasks            []ReceiveTask            `xml:"receiveTask"`
@@ -64,15 +72,19 @@ type Process struct {
 	InclusiveGateways       []InclusiveGateway       `xml:"inclusiveGateway"`
 	EventBasedGateways      []EventBasedGateway      `xml:"eventBasedGateway"`
 	SubProcesses            []SubProcess             `xml:"subProcess"`
+	Transactions            []SubProcess             `xml:"transaction"`
 }
 
 type SubProcess struct {
 	ID                      string                   `xml:"id,attr"`
 	Name                    string                   `xml:"name,attr"`
+	TriggeredByEvent        string                   `xml:"triggeredByEvent,attr"`
+	fromTransaction         bool                     // set when unmarshaled from <transaction>
 	ExtensionElements       *ExtensionElements       `xml:"extensionElements"`
 	StartEvents             []StartEvent             `xml:"startEvent"`
 	EndEvents               []EndEvent               `xml:"endEvent"`
 	ServiceTasks            []ServiceTask            `xml:"serviceTask"`
+	SendTasks               []SendTask               `xml:"sendTask"`
 	UserTasks               []UserTask               `xml:"userTask"`
 	ScriptTasks             []ScriptTask             `xml:"scriptTask"`
 	ReceiveTasks            []ReceiveTask            `xml:"receiveTask"`
@@ -88,14 +100,21 @@ type SubProcess struct {
 	InclusiveGateways       []InclusiveGateway       `xml:"inclusiveGateway"`
 	EventBasedGateways      []EventBasedGateway      `xml:"eventBasedGateway"`
 	SubProcesses            []SubProcess             `xml:"subProcess"`
+	Transactions            []SubProcess             `xml:"transaction"`
 }
 
 // --- BPMN Elements ---
 
 type StartEvent struct {
-	ID                string             `xml:"id,attr"`
-	Name              string             `xml:"name,attr"`
-	ExtensionElements *ExtensionElements `xml:"extensionElements"`
+	ID                     string                   `xml:"id,attr"`
+	Name                   string                   `xml:"name,attr"`
+	ExtensionElements      *ExtensionElements       `xml:"extensionElements"`
+	TimerEventDefinition   *TimerEventDefinition    `xml:"timerEventDefinition"`
+	MessageEventDefinition *MessageEventDefinition  `xml:"messageEventDefinition"`
+	SignalEventDefinition  *SignalEventDefinition   `xml:"signalEventDefinition"`
+	// Unsupported on start until Tier-2/3: detect and reject below.
+	EscalationEventDefinition *EscalationEventDefinition `xml:"escalationEventDefinition"`
+	ConditionalEventDefinition *ConditionalEventDefinition `xml:"conditionalEventDefinition"`
 }
 
 type EndEvent struct {
@@ -105,6 +124,9 @@ type EndEvent struct {
 	SignalEventDefinition     *SignalEventDefinition     `xml:"signalEventDefinition"`
 	ErrorEventDefinition      *ErrorEventDefinition      `xml:"errorEventDefinition"`
 	CompensateEventDefinition *CompensateEventDefinition `xml:"compensateEventDefinition"`
+	TerminateEventDefinition  *TerminateEventDefinition  `xml:"terminateEventDefinition"`
+	EscalationEventDefinition *EscalationEventDefinition `xml:"escalationEventDefinition"`
+	CancelEventDefinition     *CancelEventDefinition     `xml:"cancelEventDefinition"`
 }
 
 type ServiceTask struct {
@@ -116,6 +138,18 @@ type ServiceTask struct {
 	PlainTopic             string             `xml:"topic,attr"`
 	ArtificialFlowTaskType string             `xml:"http://artificialflow.io/schema/1.0/bpmn taskType,attr"`
 	PlainTaskType          string             `xml:"taskType,attr"`
+}
+
+type SendTask struct {
+	ID                     string             `xml:"id,attr"`
+	Name                   string             `xml:"name,attr"`
+	JobType                string             `xml:"jobType,attr"`
+	ExtensionElements      *ExtensionElements `xml:"extensionElements"`
+	ArtificialFlowTopic    string             `xml:"http://artificialflow.io/schema/1.0/bpmn topic,attr"`
+	PlainTopic             string             `xml:"topic,attr"`
+	ArtificialFlowTaskType string             `xml:"http://artificialflow.io/schema/1.0/bpmn taskType,attr"`
+	PlainTaskType          string             `xml:"taskType,attr"`
+	MessageRef             string             `xml:"messageRef,attr"`
 }
 
 type ScriptTask struct {
@@ -198,6 +232,22 @@ type CompensateEventDefinition struct {
 	ActivityRef string `xml:"activityRef,attr"`
 }
 
+type TerminateEventDefinition struct{}
+
+type LinkEventDefinition struct {
+	Name string `xml:"name,attr"`
+}
+
+type EscalationEventDefinition struct {
+	EscalationRef string `xml:"escalationRef,attr"`
+}
+
+type ConditionalEventDefinition struct {
+	Condition *ConditionExpression `xml:"condition"`
+}
+
+type CancelEventDefinition struct{}
+
 type IntermediateCatchEvent struct {
 	ID                           string                  `xml:"id,attr"`
 	Name                         string                  `xml:"name,attr"`
@@ -209,6 +259,10 @@ type IntermediateCatchEvent struct {
 	TimerEventDefinition         *TimerEventDefinition   `xml:"timerEventDefinition"`
 	MessageEventDefinition       *MessageEventDefinition `xml:"messageEventDefinition"`
 	SignalEventDefinition        *SignalEventDefinition  `xml:"signalEventDefinition"`
+	LinkEventDefinition          *LinkEventDefinition    `xml:"linkEventDefinition"`
+	EscalationEventDefinition    *EscalationEventDefinition `xml:"escalationEventDefinition"`
+	ConditionalEventDefinition   *ConditionalEventDefinition `xml:"conditionalEventDefinition"`
+	CancelEventDefinition        *CancelEventDefinition  `xml:"cancelEventDefinition"`
 }
 
 type IntermediateThrowEvent struct {
@@ -225,6 +279,8 @@ type IntermediateThrowEvent struct {
 	SignalEventDefinition        *SignalEventDefinition     `xml:"signalEventDefinition"`
 	ErrorEventDefinition         *ErrorEventDefinition      `xml:"errorEventDefinition"`
 	CompensateEventDefinition    *CompensateEventDefinition `xml:"compensateEventDefinition"`
+	LinkEventDefinition          *LinkEventDefinition       `xml:"linkEventDefinition"`
+	EscalationEventDefinition    *EscalationEventDefinition `xml:"escalationEventDefinition"`
 }
 
 type BoundaryEvent struct {
@@ -241,11 +297,14 @@ type BoundaryEvent struct {
 	PlainErrorCode               string                     `xml:"errorCode,attr"`
 	ArtificialFlowErrorMessage   string                     `xml:"http://artificialflow.io/schema/1.0/bpmn errorMessage,attr"`
 	PlainErrorMessage            string                     `xml:"errorMessage,attr"`
-	TimerEventDefinition         *TimerEventDefinition      `xml:"timerEventDefinition"`
-	MessageEventDefinition       *MessageEventDefinition    `xml:"messageEventDefinition"`
-	SignalEventDefinition        *SignalEventDefinition     `xml:"signalEventDefinition"`
-	ErrorEventDefinition         *ErrorEventDefinition      `xml:"errorEventDefinition"`
-	CompensateEventDefinition    *CompensateEventDefinition `xml:"compensateEventDefinition"`
+	TimerEventDefinition          *TimerEventDefinition          `xml:"timerEventDefinition"`
+	MessageEventDefinition        *MessageEventDefinition        `xml:"messageEventDefinition"`
+	SignalEventDefinition         *SignalEventDefinition         `xml:"signalEventDefinition"`
+	ErrorEventDefinition          *ErrorEventDefinition          `xml:"errorEventDefinition"`
+	CompensateEventDefinition     *CompensateEventDefinition     `xml:"compensateEventDefinition"`
+	EscalationEventDefinition     *EscalationEventDefinition     `xml:"escalationEventDefinition"`
+	ConditionalEventDefinition    *ConditionalEventDefinition    `xml:"conditionalEventDefinition"`
+	CancelEventDefinition         *CancelEventDefinition         `xml:"cancelEventDefinition"`
 }
 
 type ExclusiveGateway struct {
@@ -305,9 +364,10 @@ type WorkflowProperty struct {
 }
 
 type elementRefs struct {
-	messageByID   map[string]string
-	signalByID    map[string]string
-	errorCodeByID map[string]string
+	messageByID        map[string]string
+	signalByID         map[string]string
+	errorCodeByID      map[string]string
+	escalationCodeByID map[string]string
 }
 
 // Parse reads BPMN 2.0 XML from an io.Reader and transforms it into a simplified
@@ -322,10 +382,17 @@ func Parse(r io.Reader) (*model.WorkflowDefinition, error) {
 	refs := buildElementRefs(defs)
 
 	process := defs.Process
+	// Avoid len(a)+len(b) capacity: CodeQL flags possible int overflow on allocation size.
+	subProcesses := append([]SubProcess(nil), process.SubProcesses...)
+	for _, tx := range process.Transactions {
+		tx.fromTransaction = true
+		subProcesses = append(subProcesses, tx)
+	}
 	steps, err := parseFlowElements(
 		process.StartEvents,
 		process.EndEvents,
 		process.ServiceTasks,
+		process.SendTasks,
 		process.UserTasks,
 		process.ScriptTasks,
 		process.ReceiveTasks,
@@ -339,7 +406,7 @@ func Parse(r io.Reader) (*model.WorkflowDefinition, error) {
 		process.ParallelGateways,
 		process.InclusiveGateways,
 		process.EventBasedGateways,
-		process.SubProcesses,
+		subProcesses,
 		process.SequenceFlows,
 		refs,
 	)
@@ -358,9 +425,10 @@ func Parse(r io.Reader) (*model.WorkflowDefinition, error) {
 
 func buildElementRefs(defs Definitions) elementRefs {
 	refs := elementRefs{
-		messageByID:   make(map[string]string),
-		signalByID:    make(map[string]string),
-		errorCodeByID: make(map[string]string),
+		messageByID:        make(map[string]string),
+		signalByID:         make(map[string]string),
+		errorCodeByID:      make(map[string]string),
+		escalationCodeByID: make(map[string]string),
 	}
 
 	for _, msg := range defs.Messages {
@@ -402,13 +470,36 @@ func buildElementRefs(defs Definitions) elementRefs {
 		refs.errorCodeByID[id] = code
 	}
 
+	for _, esc := range defs.Escalations {
+		id := strings.TrimSpace(esc.ID)
+		if id == "" {
+			continue
+		}
+		code := strings.TrimSpace(esc.EscalationCode)
+		if code == "" {
+			code = strings.TrimSpace(esc.Name)
+		}
+		if code == "" {
+			code = id
+		}
+		refs.escalationCodeByID[id] = code
+	}
+
 	return refs
+}
+
+func extractConditionExpression(def *ConditionalEventDefinition) string {
+	if def == nil || def.Condition == nil {
+		return ""
+	}
+	return strings.TrimSpace(html.UnescapeString(def.Condition.Content))
 }
 
 func parseFlowElements(
 	startEvents []StartEvent,
 	endEvents []EndEvent,
 	serviceTasks []ServiceTask,
+	sendTasks []SendTask,
 	userTasks []UserTask,
 	scriptTasks []ScriptTask,
 	receiveTasks []ReceiveTask,
@@ -430,7 +521,30 @@ func parseFlowElements(
 	boundaryToAttached := make(map[string]string)
 
 	for _, se := range startEvents {
-		props := mergeExtensionProperties(make(map[string]any), se.ExtensionElements)
+		props := make(map[string]any)
+		if timerDuration := extractTimerDuration(se.TimerEventDefinition); timerDuration != "" {
+			setStringProperty(props, "timer_duration", timerDuration)
+			setStringProperty(props, "event_definition_type", "timer")
+		}
+		if se.MessageEventDefinition != nil {
+			setStringProperty(props, "message_ref", resolveRef(se.MessageEventDefinition.MessageRef, refs.messageByID))
+			setStringProperty(props, "event_definition_type", "message")
+		}
+		if se.SignalEventDefinition != nil {
+			setStringProperty(props, "signal_ref", resolveRef(se.SignalEventDefinition.SignalRef, refs.signalByID))
+			setStringProperty(props, "event_definition_type", "signal")
+		}
+		if se.EscalationEventDefinition != nil {
+			code := resolveRef(se.EscalationEventDefinition.EscalationRef, refs.escalationCodeByID)
+			setStringProperty(props, "escalation_ref", code)
+			setStringProperty(props, "escalation_code", code)
+			setStringProperty(props, "event_definition_type", "escalation")
+		}
+		if cond := extractConditionExpression(se.ConditionalEventDefinition); cond != "" {
+			setStringProperty(props, "condition", cond)
+			setStringProperty(props, "event_definition_type", "conditional")
+		}
+		props = mergeExtensionProperties(props, se.ExtensionElements)
 		steps = append(steps, model.StepDefinition{ID: se.ID, Name: se.Name, Type: model.StepTypeStart, Properties: nilIfEmpty(props)})
 	}
 
@@ -447,6 +561,18 @@ func parseFlowElements(
 		if ee.CompensateEventDefinition != nil {
 			setStringProperty(props, "event_definition_type", "compensate")
 			setStringProperty(props, "activity_ref", ee.CompensateEventDefinition.ActivityRef)
+		}
+		if ee.TerminateEventDefinition != nil {
+			setStringProperty(props, "event_definition_type", "terminate")
+		}
+		if ee.EscalationEventDefinition != nil {
+			code := resolveRef(ee.EscalationEventDefinition.EscalationRef, refs.escalationCodeByID)
+			setStringProperty(props, "escalation_ref", code)
+			setStringProperty(props, "escalation_code", code)
+			setStringProperty(props, "event_definition_type", "escalation")
+		}
+		if ee.CancelEventDefinition != nil {
+			setStringProperty(props, "event_definition_type", "cancel")
 		}
 		props = mergeExtensionProperties(props, ee.ExtensionElements)
 		steps = append(steps, model.StepDefinition{ID: ee.ID, Name: ee.Name, Type: model.StepTypeEnd, Properties: nilIfEmpty(props)})
@@ -475,6 +601,38 @@ func parseFlowElements(
 			ID:             st.ID,
 			Name:           st.Name,
 			Type:           model.StepTypeServiceTask,
+			Implementation: impl,
+			Properties:     nilIfEmpty(props),
+		})
+	}
+
+	for _, st := range sendTasks {
+		props := make(map[string]any)
+		setStringProperty(props, "topic", firstNonEmpty(st.ArtificialFlowTopic, st.PlainTopic))
+		setStringProperty(props, "task_type", firstNonEmpty(st.ArtificialFlowTaskType, st.PlainTaskType))
+		setStringProperty(props, "message_ref", strings.TrimSpace(st.MessageRef))
+		props = mergeExtensionProperties(props, st.ExtensionElements)
+
+		impl := strings.TrimSpace(st.JobType)
+		if impl == "" {
+			impl = firstStringProperty(props,
+				"task_type",
+				"taskType",
+				"job_type",
+				"jobType",
+				"topic",
+				"implementation",
+				"handler",
+			)
+		}
+		if impl == "" {
+			impl = "io.artificialflow.connector.send"
+		}
+
+		steps = append(steps, model.StepDefinition{
+			ID:             st.ID,
+			Name:           st.Name,
+			Type:           model.StepTypeSendTask,
 			Implementation: impl,
 			Properties:     nilIfEmpty(props),
 		})
@@ -572,6 +730,24 @@ func parseFlowElements(
 		if catchEvent.SignalEventDefinition != nil {
 			setStringProperty(props, "signal_ref", resolveRef(catchEvent.SignalEventDefinition.SignalRef, refs.signalByID))
 		}
+		if catchEvent.LinkEventDefinition != nil {
+			linkName := firstNonEmpty(catchEvent.LinkEventDefinition.Name, catchEvent.Name)
+			setStringProperty(props, "link_name", linkName)
+			setStringProperty(props, "event_definition_type", "link")
+		}
+		if catchEvent.EscalationEventDefinition != nil {
+			code := resolveRef(catchEvent.EscalationEventDefinition.EscalationRef, refs.escalationCodeByID)
+			setStringProperty(props, "escalation_ref", code)
+			setStringProperty(props, "escalation_code", code)
+			setStringProperty(props, "event_definition_type", "escalation")
+		}
+		if cond := extractConditionExpression(catchEvent.ConditionalEventDefinition); cond != "" {
+			setStringProperty(props, "condition", cond)
+			setStringProperty(props, "event_definition_type", "conditional")
+		}
+		if catchEvent.CancelEventDefinition != nil {
+			setStringProperty(props, "event_definition_type", "cancel")
+		}
 		setStringProperty(props, "correlation_key", firstNonEmpty(catchEvent.ArtificialFlowCorrelationKey, catchEvent.PlainCorrelationKey))
 		props = mergeExtensionProperties(props, catchEvent.ExtensionElements)
 
@@ -600,6 +776,17 @@ func parseFlowElements(
 		if throwEvent.CompensateEventDefinition != nil {
 			setStringProperty(props, "event_definition_type", "compensate")
 			setStringProperty(props, "activity_ref", throwEvent.CompensateEventDefinition.ActivityRef)
+		}
+		if throwEvent.LinkEventDefinition != nil {
+			linkName := firstNonEmpty(throwEvent.LinkEventDefinition.Name, throwEvent.Name)
+			setStringProperty(props, "link_name", linkName)
+			setStringProperty(props, "event_definition_type", "link")
+		}
+		if throwEvent.EscalationEventDefinition != nil {
+			code := resolveRef(throwEvent.EscalationEventDefinition.EscalationRef, refs.escalationCodeByID)
+			setStringProperty(props, "escalation_ref", code)
+			setStringProperty(props, "escalation_code", code)
+			setStringProperty(props, "event_definition_type", "escalation")
 		}
 
 		setStringProperty(props, "correlation_key", firstNonEmpty(throwEvent.ArtificialFlowCorrelationKey, throwEvent.PlainCorrelationKey))
@@ -645,6 +832,19 @@ func parseFlowElements(
 			setStringProperty(props, "event_definition_type", "compensate")
 			setStringProperty(props, "activity_ref", boundaryEvent.CompensateEventDefinition.ActivityRef)
 		}
+		if boundaryEvent.EscalationEventDefinition != nil {
+			code := resolveRef(boundaryEvent.EscalationEventDefinition.EscalationRef, refs.escalationCodeByID)
+			setStringProperty(props, "escalation_ref", code)
+			setStringProperty(props, "escalation_code", code)
+			setStringProperty(props, "event_definition_type", "escalation")
+		}
+		if cond := extractConditionExpression(boundaryEvent.ConditionalEventDefinition); cond != "" {
+			setStringProperty(props, "condition", cond)
+			setStringProperty(props, "event_definition_type", "conditional")
+		}
+		if boundaryEvent.CancelEventDefinition != nil {
+			setStringProperty(props, "event_definition_type", "cancel")
+		}
 
 		setStringProperty(props, "correlation_key", firstNonEmpty(boundaryEvent.ArtificialFlowCorrelationKey, boundaryEvent.PlainCorrelationKey))
 		setStringProperty(props, "error_code", firstNonEmpty(boundaryEvent.ArtificialFlowErrorCode, boundaryEvent.PlainErrorCode))
@@ -680,10 +880,17 @@ func parseFlowElements(
 		steps = append(steps, model.StepDefinition{ID: gw.ID, Name: gw.Name, Type: model.StepTypeGatewayEventBased, Properties: nilIfEmpty(props)})
 	}
 	for _, sp := range subProcesses {
+		// Avoid len(a)+len(b) capacity: CodeQL flags possible int overflow on allocation size.
+		nested := append([]SubProcess(nil), sp.SubProcesses...)
+		for _, tx := range sp.Transactions {
+			tx.fromTransaction = true
+			nested = append(nested, tx)
+		}
 		subSteps, err := parseFlowElements(
 			sp.StartEvents,
 			sp.EndEvents,
 			sp.ServiceTasks,
+			sp.SendTasks,
 			sp.UserTasks,
 			sp.ScriptTasks,
 			sp.ReceiveTasks,
@@ -697,19 +904,36 @@ func parseFlowElements(
 			sp.ParallelGateways,
 			sp.InclusiveGateways,
 			sp.EventBasedGateways,
-			sp.SubProcesses,
+			nested,
 			sp.SequenceFlows,
 			refs,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("subProcess %s: %w", sp.ID, err)
 		}
+		triggeredByEvent := false
+		if raw := strings.TrimSpace(sp.TriggeredByEvent); raw != "" {
+			if parsed, err := strconv.ParseBool(raw); err == nil {
+				triggeredByEvent = parsed
+			} else if strings.EqualFold(raw, "true") {
+				triggeredByEvent = true
+			}
+		}
+		props := mergeExtensionProperties(make(map[string]any), sp.ExtensionElements)
+		stepType := model.StepTypeSubProcess
+		if triggeredByEvent {
+			stepType = model.StepTypeEventSubProcess
+			props["triggered_by_event"] = true
+		}
+		if sp.fromTransaction {
+			props["transaction"] = true
+		}
 		steps = append(steps, model.StepDefinition{
 			ID:         sp.ID,
 			Name:       sp.Name,
-			Type:       model.StepTypeSubProcess,
+			Type:       stepType,
 			SubSteps:   subSteps,
-			Properties: nilIfEmpty(mergeExtensionProperties(make(map[string]any), sp.ExtensionElements)),
+			Properties: nilIfEmpty(props),
 		})
 	}
 

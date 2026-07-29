@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OverviewChart } from "@/components/OverviewChart";
@@ -6,6 +7,8 @@ import { Activity, CheckCircle, Clock, XCircle, RefreshCw } from "lucide-react";
 import { api, type WorkflowInstance } from "@/lib/api";
 
 export default function Dashboard() {
+  const [searchParams] = useSearchParams();
+  const showRebuild = searchParams.get("rebuild") === "1";
   const [instances, setInstances] = useState<WorkflowInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
@@ -100,6 +103,30 @@ export default function Dashboard() {
           Refresh
         </Button>
       </div>
+      {showRebuild && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Rebuild query projection</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Projection rebuild is an operator procedure (index recreate + consumer replay). Follow the
+              CQRS sync runbook steps for your environment; the UI does not delete search indexes automatically.
+            </p>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Confirm Postgres (command) is healthy.</li>
+              <li>Scale sync-worker down if you need a clean reindex window.</li>
+              <li>Recreate Elasticsearch/OpenSearch indexes for the configured prefix.</li>
+              <li>Reset consumer offsets only when intentionally replaying CDC/events.</li>
+              <li>Scale sync-worker up and run <code>make cqrs-parity-check</code>.</li>
+            </ol>
+            <p>
+              Docs: <code>docs/RUNBOOK_CQRS_SYNC.md</code>, metrics via <code>GET /api/internal/metrics</code>,
+              Prometheus series <code>artificialflow_outbox_*</code>.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;

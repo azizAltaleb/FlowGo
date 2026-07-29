@@ -33,26 +33,63 @@ replicaCount:
   frontend: 2
   gateway: 2
 
+# PDBs apply only when the component has replicas >= 2.
+podDisruptionBudget:
+  enabled: true
+  command:
+    minAvailable: 1
+  query:
+    minAvailable: 1
+  frontend:
+    minAvailable: 1
+  gateway:
+    minAvailable: 1
+
+# Optional HPA. Keep disabled by default; enable per component in production values.
+# Do not autoscaling the runtime scheduler (single-active lease).
+autoscaling:
+  enabled: false
+  command:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  query:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  frontend:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  gateway:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
 images:
   command:
     repository: artificialflow/workflow-command
-    tag: "0.3.0"
+    tag: "0.4.0"
     pullPolicy: IfNotPresent
   query:
     repository: artificialflow/workflow-query
-    tag: "0.3.0"
+    tag: "0.4.0"
     pullPolicy: IfNotPresent
   runtime:
     repository: artificialflow/workflow-runtime
-    tag: "0.3.0"
+    tag: "0.4.0"
     pullPolicy: IfNotPresent
   syncWorker:
     repository: artificialflow/sync-worker
-    tag: "0.3.0"
+    tag: "0.4.0"
     pullPolicy: IfNotPresent
   frontend:
     repository: artificialflow/frontend
-    tag: "0.3.0"
+    tag: "0.4.0"
     pullPolicy: IfNotPresent
   gateway:
     repository: nginx
@@ -171,6 +208,7 @@ runtime:
     runtimeEnabled: "true"
     tickInterval: 1s
     taskTimeout: 5s
+    leaseTTL: 15s
   resources:
     requests:
       cpu: 100m

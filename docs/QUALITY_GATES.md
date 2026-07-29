@@ -60,7 +60,20 @@ Run these when the changed surface warrants deeper confidence:
 
 ## Release Gates
 
-Before a release candidate:
+Before a release candidate or `v0.4.0` / `1.0` train tag, run the unified suite:
+
+```bash
+make test-release-suite
+# With a healthy stack:
+make test-all
+make test-all-functionality
+make test-perf          # AUTH_TOKEN + WORKFLOW_ID
+make test-dast          # OWASP ZAP baseline vs TARGET_URL
+# Optional mega BPMN UAT:
+cd tests/e2e/playwright && npx playwright test specs/uat-mega-bpmn.spec.ts
+```
+
+Also:
 
 ```bash
 make smoke-profiles
@@ -92,6 +105,7 @@ Security gates include:
 | Go SAST | gosec in security workflow and `make test-security`. | Block high-confidence high severity findings; review medium findings. |
 | Container/filesystem scan | Trivy filesystem/image scans. | Block high/critical findings in release images or required CI scans. |
 | CodeQL | Security workflow for public repositories. | Block actionable high/critical alerts after maintainer review. |
+| DAST | `make test-dast` (OWASP ZAP baseline against live gateway). | Block unallowlisted High findings; allowlist in `tests/security/dast-allowlist.txt`. |
 | Dependency updates | Dependabot and dependency policy. | Require review for runtime, auth, parser, Docker, GitHub Actions, and release tooling changes. |
 
 SDK credential changes additionally require live JWT Profile exchange, role/audience validation, overlapping key rotation, removed-key rejection, bounded token lifetime, legacy PAT compatibility, and artifact redaction checks.

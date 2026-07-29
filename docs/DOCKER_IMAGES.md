@@ -19,7 +19,7 @@ multi-platform manifest digest.
 
 | Tag | Meaning |
 | :--- | :--- |
-| `v0.3.0` | Exact ArtificialFlow release tag. Prefer this for reproducible deployments. |
+| `v0.4.0` | Exact ArtificialFlow release tag. Prefer this for reproducible deployments. |
 | `0.3` | Latest patch in the `0.3` line. |
 | `latest` | Optional convenience tag only after the release policy is explicitly enabled. |
 
@@ -37,19 +37,19 @@ repository references.
 Use the release override to switch local builds to published images:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=v0.3.0 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_TAG=v0.4.0 make up-zitadel-release
 ```
 
 Use a staging registry or forked namespace with:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_REGISTRY=example-registry/artificialflow ARTIFICIALFLOW_IMAGE_TAG=v0.3.0 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_REGISTRY=example-registry/artificialflow ARTIFICIALFLOW_IMAGE_TAG=v0.4.0 make up-zitadel-release
 ```
 
 To test the one-release legacy aliases explicitly:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_REGISTRY=azizaltaleb ARTIFICIALFLOW_IMAGE_TAG=v0.3.0 make smoke-release-profiles
+ARTIFICIALFLOW_IMAGE_REGISTRY=azizaltaleb ARTIFICIALFLOW_IMAGE_TAG=v0.4.0 make smoke-release-profiles
 ```
 
 Validate the release override without starting containers:

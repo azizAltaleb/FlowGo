@@ -33,6 +33,10 @@ func (e *Engine) CheckTimers(ctx context.Context) error {
 	if len(errs) > 0 {
 		return fmt.Errorf("encountered errors processing timers: %v", errs)
 	}
+	// Also evaluate conditional catches/starts on the same scheduler tick.
+	if err := e.CheckConditionals(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -255,6 +259,10 @@ func (e *Engine) PublishSignal(ctx context.Context, signalName string, payload m
 	if len(errs) > 0 {
 		return fmt.Errorf("errors during signal publish: %v", errs)
 	}
+	// Also start process definitions with matching signal start events.
+	if err := e.startInstancesForSignalStart(ctx, signalName, payload); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -447,6 +455,41 @@ func (e *Engine) PublishMessage(ctx context.Context, messageName, correlationKey
 	if len(errs) > 0 {
 		return fmt.Errorf("errors during message publish: %v", errs)
 	}
+	// Start definitions whose start event matches this message (message start).
+	if err := e.startInstancesForMessageStart(ctx, messageName, correlationKey, payload); err != nil {
+		return err
+	}
+	// Interrupt/start event sub-processes waiting for this message on active instances.
+	if err := e.triggerEventSubProcessesOnActiveInstances(ctx, "message", messageName, payload); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e *Engine) triggerEventSubProcessesOnActiveInstances(ctx context.Context, eventKind, eventRef string, payload map[string]any) error {
+	pis, err := e.repo.ListActiveProcessInstances(ctx)
+	if err != nil || len(pis) == 0 {
+		return nil
+	}
+	for _, pi := range pis {
+		if pi == nil {
+			continue
+		}
+		if err := e.withTx(ctx, func(tx *Engine) error {
+			inst, err := tx.GetInstance(ctx, fmt.Sprintf("%d", pi.Key))
+			if err != nil {
+				return nil
+			}
+			wfID, _ := strconv.ParseInt(inst.WorkflowID, 10, 64)
+			wf, err := tx.getWorkflowDefinition(ctx, wfID)
+			if err != nil {
+				return nil
+			}
+			return tx.tryStartEventSubProcesses(ctx, inst, wf, eventKind, eventRef, payload)
+		}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -461,6 +504,9 @@ func (e *Engine) publishSignal(ctx context.Context, signalName string, payload m
 		if err := e.processSignalForElement(ctx, el, signalName, payload, definitions); err != nil {
 			return err
 		}
+	}
+	if err := e.startInstancesForSignalStart(ctx, signalName, payload); err != nil {
+		return err
 	}
 	return nil
 }

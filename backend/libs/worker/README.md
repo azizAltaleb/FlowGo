@@ -1,5 +1,9 @@
 # Worker SDK (Go)
 
+Public Go worker library for ArtificialFlow external jobs (`github.com/artificialflow/artificialflow/backend/libs/worker`).
+
+Sample binary: [`examples/go-worker`](../../../examples/go-worker).
+
 Minimal external worker SDK for ADR-0006.
 
 ## Features

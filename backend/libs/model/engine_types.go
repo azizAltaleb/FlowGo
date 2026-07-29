@@ -181,3 +181,30 @@ type OutboxMessage struct {
 func (OutboxMessage) TableName() string {
 	return "outbox_message"
 }
+
+// RuntimeSchedulerLease coordinates a single-active runtime scheduler across replicas.
+type RuntimeSchedulerLease struct {
+	ID        string    `json:"id" gorm:"primaryKey;size:64"`
+	Holder    string    `json:"holder" gorm:"size:256;not null"`
+	ExpiresAt time.Time `json:"expiresAt" gorm:"index;not null"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func (RuntimeSchedulerLease) TableName() string {
+	return "runtime_scheduler_lease"
+}
+
+// DecisionDefinition stores a JSON decision table referenced by business-rule tasks.
+type DecisionDefinition struct {
+	Key        int64     `json:"key,string" gorm:"primaryKey"`
+	DecisionID string    `json:"decisionId" gorm:"uniqueIndex;size:128"`
+	Name       string    `json:"name" gorm:"size:256"`
+	Version    int       `json:"version"`
+	Resource   []byte    `json:"resource" gorm:"type:bytea"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+func (DecisionDefinition) TableName() string {
+	return "decision_definition"
+}

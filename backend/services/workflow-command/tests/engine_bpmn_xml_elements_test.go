@@ -24,6 +24,14 @@ func TestDeployWorkflowFromBPMN_CallActivityBusinessRuleAndManualTask(t *testing
 		t.Fatalf("failed to deploy child BPMN: %v", err)
 	}
 
+	if _, err := e.DeployDecision(context.Background(), "decision_1", "decision_1", []byte(`{
+		"id": "decision_1",
+		"hitPolicy": "FIRST",
+		"rules": [{"when": {}, "then": {"approved": true}}]
+	}`)); err != nil {
+		t.Fatalf("failed to deploy decision: %v", err)
+	}
+
 	parentXML := `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_Parent" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="ParentProcess" name="Parent Process" isExecutable="true">

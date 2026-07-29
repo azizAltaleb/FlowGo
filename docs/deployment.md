@@ -176,7 +176,7 @@ make up-external-iam
 To use published images:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=0.3.0 make up-external-iam-release
+ARTIFICIALFLOW_IMAGE_TAG=0.4.0 make up-external-iam-release
 ```
 
 ### 3. External-IAM postconditions
@@ -229,17 +229,17 @@ make up-zitadel
 To use published images:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=0.3.0 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_TAG=0.4.0 make up-zitadel-release
 ```
 
 The first boot can take several minutes while ZITADEL initializes and ArtificialFlow
 waits for generated client files.
 
-Important bootstrap limitation: every bundled-ZITADEL restart reconciles the
-configured initial administrator and deletes other human users holding
-`artificialflow admin` for the ArtificialFlow project. Until that behavior is changed, use the
-single configured human administrator and do not treat additional bundled-IAM
-admin assignments as durable.
+Important bootstrap limitation (evaluation only): every bundled-ZITADEL restart
+reconciles the configured initial administrator and deletes other human users
+holding `artificialflow admin` for the ArtificialFlow project. Treat bundled ZITADEL as an
+evaluation IAM: use the single configured human administrator, and prefer
+**external OIDC** ([docs/iam.md](iam.md)) for durable multi-user environments.
 
 ### 2. Bundled-IAM postconditions
 
