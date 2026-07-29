@@ -382,8 +382,8 @@ func Parse(r io.Reader) (*model.WorkflowDefinition, error) {
 	refs := buildElementRefs(defs)
 
 	process := defs.Process
-	subProcesses := make([]SubProcess, 0, len(process.SubProcesses)+len(process.Transactions))
-	subProcesses = append(subProcesses, process.SubProcesses...)
+	// Avoid len(a)+len(b) capacity: CodeQL flags possible int overflow on allocation size.
+	subProcesses := append([]SubProcess(nil), process.SubProcesses...)
 	for _, tx := range process.Transactions {
 		tx.fromTransaction = true
 		subProcesses = append(subProcesses, tx)
@@ -880,8 +880,8 @@ func parseFlowElements(
 		steps = append(steps, model.StepDefinition{ID: gw.ID, Name: gw.Name, Type: model.StepTypeGatewayEventBased, Properties: nilIfEmpty(props)})
 	}
 	for _, sp := range subProcesses {
-		nested := make([]SubProcess, 0, len(sp.SubProcesses)+len(sp.Transactions))
-		nested = append(nested, sp.SubProcesses...)
+		// Avoid len(a)+len(b) capacity: CodeQL flags possible int overflow on allocation size.
+		nested := append([]SubProcess(nil), sp.SubProcesses...)
 		for _, tx := range sp.Transactions {
 			tx.fromTransaction = true
 			nested = append(nested, tx)
