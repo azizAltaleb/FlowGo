@@ -23,6 +23,10 @@ Compatibility-sensitive surfaces include:
 - IAM role names (`artificialflow admin`, `artificialflow modeler`, `artificialflow client`) and claim mapping behavior.
 - BPMN parser/runtime semantics documented in `docs/BPMN_SUPPORT_MATRIX.md`.
 
+## Freeze tip (v1.0.0-rc.1)
+
+RC freeze tip is tagged `v1.0.0-rc.1` on `main` after the 1.0.0-rc.1 version-pin commit (2026-07-29). Compatibility surfaces above are frozen for the RC → GA window; only security and RC-blocking defects land without a new RC tag.
+
 ## 1.0 Contract Policy
 
 Once `1.0.0` is tagged:
