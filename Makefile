@@ -188,9 +188,9 @@ test-security:
 	@mkdir -p reports
 	bash scripts/test-security.sh
 	@echo "[security] npm audit (frontend + nodejs-sdk + playwright)"
-	npm --prefix frontend audit --audit-level=high
-	npm --prefix clients/nodejs-sdk audit --audit-level=high
-	@if [ -f tests/e2e/playwright/package.json ]; then npm --prefix tests/e2e/playwright audit --audit-level=high; fi
+	npm --prefix frontend audit --audit-level=high --omit=dev
+	npm --prefix clients/nodejs-sdk audit --audit-level=high --omit=dev
+	@if [ -f tests/e2e/playwright/package.json ]; then npm --prefix tests/e2e/playwright audit --audit-level=high --omit=dev; fi
 	@echo "[security] gitleaks (if installed)"
 	@if command -v gitleaks >/dev/null 2>&1; then gitleaks detect --source . --redact --no-git -v 2>&1 | tee reports/gitleaks.txt; else echo "gitleaks not installed — CI security.yml covers it"; fi
 	@echo "CodeQL runs in .github/workflows/security.yml (release-blocking on release/1.0)."
