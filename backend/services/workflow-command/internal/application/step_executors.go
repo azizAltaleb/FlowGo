@@ -9,6 +9,7 @@ import (
 	"github.com/artificialflow/artificialflow/backend/libs/logger"
 	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"strconv"
+	"strings"
 	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -377,8 +378,11 @@ func (x *ScriptTaskExecutor) Execute(ctx context.Context, e *Engine, instance *m
 
 type SendTaskExecutor struct{}
 
+// Send tasks are executed as external jobs (same activation path as service tasks)
+// so outbound connectors/workers can complete the send. Default job type is
+// io.artificialflow.connector.send when taskType/topic is unset.
 func (x *SendTaskExecutor) Execute(ctx context.Context, e *Engine, instance *model.WorkflowInstance, step *model.StepDefinition, execID string, wf *model.WorkflowDefinition) error {
-	return e.proceedToken(ctx, instance, execID, wf)
+	return (&ServiceTaskExecutor{}).Execute(ctx, e, instance, step, execID, wf)
 }
 
 type ReceiveTaskExecutor struct{}
@@ -390,6 +394,40 @@ func (x *ReceiveTaskExecutor) Execute(ctx context.Context, e *Engine, instance *
 type BusinessRuleTaskExecutor struct{}
 
 func (x *BusinessRuleTaskExecutor) Execute(ctx context.Context, e *Engine, instance *model.WorkflowInstance, step *model.StepDefinition, execID string, wf *model.WorkflowDefinition) error {
+	decisionRef := ""
+	if step.Properties != nil {
+		if v, ok := step.Properties["decision_ref"].(string); ok {
+			decisionRef = v
+		}
+	}
+	if strings.TrimSpace(decisionRef) == "" {
+		return e.proceedToken(ctx, instance, execID, wf)
+	}
+	outputs, err := e.EvaluateDecision(ctx, decisionRef, instance.Context)
+	if err != nil {
+		return fmt.Errorf("business rule task %s: %w", step.ID, err)
+	}
+	resultVar := "decisionResult"
+	if step.Properties != nil {
+		if v, ok := step.Properties["result_variable"].(string); ok && strings.TrimSpace(v) != "" {
+			resultVar = v
+		}
+	}
+	if instance.Context == nil {
+		instance.Context = map[string]any{}
+	}
+	instance.Context[resultVar] = outputs
+	for k, v := range outputs {
+		instance.Context[k] = v
+	}
+	piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
+	changed := map[string]any{resultVar: outputs}
+	for k, v := range outputs {
+		changed[k] = v
+	}
+	if err := e.persistVariables(ctx, instance.ID, piKey, changed); err != nil {
+		return err
+	}
 	return e.proceedToken(ctx, instance, execID, wf)
 }
 
@@ -475,7 +513,7 @@ func (x *CallActivityExecutor) Execute(ctx context.Context, e *Engine, instance 
 	// Start child instance
 	// Pass current context (variables) to child
 	// Pass ElementInstanceKey as parentExecutionID
-	childInstance, err := e.createAndStartInstance(ctx, strconv.FormatInt(wfDef.ID, 10), instance.Context, instance.ID, fmt.Sprintf("%d", exec.ElementInstanceKey))
+	childInstance, err := e.createAndStartInstance(ctx, strconv.FormatInt(wfDef.ID, 10), instance.Context, instance.ID, fmt.Sprintf("%d", exec.ElementInstanceKey), nil)
 	if err != nil {
 		return err
 	}
@@ -491,6 +529,17 @@ func (x *CallActivityExecutor) Execute(ctx context.Context, e *Engine, instance 
 		*instance = *updatedInstance
 	}
 
+	return nil
+}
+
+// IntermediateCatchEventExecutor waits for message/signal correlation, or passes through link catches.
+type IntermediateCatchEventExecutor struct{}
+
+func (x *IntermediateCatchEventExecutor) Execute(ctx context.Context, e *Engine, instance *model.WorkflowInstance, step *model.StepDefinition, execID string, wf *model.WorkflowDefinition) error {
+	if evtType, ok := step.Properties["event_definition_type"].(string); ok && evtType == "link" {
+		return e.proceedToken(ctx, instance, execID, wf)
+	}
+	// Message/signal catches wait for PublishMessage / publishSignal.
 	return nil
 }
 
@@ -534,12 +583,44 @@ func (x *IntermediateThrowEventExecutor) Execute(ctx context.Context, e *Engine,
 				return err
 			}
 		}
+	} else if linkName, ok := step.Properties["link_name"].(string); ok && strings.TrimSpace(linkName) != "" {
+		catch := findLinkCatchStep(wf.Steps, strings.TrimSpace(linkName))
+		if catch == nil {
+			return fmt.Errorf("link throw %s: no link catch for name %q", step.ID, linkName)
+		}
+		// Jump token onto the matching catch, then continue from there.
+		for i := range instance.Executions {
+			if instance.Executions[i].ID == execID {
+				instance.Executions[i].StepID = catch.ID
+				break
+			}
+		}
+		return e.proceedToken(ctx, instance, execID, wf)
 	}
 
 	if err != nil {
 		return err
 	}
 	return e.proceedToken(ctx, instance, execID, wf)
+}
+
+func findLinkCatchStep(steps []model.StepDefinition, linkName string) *model.StepDefinition {
+	for i := range steps {
+		step := &steps[i]
+		if step.Type != model.StepTypeIntermediateCatchEvent {
+			continue
+		}
+		name, _ := step.Properties["link_name"].(string)
+		if strings.TrimSpace(name) == linkName {
+			return step
+		}
+		if len(step.SubSteps) > 0 {
+			if found := findLinkCatchStep(step.SubSteps, linkName); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
 }
 
 type GatewayExecutor struct{}
@@ -609,6 +690,18 @@ func (x *PassthroughExecutor) Execute(ctx context.Context, e *Engine, instance *
 			if exec != nil {
 				if err := e.TriggerCompensation(ctx, instance, exec.ParentID, activityRef, wf); err != nil {
 					return err
+				}
+			}
+		}
+		if evtType, ok := step.Properties["event_definition_type"].(string); ok && evtType == "terminate" {
+			// Terminate end: cancel all other active/waiting tokens in this instance.
+			for i := range instance.Executions {
+				if instance.Executions[i].ID == execID {
+					continue
+				}
+				status := strings.ToUpper(strings.TrimSpace(instance.Executions[i].Status))
+				if status == "ACTIVE" || status == "WAITING" || status == "" {
+					instance.Executions[i].Status = "CANCELLED"
 				}
 			}
 		}

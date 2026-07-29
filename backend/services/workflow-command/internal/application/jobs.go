@@ -257,6 +257,40 @@ func (e *Engine) ExtendJobLock(ctx context.Context, jobKey int64, worker string,
 	})
 }
 
+func (e *Engine) ListInstanceJobs(ctx context.Context, instanceID string) ([]model.Job, error) {
+	instanceKey, err := strconv.ParseInt(instanceID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid instance id: %w", err)
+	}
+	return e.repo.ListJobsByProcessInstanceAndType(ctx, instanceKey, "")
+}
+
+// RetryJob resets a failed or unlocked job so workers can pick it up again (ops/admin).
+func (e *Engine) RetryJob(ctx context.Context, jobKey int64, retries int) error {
+	if retries <= 0 {
+		retries = 3
+	}
+	return e.withTx(ctx, func(txEngine *Engine) error {
+		job, err := txEngine.repo.GetJob(ctx, jobKey)
+		if err != nil {
+			return err
+		}
+		if job.State == "COMPLETED" {
+			return fmt.Errorf("job %d already completed", job.Key)
+		}
+		now := time.Now()
+		if job.State == "ACTIVATED" && job.LockExpirationTime != nil && job.LockExpirationTime.After(now) {
+			return fmt.Errorf("job %d is locked by worker %s until %s", job.Key, job.Worker, job.LockExpirationTime.Format(time.RFC3339))
+		}
+		job.State = "CREATED"
+		job.Retries = retries
+		job.Worker = ""
+		job.LockExpirationTime = nil
+		job.UpdatedAt = now
+		return txEngine.repo.UpdateJob(ctx, job)
+	})
+}
+
 func (e *Engine) ListUserTaskJobs(ctx context.Context, instanceID string) ([]model.Job, error) {
 	instanceKey, err := strconv.ParseInt(instanceID, 10, 64)
 	if err != nil {

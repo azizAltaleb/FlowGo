@@ -652,14 +652,14 @@ func TestDeployWorkflowFromBPMN_FailsForUnsupportedElementReferences(t *testing.
 	}
 }
 
-func TestDeployWorkflowFromBPMN_FailsForUnsupportedSendTaskReferences(t *testing.T) {
+func TestDeployWorkflowFromBPMN_SupportsSendTask(t *testing.T) {
 	e := setupTestEngine(t)
 
 	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_UnsupportedSend" targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="Process_UnsupportedSend" name="Unsupported Send Process" isExecutable="true">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_Send" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_Send" name="Send Process" isExecutable="true">
     <bpmn:startEvent id="start"/>
-    <bpmn:sendTask id="send"/>
+    <bpmn:sendTask id="send" name="Notify" artificialflow:taskType="notify-worker"/>
     <bpmn:endEvent id="end"/>
 
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="send"/>
@@ -667,14 +667,58 @@ func TestDeployWorkflowFromBPMN_FailsForUnsupportedSendTaskReferences(t *testing
   </bpmn:process>
 </bpmn:definitions>`
 
-	_, err := e.DeployWorkflowFromBPMN(context.Background(), []byte(xmlData))
-	if err == nil {
-		t.Fatalf("expected DeployWorkflowFromBPMN to fail for unsupported sendTask reference")
+	wf, err := e.DeployWorkflowFromBPMN(context.Background(), []byte(xmlData))
+	if err != nil {
+		t.Fatalf("expected DeployWorkflowFromBPMN to succeed for sendTask, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "sequenceFlow f1") {
-		t.Fatalf("expected sequenceFlow id in error, got: %v", err)
+	found := false
+	for _, step := range wf.Steps {
+		if step.ID == "send" {
+			found = true
+			if step.Type != model.StepTypeSendTask {
+				t.Fatalf("expected SEND_TASK, got %s", step.Type)
+			}
+		}
 	}
-	if !strings.Contains(err.Error(), "targetRef=send") {
-		t.Fatalf("expected missing targetRef=send in error, got: %v", err)
+	if !found {
+		t.Fatalf("send step missing from deployed workflow")
+	}
+}
+
+func TestDeployWorkflowFromBPMN_LinkAndTerminate(t *testing.T) {
+	e := setupTestEngine(t)
+	xmlData := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_LinkTerm" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_LinkTerm" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:parallelGateway id="fork"/>
+    <bpmn:intermediateThrowEvent id="linkThrow"><bpmn:linkEventDefinition name="Jump"/></bpmn:intermediateThrowEvent>
+    <bpmn:userTask id="orphan" name="ShouldCancel"/>
+    <bpmn:intermediateCatchEvent id="linkCatch"><bpmn:linkEventDefinition name="Jump"/></bpmn:intermediateCatchEvent>
+    <bpmn:endEvent id="term"><bpmn:terminateEventDefinition/></bpmn:endEvent>
+    <bpmn:endEvent id="dead"/>
+
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="fork"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="fork" targetRef="linkThrow"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="fork" targetRef="orphan"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="linkCatch" targetRef="term"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="orphan" targetRef="dead"/>
+  </bpmn:process>
+</bpmn:definitions>`
+
+	wf, err := e.DeployWorkflowFromBPMN(context.Background(), []byte(xmlData))
+	if err != nil {
+		t.Fatalf("deploy: %v", err)
+	}
+	inst, err := e.StartInstance(context.Background(), strconv.FormatInt(wf.ID, 10), nil)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	inst, err = e.GetInstance(context.Background(), inst.ID)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if inst.Status != model.StatusCompleted {
+		t.Fatalf("expected completed after terminate, got %s (current=%v)", inst.Status, getCurrentSteps(inst))
 	}
 }

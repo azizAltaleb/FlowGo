@@ -82,7 +82,7 @@ For one transition release, the matching `azizaltaleb/*` references point to
 the exact same manifest digests. New deployments should use the canonical
 namespace.
 
-The commands below pin release `v0.3.0`. Review available tags and image
+The commands below pin release `v0.4.0`. Review available tags and image
 verification guidance in [Docker images](docs/DOCKER_IMAGES.md).
 
 ### Prerequisites
@@ -96,9 +96,9 @@ verification guidance in [Docker images](docs/DOCKER_IMAGES.md).
 Obtain the matching deployment files:
 
 ```bash
-git clone --depth 1 --branch v0.3.0 https://github.com/artificialflow/artificialflow.git
+git clone --depth 1 --branch v0.4.0 https://github.com/artificialflow/artificialflow.git
 cd artificialflow
-export ARTIFICIALFLOW_IMAGE_TAG=v0.3.0
+export ARTIFICIALFLOW_IMAGE_TAG=v0.4.0
 ```
 
 This checkout supplies the Compose and configuration files. The release
@@ -125,7 +125,7 @@ docker compose \
 Equivalent shortcut:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=v0.3.0 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_TAG=v0.4.0 make up-zitadel-release
 ```
 
 Open:
@@ -182,7 +182,7 @@ docker compose \
 Equivalent shortcut:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=v0.3.0 make up-external-iam-release
+ARTIFICIALFLOW_IMAGE_TAG=v0.4.0 make up-external-iam-release
 ```
 
 ArtificialFlow validates and authorizes external identities but does not create or
@@ -298,6 +298,9 @@ human-task inbox integration, rotation, and smoke testing.
 Operator and user guides:
 
 - [Getting started](docs/getting-started.md)
+- [Screenshot capture checklist](docs/SCREENSHOTS.md) (README UI refresh for #34)
+- [BPMN support matrix](docs/BPMN_SUPPORT_MATRIX.md)
+- [v0.4 → 1.0 release train](docs/RELEASE_TRAIN_v0.4.md)
 - [Deployment guide](docs/deployment.md)
 - [Architecture](docs/architecture.md)
 - [IAM](docs/iam.md)

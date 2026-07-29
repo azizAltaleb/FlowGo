@@ -21,11 +21,77 @@ func setupGormRepositoryTest(t *testing.T) *GormRepository {
 		t.Fatalf("failed to open sqlite db: %v", err)
 	}
 
-	if err := db.AutoMigrate(&model.ProcessInstance{}, &model.Job{}, &model.IdempotencyRecord{}, &model.OutboxMessage{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.ProcessInstance{},
+		&model.Job{},
+		&model.IdempotencyRecord{},
+		&model.OutboxMessage{},
+		&model.RuntimeSchedulerLease{},
+		&model.DecisionDefinition{},
+	); err != nil {
 		t.Fatalf("failed to migrate schema: %v", err)
 	}
 
 	return NewGormRepository(db)
+}
+
+func TestRuntimeSchedulerLeaseFailover(t *testing.T) {
+	repo := setupGormRepositoryTest(t)
+	ctx := context.Background()
+	ttl := 50 * time.Millisecond
+
+	ok, err := repo.TryAcquireRuntimeSchedulerLease(ctx, "runtime-a", ttl)
+	if err != nil || !ok {
+		t.Fatalf("holder A should acquire lease: ok=%v err=%v", ok, err)
+	}
+	ok, err = repo.TryAcquireRuntimeSchedulerLease(ctx, "runtime-b", ttl)
+	if err != nil {
+		t.Fatalf("holder B acquire error: %v", err)
+	}
+	if ok {
+		t.Fatalf("holder B must not steal an unexpired lease")
+	}
+	ok, err = repo.TryAcquireRuntimeSchedulerLease(ctx, "runtime-a", ttl)
+	if err != nil || !ok {
+		t.Fatalf("holder A should renew: ok=%v err=%v", ok, err)
+	}
+
+	time.Sleep(ttl + 30*time.Millisecond)
+	ok, err = repo.TryAcquireRuntimeSchedulerLease(ctx, "runtime-b", ttl)
+	if err != nil || !ok {
+		t.Fatalf("holder B should acquire after expiry: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestDecisionUpsertAndList(t *testing.T) {
+	repo := setupGormRepositoryTest(t)
+	ctx := context.Background()
+	resource := []byte(`{"id":"invoice_decision","rules":[{"when":{},"then":{"result":"auto"}}]}`)
+	if err := repo.UpsertDecision(ctx, &model.DecisionDefinition{
+		DecisionID: "invoice_decision",
+		Name:       "Invoice",
+		Resource:   resource,
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	if err := repo.UpsertDecision(ctx, &model.DecisionDefinition{
+		DecisionID: "invoice_decision",
+		Name:       "Invoice v2",
+		Resource:   resource,
+	}); err != nil {
+		t.Fatalf("upsert v2: %v", err)
+	}
+	got, err := repo.GetDecisionByDecisionID(ctx, "invoice_decision")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Version != 2 || got.Name != "Invoice v2" {
+		t.Fatalf("unexpected decision: version=%d name=%q", got.Version, got.Name)
+	}
+	list, err := repo.ListDecisions(ctx)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("list: len=%d err=%v", len(list), err)
+	}
 }
 
 func TestDeleteIdempotencyRecordsBeforeRespectsLimit(t *testing.T) {

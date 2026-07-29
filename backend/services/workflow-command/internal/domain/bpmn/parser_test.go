@@ -350,12 +350,12 @@ func TestParse_FailsForUnsupportedElementReferences(t *testing.T) {
 	}
 }
 
-func TestParse_FailsForUnsupportedSendTaskReferences(t *testing.T) {
+func TestParse_SupportsSendTask(t *testing.T) {
 	xml := `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_UnsupportedSend" targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="Process_UnsupportedSend" name="Unsupported Send Process" isExecutable="true">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_Send" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_Send" name="Send Process" isExecutable="true">
     <bpmn:startEvent id="start"/>
-    <bpmn:sendTask id="send"/>
+    <bpmn:sendTask id="send" name="Notify" artificialflow:taskType="io.artificialflow.connector.send"/>
     <bpmn:endEvent id="end"/>
 
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="send"/>
@@ -363,15 +363,24 @@ func TestParse_FailsForUnsupportedSendTaskReferences(t *testing.T) {
   </bpmn:process>
 </bpmn:definitions>`
 
-	_, err := Parse(strings.NewReader(xml))
-	if err == nil {
-		t.Fatalf("expected Parse to fail for unsupported sendTask reference")
+	wf, err := Parse(strings.NewReader(xml))
+	if err != nil {
+		t.Fatalf("expected Parse to succeed for sendTask, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "sequenceFlow f1") {
-		t.Fatalf("expected sequenceFlow id in error, got: %v", err)
+	found := false
+	for _, step := range wf.Steps {
+		if step.ID == "send" {
+			found = true
+			if step.Type != model.StepTypeSendTask {
+				t.Fatalf("expected SEND_TASK, got %s", step.Type)
+			}
+			if step.Implementation != "io.artificialflow.connector.send" {
+				t.Fatalf("unexpected implementation %q", step.Implementation)
+			}
+		}
 	}
-	if !strings.Contains(err.Error(), "targetRef=send") {
-		t.Fatalf("expected missing targetRef=send in error, got: %v", err)
+	if !found {
+		t.Fatalf("send step not found")
 	}
 }
 
@@ -869,4 +878,94 @@ func containsString(values []string, expected string) bool {
 		}
 	}
 	return false
+}
+
+func TestParse_MessageAndSignalStartProps(t *testing.T) {
+	xml := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_Start" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:message id="Message_1" name="OrderPlaced"/>
+  <bpmn:signal id="Signal_1" name="Go"/>
+  <bpmn:process id="Process_Start" isExecutable="true">
+    <bpmn:startEvent id="msgStart"><bpmn:messageEventDefinition messageRef="Message_1"/></bpmn:startEvent>
+    <bpmn:startEvent id="sigStart"><bpmn:signalEventDefinition signalRef="Signal_1"/></bpmn:startEvent>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="msgStart" targetRef="end"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="sigStart" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>`
+	wf, err := Parse(strings.NewReader(xml))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	byID := map[string]model.StepDefinition{}
+	for _, s := range wf.Steps {
+		byID[s.ID] = s
+	}
+	if byID["msgStart"].Properties["message_ref"] != "OrderPlaced" {
+		t.Fatalf("message start props: %#v", byID["msgStart"].Properties)
+	}
+	if byID["sigStart"].Properties["signal_ref"] != "Go" {
+		t.Fatalf("signal start props: %#v", byID["sigStart"].Properties)
+	}
+}
+
+func TestParse_TerminateAndLink(t *testing.T) {
+	xml := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_TL" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_TL" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:intermediateThrowEvent id="linkThrow"><bpmn:linkEventDefinition name="Jump"/></bpmn:intermediateThrowEvent>
+    <bpmn:intermediateCatchEvent id="linkCatch"><bpmn:linkEventDefinition name="Jump"/></bpmn:intermediateCatchEvent>
+    <bpmn:endEvent id="term"><bpmn:terminateEventDefinition/></bpmn:endEvent>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="linkThrow"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="linkCatch" targetRef="term"/>
+  </bpmn:process>
+</bpmn:definitions>`
+	wf, err := Parse(strings.NewReader(xml))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	byID := map[string]model.StepDefinition{}
+	for _, s := range wf.Steps {
+		byID[s.ID] = s
+	}
+	if byID["linkThrow"].Properties["link_name"] != "Jump" {
+		t.Fatalf("link throw: %#v", byID["linkThrow"].Properties)
+	}
+	if byID["linkCatch"].Properties["link_name"] != "Jump" {
+		t.Fatalf("link catch: %#v", byID["linkCatch"].Properties)
+	}
+	if byID["term"].Properties["event_definition_type"] != "terminate" {
+		t.Fatalf("terminate: %#v", byID["term"].Properties)
+	}
+}
+
+func TestParse_RejectsEscalationAndEventSubProcess(t *testing.T) {
+	esc := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="P" isExecutable="true">
+    <bpmn:startEvent id="start"><bpmn:escalationEventDefinition/></bpmn:startEvent>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>`
+	if _, err := Parse(strings.NewReader(esc)); err == nil || !strings.Contains(err.Error(), "escalation") {
+		t.Fatalf("expected escalation rejection, got %v", err)
+	}
+	esp := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D2" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="P2" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:subProcess id="esp" triggeredByEvent="true">
+      <bpmn:startEvent id="espStart"/>
+      <bpmn:endEvent id="espEnd"/>
+      <bpmn:sequenceFlow id="ef" sourceRef="espStart" targetRef="espEnd"/>
+    </bpmn:subProcess>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>`
+	if _, err := Parse(strings.NewReader(esp)); err == nil || !strings.Contains(err.Error(), "event sub-process") {
+		t.Fatalf("expected event sub-process rejection, got %v", err)
+	}
 }

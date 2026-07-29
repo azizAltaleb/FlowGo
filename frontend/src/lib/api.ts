@@ -1,5 +1,6 @@
 import { createLogger, generateCorrelationId } from './logger';
 import { runtimeConfig } from './runtimeConfig';
+import { markQueryProjectionSampled } from '@/lib/cqrsStatus';
 
 const API_BASE_URL = (runtimeConfig.apiUrl || "/api").replace(/\/+$/, "");
 const log = createLogger('api');
@@ -217,6 +218,28 @@ export interface UserTask {
   updatedAt: string;
 }
 
+export interface InstanceJob {
+  key: string | number;
+  type: string;
+  elementId: string;
+  worker?: string;
+  retries: number;
+  state: string;
+  lockExpirationTime?: string;
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DecisionDefinition {
+  key: string;
+  decision_id: string;
+  name: string;
+  version: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export const api = {
   // Workflows
   /**
@@ -240,7 +263,8 @@ export const api = {
     const workflows = data.workflows || [];
     log.info('workflows fetched', { count: workflows.length });
     endTimer();
-    
+    markQueryProjectionSampled();
+
     return workflows.map((w: Record<string, unknown>) => {
         if (w.id && w.process_definition_id) return w as unknown as WorkflowDefinition;
 
@@ -333,7 +357,80 @@ export const api = {
     const data = await response.json();
     log.info('instances fetched', { count: Array.isArray(data) ? data.length : 0 });
     endTimer();
+    markQueryProjectionSampled();
     return Array.isArray(data) ? data : [];
+  },
+
+  getEngineMetrics: async (): Promise<{
+    outboxPending: number;
+    outboxPublishSuccess: number;
+    outboxPublishFailure: number;
+    outboxPublishLagSec: number;
+    outboxMaxAttempts: number;
+    idempotencyHit: number;
+    idempotencyMiss: number;
+  }> => {
+    const correlationId = generateCorrelationId();
+    const response = await fetch(`${API_BASE_URL}/internal/metrics`, {
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch engine metrics: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  listDecisions: async (): Promise<DecisionDefinition[]> => {
+    const correlationId = generateCorrelationId();
+    const response = await fetch(`${API_BASE_URL}/decisions`, {
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to list decisions: ${detail}`);
+    }
+    const data = await response.json();
+    return data.decisions || [];
+  },
+
+  deployDecision: async (payload: {
+    decision_id: string;
+    name: string;
+    resource: string;
+  }): Promise<DecisionDefinition> => {
+    const correlationId = generateCorrelationId();
+    const headers = getHeaders(correlationId);
+    headers["Content-Type"] = "application/json";
+    const response = await fetch(`${API_BASE_URL}/decisions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to deploy decision: ${detail}`);
+    }
+    return response.json();
+  },
+
+  evaluateDecision: async (
+    decisionId: string,
+    inputs: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> => {
+    const correlationId = generateCorrelationId();
+    const headers = getHeaders(correlationId);
+    headers["Content-Type"] = "application/json";
+    const response = await fetch(`${API_BASE_URL}/decisions/${encodeURIComponent(decisionId)}/evaluate`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ inputs }),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to evaluate decision: ${detail}`);
+    }
+    const data = await response.json();
+    return data.outputs || data;
   },
 
   getCompletedInstanceHistory: async (): Promise<WorkflowInstance[]> => {
@@ -350,10 +447,14 @@ export const api = {
     return response.json();
   },
 
-  startInstance: async (workflowId: string, context: Record<string, unknown> = {}): Promise<WorkflowInstance> => {
+  startInstance: async (
+    workflowId: string,
+    context: Record<string, unknown> = {},
+    version?: number,
+  ): Promise<WorkflowInstance> => {
     const correlationId = generateCorrelationId();
     const endTimer = log.time('startInstance');
-    log.info('starting instance', { workflowId, contextKeys: Object.keys(context), correlationId });
+    log.info('starting instance', { workflowId, version, contextKeys: Object.keys(context), correlationId });
 
     const headers = getHeaders(correlationId);
     headers["Content-Type"] = "application/json";
@@ -364,6 +465,7 @@ export const api = {
       body: JSON.stringify({
         workflow_id: workflowId,
         context: context,
+        ...(version && version > 0 ? { version } : {}),
       }),
     });
     if (!response.ok) {
@@ -477,6 +579,98 @@ export const api = {
       throw new Error(`Failed to complete user task: ${detail}`);
     }
     log.info('user task completed', { instanceId, executionId });
+  },
+
+  listInboxInstances: async (): Promise<WorkflowInstance[]> => {
+    const correlationId = generateCorrelationId();
+    const response = await fetch(`${API_BASE_URL}/inbox`, { headers: getHeaders(correlationId) });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to load inbox: ${detail}`);
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : data.instances || data || [];
+  },
+
+  listInboxTasks: async (instanceId: string): Promise<UserTask[]> => {
+    const correlationId = generateCorrelationId();
+    const response = await fetch(`${API_BASE_URL}/inbox/instances/${instanceId}/tasks`, {
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to load inbox tasks: ${detail}`);
+    }
+    const data = await response.json();
+    return data.tasks || [];
+  },
+
+  claimInboxTask: async (instanceId: string, executionId: string): Promise<UserTask> => {
+    const correlationId = generateCorrelationId();
+    const response = await fetch(`${API_BASE_URL}/inbox/instances/${instanceId}/tasks/${executionId}/claim`, {
+      method: "POST",
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to claim inbox task: ${detail}`);
+    }
+    return response.json();
+  },
+
+  completeInboxTask: async (instanceId: string, executionId: string): Promise<void> => {
+    const correlationId = generateCorrelationId();
+    const response = await fetch(`${API_BASE_URL}/inbox/instances/${instanceId}/tasks/${executionId}/complete`, {
+      method: "POST",
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to complete inbox task: ${detail}`);
+    }
+  },
+
+  listInstanceJobs: async (instanceId: string): Promise<InstanceJob[]> => {
+    const correlationId = generateCorrelationId();
+    const response = await fetch(`${API_BASE_URL}/instances/${instanceId}/jobs`, {
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to load jobs: ${detail}`);
+    }
+    const data = await response.json();
+    return data.jobs || [];
+  },
+
+  retryJob: async (jobKey: string | number, retries = 3): Promise<void> => {
+    const correlationId = generateCorrelationId();
+    const headers = getHeaders(correlationId);
+    headers["Content-Type"] = "application/json";
+    const response = await fetch(`${API_BASE_URL}/jobs/${jobKey}/retry`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ retries }),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to retry job: ${detail}`);
+    }
+  },
+
+  failJob: async (jobKey: string | number, worker = "ops-admin", errorMessage = "Failed by operator"): Promise<void> => {
+    const correlationId = generateCorrelationId();
+    const headers = getHeaders(correlationId);
+    headers["Content-Type"] = "application/json";
+    const response = await fetch(`${API_BASE_URL}/jobs/${jobKey}/fail`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ worker, errorMessage, retries: 0 }),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to fail job: ${detail}`);
+    }
   },
 
   deleteInstance: async (id: string): Promise<void> => {

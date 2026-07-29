@@ -23,7 +23,7 @@ on:
       tag:
         description: Release tag to validate
         required: true
-        default: v0.3.0
+        default: v0.4.0
       publish:
         description: Direct publication is refused; use the Release orchestrator
         required: true

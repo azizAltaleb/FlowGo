@@ -75,26 +75,37 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 		}))
 	}
 	sdkInboxOnly := func(fn http.HandlerFunc) http.Handler {
-		return auth.RequireAnyRole(auth.RoleArtificialFlowClient)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			integrationPrincipal, ok := auth.PrincipalFromContext(r.Context())
+		return auth.RequireAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			principal, ok := auth.PrincipalFromContext(r.Context())
 			if !ok {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			if integrationPrincipal.HasRole(auth.RoleArtificialFlowAdmin) {
+			// SDK integration path: client role + acting-user headers (existing contract).
+			if principal.HasRole(auth.RoleArtificialFlowClient) {
+				if principal.HasRole(auth.RoleArtificialFlowAdmin) {
+					http.Error(w, "Forbidden", http.StatusForbidden)
+					return
+				}
+				actingPrincipal, err := actingPrincipalFromRequest(r)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				if actingPrincipal.HasAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient) {
+					http.Error(w, "Forbidden", http.StatusForbidden)
+					return
+				}
+				fn(w, r.WithContext(auth.WithPrincipal(r.Context(), actingPrincipal)))
+				return
+			}
+			// Browser Task Inbox: business humans act as themselves.
+			// Admins use InstanceDetails ops; modeler-only and machine clients are excluded here.
+			if principal.HasAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient, auth.RoleArtificialFlowModeler) {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
-			actingPrincipal, err := actingPrincipalFromRequest(r)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			if actingPrincipal.HasAnyRole(auth.RoleArtificialFlowAdmin, auth.RoleArtificialFlowClient) {
-				http.Error(w, "Forbidden", http.StatusForbidden)
-				return
-			}
-			fn(w, r.WithContext(auth.WithPrincipal(r.Context(), actingPrincipal)))
+			fn(w, r)
 		}))
 	}
 
@@ -112,6 +123,9 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 	r.Handle("/workflows", processDesigner(h.listWorkflows)).Methods("GET")
 	r.Handle("/workflows/{id}", processDesigner(h.getWorkflow)).Methods("GET")
 	r.Handle("/workflows/{id}", adminOnly(h.deleteWorkflow)).Methods("DELETE")
+	r.Handle("/decisions", processDesigner(h.listDecisions)).Methods("GET")
+	r.Handle("/decisions", processDesigner(h.deployDecision)).Methods("POST")
+	r.Handle("/decisions/{id}/evaluate", adminOrClient(h.evaluateDecision)).Methods("POST")
 	r.Handle("/instances", adminOrClient(h.startInstance)).Methods("POST")
 	r.Handle("/instances", scopedInstanceRead(h.listInstances)).Methods("GET")
 	r.Handle("/instances/history/completed", scopedInstanceRead(h.listCompletedInstanceHistory)).Methods("GET")
@@ -120,6 +134,8 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 	r.Handle("/instances/{id}/tasks", scopedInstanceRead(h.listUserTasks)).Methods("GET")
 	r.Handle("/instances/{id}/tasks/{executionId}/claim", adminOnly(h.claimUserTask)).Methods("POST")
 	r.Handle("/instances/{id}/tasks/{executionId}/complete", adminOnly(h.completeUserTask)).Methods("POST")
+	r.Handle("/instances/{id}/jobs", adminOnly(h.listInstanceJobs)).Methods("GET")
+	r.Handle("/jobs/{key}/retry", adminOnly(h.retryJob)).Methods("POST")
 	r.Handle("/instances/{id}", scopedInstanceRead(h.getInstance)).Methods("GET")
 	r.Handle("/instances/{id}", adminOnly(h.deleteInstance)).Methods("DELETE")
 	r.Handle("/signals", adminOrClient(h.publishSignal)).Methods("POST")
@@ -297,7 +313,7 @@ func (h *Handler) startInstance(w http.ResponseWriter, r *http.Request) {
 		"context_keys": len(req.Context),
 	})
 
-	instance, err := h.engine.StartInstance(ctx, req.WorkflowID, req.Context)
+	instance, err := h.engine.StartInstanceVersion(ctx, req.WorkflowID, req.Context, req.Version)
 	if err != nil {
 		h.log.Error(ctx, "failed to start instance", map[string]any{
 			"workflow_id": req.WorkflowID,
@@ -343,6 +359,104 @@ func (h *Handler) listUserTasks(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(dto.ListUserTasksResponse{Tasks: tasks})
+}
+
+func (h *Handler) listDecisions(w http.ResponseWriter, r *http.Request) {
+	decisions, err := h.engine.ListDecisions(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	type decisionSummary struct {
+		Key        string `json:"key"`
+		DecisionID string `json:"decision_id"`
+		Name       string `json:"name"`
+		Version    int    `json:"version"`
+		CreatedAt  string `json:"created_at"`
+		UpdatedAt  string `json:"updated_at"`
+	}
+	out := make([]decisionSummary, 0, len(decisions))
+	for _, d := range decisions {
+		out = append(out, decisionSummary{
+			Key:        strconv.FormatInt(d.Key, 10),
+			DecisionID: d.DecisionID,
+			Name:       d.Name,
+			Version:    d.Version,
+			CreatedAt:  d.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:  d.UpdatedAt.Format(time.RFC3339),
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"decisions": out})
+}
+
+func (h *Handler) deployDecision(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DecisionID string `json:"decision_id"`
+		Name       string `json:"name"`
+		Resource   string `json:"resource"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	def, err := h.engine.DeployDecision(r.Context(), req.DecisionID, req.Name, []byte(req.Resource))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(def)
+}
+
+func (h *Handler) evaluateDecision(w http.ResponseWriter, r *http.Request) {
+	decisionID := mux.Vars(r)["id"]
+	var req struct {
+		Inputs map[string]any `json:"inputs"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	out, err := h.engine.EvaluateDecision(r.Context(), decisionID, req.Inputs)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"outputs": out})
+}
+
+func (h *Handler) listInstanceJobs(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceID := vars["id"]
+	jobs, err := h.engine.ListInstanceJobs(r.Context(), instanceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"jobs": jobs})
+}
+
+func (h *Handler) retryJob(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	jobKey, err := strconv.ParseInt(vars["key"], 10, 64)
+	if err != nil {
+		http.Error(w, "invalid job key", http.StatusBadRequest)
+		return
+	}
+	retries := 3
+	var body struct {
+		Retries *int `json:"retries"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if body.Retries != nil && *body.Retries > 0 {
+		retries = *body.Retries
+	}
+	if err := h.engine.RetryJob(r.Context(), jobKey, retries); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("Job retried"))
 }
 
 func (h *Handler) claimUserTask(w http.ResponseWriter, r *http.Request) {

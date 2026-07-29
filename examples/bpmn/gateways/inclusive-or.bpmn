@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_Inclusive" targetNamespace="https://artificialflow.io/examples/gateways">
+  <bpmn:process id="inclusive_or_demo" name="Inclusive OR Demo" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:inclusiveGateway id="split" name="Split" default="flowB"/>
+    <bpmn:manualTask id="pathA" name="Path A"/>
+    <bpmn:manualTask id="pathB" name="Path B"/>
+    <bpmn:inclusiveGateway id="merge" name="Merge"/>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="split"/>
+    <bpmn:sequenceFlow id="flowA" sourceRef="split" targetRef="pathA">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">needA == true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flowB" sourceRef="split" targetRef="pathB"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="pathA" targetRef="merge"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="pathB" targetRef="merge"/>
+    <bpmn:sequenceFlow id="f6" sourceRef="merge" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>

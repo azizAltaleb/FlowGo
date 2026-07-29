@@ -107,6 +107,7 @@ data:
   IDEMPOTENCY_CLEANUP_BATCH_SIZE: {{ .Values.command.env.idempotencyCleanupBatchSize | quote }}
   RUNTIME_TICK_INTERVAL: {{ .Values.runtime.env.tickInterval | quote }}
   RUNTIME_TASK_TIMEOUT: {{ .Values.runtime.env.taskTimeout | quote }}
+  RUNTIME_LEASE_TTL: {{ .Values.runtime.env.leaseTTL | default "15s" | quote }}
   ES_ADDR: {{ .Values.search.address | quote }}
   SEARCH_BACKEND: {{ .Values.search.backend | quote }}
   ES_INDEX_PREFIX: {{ .Values.search.indexPrefix | quote }}

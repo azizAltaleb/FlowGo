@@ -44,6 +44,7 @@ type WorkflowInstanceResponse struct {
 
 type StartInstanceRequest struct {
 	WorkflowID string         `json:"workflow_id"`
+	Version    *int           `json:"version,omitempty"` // when workflow_id is a BPMN process id, pin a version; ignored for definition keys
 	Context    map[string]any `json:"context"`
 }
 

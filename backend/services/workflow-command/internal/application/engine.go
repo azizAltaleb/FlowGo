@@ -20,8 +20,15 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+type decisionStore interface {
+	UpsertDecision(ctx context.Context, decision *model.DecisionDefinition) error
+	GetDecisionByDecisionID(ctx context.Context, decisionID string) (*model.DecisionDefinition, error)
+	ListDecisions(ctx context.Context) ([]model.DecisionDefinition, error)
+}
+
 type Engine struct {
 	repo              repository.Repository
+	decisions         decisionStore
 	handlers          map[string]ServiceTaskHandler
 	stepExecutors     map[model.StepType]StepExecutor
 	eventPublisher    messaging.EventPublisher
@@ -107,6 +114,9 @@ func NewEngine(repo repository.Repository, eventPublisher messaging.EventPublish
 		metrics:           newEngineMetrics(),
 		outboxMaxAttempts: defaultOutboxMaxAttempts,
 	}
+	if ds, ok := repo.(decisionStore); ok {
+		e.decisions = ds
+	}
 	e.registerStepExecutors()
 	return e
 }
@@ -157,10 +167,14 @@ func (e *Engine) RunIdempotencyCleanup(ctx context.Context, ttl time.Duration, l
 }
 
 func (e *Engine) StartInstance(ctx context.Context, workflowID string, contextVars map[string]any) (*model.WorkflowInstance, error) {
+	return e.StartInstanceVersion(ctx, workflowID, contextVars, nil)
+}
+
+func (e *Engine) StartInstanceVersion(ctx context.Context, workflowID string, contextVars map[string]any, version *int) (*model.WorkflowInstance, error) {
 	var instance *model.WorkflowInstance
 	err := e.withTx(ctx, func(txEngine *Engine) error {
 		var err error
-		instance, err = txEngine.createAndStartInstance(ctx, workflowID, contextVars, "", "")
+		instance, err = txEngine.createAndStartInstance(ctx, workflowID, contextVars, "", "", version)
 		return err
 	})
 	if err != nil {
@@ -169,15 +183,25 @@ func (e *Engine) StartInstance(ctx context.Context, workflowID string, contextVa
 	return instance, nil
 }
 
-func (e *Engine) createAndStartInstance(ctx context.Context, workflowID string, contextVars map[string]any, parentInstanceID, parentExecutionID string) (*model.WorkflowInstance, error) {
+type processByVersionLookup interface {
+	GetProcessByBpmnProcessIDAndVersion(ctx context.Context, bpmnProcessID string, version int) (*model.Process, error)
+}
+
+func (e *Engine) createAndStartInstance(ctx context.Context, workflowID string, contextVars map[string]any, parentInstanceID, parentExecutionID string, version *int) (*model.WorkflowInstance, error) {
 	var process *model.Process
 	var err error
 
 	// Try parsing as int64 (Key)
 	if processKey, parseErr := strconv.ParseInt(workflowID, 10, 64); parseErr == nil {
 		process, err = e.repo.GetProcess(ctx, processKey)
+	} else if version != nil && *version > 0 {
+		lookup, ok := e.repo.(processByVersionLookup)
+		if !ok {
+			return nil, fmt.Errorf("versioned process lookup is not available")
+		}
+		process, err = lookup.GetProcessByBpmnProcessIDAndVersion(ctx, workflowID, *version)
 	} else {
-		// If not an int64, treat as BPMN Process ID
+		// If not an int64, treat as BPMN Process ID (latest version)
 		process, err = e.repo.GetProcessByBpmnProcessID(ctx, workflowID)
 	}
 
@@ -426,6 +450,9 @@ func (e *Engine) withTx(ctx context.Context, fn func(txEngine *Engine) error) er
 		txEngine := *e
 		txEngine.repo = txRepo
 		txEngine.eventPublisher = txPublisher
+		if ds, ok := txRepo.(decisionStore); ok {
+			txEngine.decisions = ds
+		}
 		if err := fn(&txEngine); err != nil {
 			return err
 		}
@@ -977,6 +1004,7 @@ func (e *Engine) registerStepExecutors() {
 	e.stepExecutors[model.StepTypeSubProcess] = &SubProcessExecutor{}
 	e.stepExecutors[model.StepTypeCallActivity] = &CallActivityExecutor{}
 	e.stepExecutors[model.StepTypeIntermediateThrowEvent] = &IntermediateThrowEventExecutor{}
+	e.stepExecutors[model.StepTypeIntermediateCatchEvent] = &IntermediateCatchEventExecutor{}
 	e.stepExecutors[model.StepTypeReceiveTask] = &ReceiveTaskExecutor{}
 
 	// Automatic steps that just pass through

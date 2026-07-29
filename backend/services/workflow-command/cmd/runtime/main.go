@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -154,11 +155,19 @@ func main() {
 		}
 	}()
 
+	leaseHolder := envOrDefault("RUNTIME_LEASE_HOLDER", fmt.Sprintf("%s-%d", hostnameOrUnknown(), os.Getpid()))
+	leaseTTL := parseDurationEnv("RUNTIME_LEASE_TTL", 15*time.Second)
+	if leaseTTL < 2*tickInterval {
+		leaseTTL = 2 * tickInterval
+	}
+
 	log.Info(ctx, "runtime scheduler started", map[string]any{
 		"tick_interval":               tickInterval.String(),
 		"task_timeout":                taskTimeout.String(),
 		"outbox_relay_max_attempts":   outboxRelayMaxAttempts,
 		"idempotency_cleanup_enabled": idempotencyCleanupEnabled && idempotencyRetention > 0,
+		"lease_holder":                leaseHolder,
+		"lease_ttl":                   leaseTTL.String(),
 	})
 
 	for {
@@ -168,6 +177,16 @@ func main() {
 			return
 		case <-ticker.C:
 			runCtx, cancel := context.WithTimeout(context.Background(), taskTimeout)
+			acquired, err := repo.TryAcquireRuntimeSchedulerLease(runCtx, leaseHolder, leaseTTL)
+			if err != nil {
+				log.Error(runCtx, "runtime scheduler lease acquire failed", map[string]any{"error": err.Error()})
+				cancel()
+				continue
+			}
+			if !acquired {
+				cancel()
+				continue
+			}
 			if _, err := eng.RunOutboxRelayCycle(runCtx, outboxRelayBatchSize); err != nil {
 				log.Error(runCtx, "outbox relay cycle failed", map[string]any{"error": err.Error()})
 			}
@@ -180,6 +199,14 @@ func main() {
 			cancel()
 		}
 	}
+}
+
+func hostnameOrUnknown() string {
+	host, err := os.Hostname()
+	if err != nil || strings.TrimSpace(host) == "" {
+		return "unknown"
+	}
+	return host
 }
 
 func envOrDefault(key, def string) string {

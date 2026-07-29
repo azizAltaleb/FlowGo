@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_Parallel" targetNamespace="https://artificialflow.io/examples/gateways">
+  <bpmn:process id="parallel_fork_join_demo" name="Parallel Fork Join Demo" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:parallelGateway id="fork" name="Fork"/>
+    <bpmn:manualTask id="left" name="Left"/>
+    <bpmn:manualTask id="right" name="Right"/>
+    <bpmn:parallelGateway id="join" name="Join"/>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="fork"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="fork" targetRef="left"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="fork" targetRef="right"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="left" targetRef="join"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="right" targetRef="join"/>
+    <bpmn:sequenceFlow id="f6" sourceRef="join" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>

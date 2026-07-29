@@ -57,6 +57,8 @@ func NewPostgresRepository(dsn string) (*GormRepository, error) {
 		&model.MessageSubscription{},
 		&model.IdempotencyRecord{},
 		&model.OutboxMessage{},
+		&model.RuntimeSchedulerLease{},
+		&model.DecisionDefinition{},
 	); err != nil {
 		return nil, fmt.Errorf("failed to migrate postgres schema: %v", err)
 	}
@@ -69,6 +71,85 @@ func (s *GormRepository) WithTx(ctx context.Context, fn func(txRepo repository.R
 		txRepo := &GormRepository{DB: tx}
 		return fn(txRepo)
 	})
+}
+
+const runtimeSchedulerLeaseID = "runtime-scheduler"
+
+func (s *GormRepository) UpsertDecision(ctx context.Context, decision *model.DecisionDefinition) error {
+	if decision == nil || strings.TrimSpace(decision.DecisionID) == "" {
+		return fmt.Errorf("decision id is required")
+	}
+	now := time.Now().UTC()
+	var existing model.DecisionDefinition
+	err := s.DB.WithContext(ctx).Where("decision_id = ?", decision.DecisionID).First(&existing).Error
+	if err == nil {
+		decision.Key = existing.Key
+		decision.Version = existing.Version + 1
+		decision.CreatedAt = existing.CreatedAt
+		decision.UpdatedAt = now
+		return s.DB.WithContext(ctx).Model(&existing).Updates(map[string]any{
+			"name":       decision.Name,
+			"version":    decision.Version,
+			"resource":   decision.Resource,
+			"updated_at": decision.UpdatedAt,
+		}).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	if decision.Key == 0 {
+		decision.Key = time.Now().UnixNano()
+	}
+	if decision.Version == 0 {
+		decision.Version = 1
+	}
+	decision.CreatedAt = now
+	decision.UpdatedAt = now
+	return s.DB.WithContext(ctx).Create(decision).Error
+}
+
+func (s *GormRepository) GetDecisionByDecisionID(ctx context.Context, decisionID string) (*model.DecisionDefinition, error) {
+	var decision model.DecisionDefinition
+	if err := s.DB.WithContext(ctx).Where("decision_id = ?", decisionID).First(&decision).Error; err != nil {
+		return nil, err
+	}
+	return &decision, nil
+}
+
+func (s *GormRepository) ListDecisions(ctx context.Context) ([]model.DecisionDefinition, error) {
+	var decisions []model.DecisionDefinition
+	if err := s.DB.WithContext(ctx).Order("decision_id asc").Find(&decisions).Error; err != nil {
+		return nil, err
+	}
+	return decisions, nil
+}
+
+// TryAcquireRuntimeSchedulerLease attempts to become the single-active runtime scheduler.
+// A holder may renew its own lease; another replica may steal only after expiry.
+func (s *GormRepository) TryAcquireRuntimeSchedulerLease(ctx context.Context, holder string, ttl time.Duration) (bool, error) {
+	if strings.TrimSpace(holder) == "" {
+		return false, fmt.Errorf("runtime scheduler lease holder is required")
+	}
+	if ttl <= 0 {
+		ttl = 15 * time.Second
+	}
+	now := time.Now().UTC()
+	expiresAt := now.Add(ttl)
+
+	result := s.DB.WithContext(ctx).Exec(`
+		INSERT INTO runtime_scheduler_lease (id, holder, expires_at, updated_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT (id) DO UPDATE
+		SET holder = EXCLUDED.holder,
+		    expires_at = EXCLUDED.expires_at,
+		    updated_at = EXCLUDED.updated_at
+		WHERE runtime_scheduler_lease.expires_at <= ?
+		   OR runtime_scheduler_lease.holder = ?
+	`, runtimeSchedulerLeaseID, holder, expiresAt, now, now, holder)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
 }
 
 // --- ENGINE OPERATIONS ---
@@ -509,6 +590,14 @@ func (s *GormRepository) ListMessageSubscriptions(ctx context.Context, messageNa
 func (s *GormRepository) GetProcessByBpmnProcessID(ctx context.Context, bpmnProcessID string) (*model.Process, error) {
 	var p model.Process
 	if err := s.DB.WithContext(ctx).Where("bpmn_process_id = ?", bpmnProcessID).Order("version desc").First(&p).Error; err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+func (s *GormRepository) GetProcessByBpmnProcessIDAndVersion(ctx context.Context, bpmnProcessID string, version int) (*model.Process, error) {
+	var p model.Process
+	if err := s.DB.WithContext(ctx).Where("bpmn_process_id = ? AND version = ?", bpmnProcessID, version).First(&p).Error; err != nil {
 		return nil, err
 	}
 	return &p, nil

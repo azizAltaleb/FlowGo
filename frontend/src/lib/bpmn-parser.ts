@@ -201,6 +201,7 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
     { tag: "bpmn:endEvent", type: "endEvent" },
     { tag: "bpmn:userTask", type: "userTask" },
     { tag: "bpmn:serviceTask", type: "serviceTask" },
+    { tag: "bpmn:sendTask", type: "sendTask" },
     { tag: "bpmn:scriptTask", type: "scriptTask" },
     { tag: "bpmn:businessRuleTask", type: "businessRuleTask" },
     { tag: "bpmn:receiveTask", type: "receiveTask" },
@@ -214,6 +215,11 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
     { tag: "bpmn:boundaryEvent", type: "boundaryEvent" },
     { tag: "bpmn:callActivity", type: "callActivity" },
     { tag: "bpmn:subProcess", type: "subProcess" },
+    // Tier-3 visual-only (not executable tokens)
+    { tag: "bpmn:dataObject", type: "visualArtifact" },
+    { tag: "bpmn:dataObjectReference", type: "visualArtifact" },
+    { tag: "bpmn:dataStoreReference", type: "visualArtifact" },
+    { tag: "bpmn:textAnnotation", type: "visualArtifact" },
   ];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -246,6 +252,11 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
             delete data["@_id"];
             delete data["@_name"];
 
+            const visualKind =
+              def.type === "visualArtifact"
+                ? def.tag.replace("bpmn:", "")
+                : undefined;
+
             const node: Node = {
               id,
               type: def.type,
@@ -254,6 +265,7 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
                 originalType: def.tag,
                 width: bounds.width,
                 height: bounds.height,
+                ...(visualKind ? { visualKind, visualOnly: true } : {}),
                 ...data
               },
               style: { width: bounds.width, height: bounds.height },
@@ -537,7 +549,7 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
 
     // Add other properties
     Object.keys(normalizedData).forEach(key => {
-        if (key !== 'originalType' && key !== 'label' && key !== 'width' && key !== 'height') {
+        if (key !== 'originalType' && key !== 'label' && key !== 'width' && key !== 'height' && key !== 'visualKind' && key !== 'visualOnly' && key !== 'executionStatus') {
              const value = normalizedData[key];
              if (typeof value === 'object' && value !== null) {
                  // It's a child element (like extensionElements)

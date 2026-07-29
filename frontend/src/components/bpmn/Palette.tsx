@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   User, Settings, FileCode, MessageSquare, 
   ClipboardList, HelpingHand, ExternalLink, 
-  Layers, X, Plus, Circle, Play, Ban, Timer, Zap,
+  Layers, X, Plus, Circle, Play, Ban, Timer, Zap, Send,
   type LucideProps
 } from "lucide-react";
 
@@ -41,6 +41,7 @@ export default function Palette({ onDragStart }: PaletteProps) {
         { type: "serviceTask", originalType: "bpmn:serviceTask", label: "Service Task", icon: Settings },
         { type: "scriptTask", originalType: "bpmn:scriptTask", label: "Script Task", icon: FileCode },
         { type: "businessRuleTask", originalType: "bpmn:businessRuleTask", label: "Business Rule", icon: ClipboardList },
+        { type: "sendTask", originalType: "bpmn:sendTask", label: "Send Task", icon: Send },
         { type: "receiveTask", originalType: "bpmn:receiveTask", label: "Receive Task", icon: MessageSquare },
         { type: "manualTask", originalType: "bpmn:manualTask", label: "Manual Task", icon: HelpingHand },
         { type: "callActivity", originalType: "bpmn:callActivity", label: "Call Activity", icon: ExternalLink },
@@ -59,25 +60,26 @@ export default function Palette({ onDragStart }: PaletteProps) {
   ];
 
   return (
-    <div className="w-[60px] border-r bg-gray-50 flex flex-col items-center py-4 gap-6 overflow-y-auto shrink-0">
+    <div className="w-48 border-r bg-gray-50 flex flex-col py-3 shrink-0 overflow-y-auto overflow-x-hidden">
       {categories.map((category, idx) => (
-        <div key={idx} className="flex flex-col gap-2 w-full px-2">
+        <div key={category.title} className="flex flex-col gap-1.5 w-full px-2 mb-3">
+          <div className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {category.title}
+          </div>
           {category.items.map((item) => (
             <div
               key={item.originalType}
-              className="w-full aspect-square bg-white border rounded-md shadow-sm flex items-center justify-center cursor-grab hover:bg-slate-100 hover:border-primary transition-colors group relative"
+              title={item.label}
+              aria-label={item.label}
+              className="w-full min-h-9 bg-white border rounded-md shadow-sm flex items-center gap-2 px-2 py-1.5 cursor-grab hover:bg-slate-100 hover:border-primary transition-colors"
               onDragStart={(event) => onDragStart(event, item.type, item.originalType, item.label)}
               draggable
             >
-              <item.icon className={`w-5 h-5 ${item.color || "text-slate-600"}`} />
-              
-              {/* Tooltip */}
-              <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
-                {item.label}
-              </div>
+              <item.icon className={`w-4 h-4 shrink-0 ${item.color || "text-slate-600"}`} />
+              <span className="text-xs text-slate-700 truncate">{item.label}</span>
             </div>
           ))}
-          {idx < categories.length - 1 && <div className="w-full h-px bg-slate-200 my-1" />}
+          {idx < categories.length - 1 && <div className="w-full h-px bg-slate-200 mt-2" />}
         </div>
       ))}
     </div>

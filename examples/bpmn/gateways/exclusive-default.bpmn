@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_Exclusive" targetNamespace="https://artificialflow.io/examples/gateways">
+  <bpmn:process id="exclusive_default_demo" name="Exclusive Default Demo" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:exclusiveGateway id="xor" name="Route" default="flowLow"/>
+    <bpmn:endEvent id="endHigh" name="High"/>
+    <bpmn:endEvent id="endLow" name="Low"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="xor"/>
+    <bpmn:sequenceFlow id="flowHigh" sourceRef="xor" targetRef="endHigh">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">amount &gt; 1000</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flowLow" sourceRef="xor" targetRef="endLow"/>
+  </bpmn:process>
+</bpmn:definitions>

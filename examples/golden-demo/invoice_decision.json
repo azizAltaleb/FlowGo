@@ -1,0 +1,8 @@
+{
+  "id": "invoice_decision",
+  "hitPolicy": "FIRST",
+  "rules": [
+    { "when": { "amount": { "op": "gt", "value": 1000 } }, "then": { "result": "manager" } },
+    { "when": {}, "then": { "result": "auto" } }
+  ]
+}

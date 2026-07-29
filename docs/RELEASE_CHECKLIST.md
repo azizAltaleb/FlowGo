@@ -36,6 +36,13 @@ actionlint -color=false
 node scripts/validate_legacy_branding.mjs
 node scripts/validate_release_version.mjs
 node scripts/validate_release_workflows.mjs
+make test-release-suite
+# With a healthy stack (after make up-zitadel):
+make test-all
+make test-all-functionality
+make test-dast
+make test-uat-mega-bpmn   # needs ARTIFICIALFLOW_TOKEN
+make test-perf            # needs AUTH_TOKEN + WORKFLOW_ID
 make smoke-profiles
 make smoke-release-profiles
 bash scripts/validate_compose_identities.sh
@@ -104,12 +111,12 @@ tagging to reduce partial publication risk.
 Create an RC tag first:
 
 ```bash
-git tag -s v0.3.0-rc.1 -m "ArtificialFlow v0.3.0-rc.1"
-git push origin v0.3.0-rc.1
+git tag -s v0.4.0-rc.1 -m "ArtificialFlow v0.4.0-rc.1"
+git push origin v0.4.0-rc.1
 ```
 
 Before pushing it, run
-`node scripts/validate_release_version.mjs --tag v0.3.0-rc.1`. The package,
+`node scripts/validate_release_version.mjs --tag v0.4.0-rc.1`. The package,
 lockfile, chart, Compose defaults, changelog, and documented release version
 must already match the tag.
 
@@ -135,8 +142,8 @@ image-workflow dependency.
 After images are pushed, validate the release override:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=v0.3.0-rc.1 make smoke-release-profiles
-ARTIFICIALFLOW_IMAGE_TAG=v0.3.0-rc.1 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_TAG=v0.4.0-rc.1 make smoke-release-profiles
+ARTIFICIALFLOW_IMAGE_TAG=v0.4.0-rc.1 make up-zitadel-release
 ```
 
 Open:
@@ -149,8 +156,8 @@ Sign in with local development credentials `admin` / `admin` and run the SDK smo
 ## 8. Final release
 
 ```bash
-git tag -s v0.3.0 -m "ArtificialFlow v0.3.0"
-git push origin v0.3.0
+git tag -s v0.4.0 -m "ArtificialFlow v0.4.0"
+git push origin v0.4.0
 ```
 
 Publish GitHub release notes with:

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Mega Supported-elements fixture for UAT (honest matrix subset). -->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="Definitions_Mega" targetNamespace="https://artificialflow.io/uat">
+  <bpmn:process id="uat_mega_supported" name="UAT Mega Supported" isExecutable="true">
+    <bpmn:startEvent id="start" name="Start"/>
+    <bpmn:serviceTask id="validate" name="Validate" artificialflow:taskType="uat-mega-validate"/>
+    <bpmn:exclusiveGateway id="xor" name="Route" default="toApprove"/>
+    <bpmn:userTask id="approve" name="Approve" artificialflow:assignee="approver" artificialflow:candidateGroups="approvers"/>
+    <bpmn:parallelGateway id="fork" name="Fork"/>
+    <bpmn:manualTask id="left" name="Left"/>
+    <bpmn:manualTask id="right" name="Right"/>
+    <bpmn:parallelGateway id="join" name="Join"/>
+    <bpmn:endEvent id="end" name="Done"/>
+    <bpmn:endEvent id="endFast" name="Fast path"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="validate"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="validate" targetRef="xor"/>
+    <bpmn:sequenceFlow id="toFast" sourceRef="xor" targetRef="endFast">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">skipHuman == true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="toApprove" sourceRef="xor" targetRef="approve"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="approve" targetRef="fork"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="fork" targetRef="left"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="fork" targetRef="right"/>
+    <bpmn:sequenceFlow id="f6" sourceRef="left" targetRef="join"/>
+    <bpmn:sequenceFlow id="f7" sourceRef="right" targetRef="join"/>
+    <bpmn:sequenceFlow id="f8" sourceRef="join" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>

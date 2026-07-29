@@ -78,11 +78,15 @@ export default function Processes() {
     }
   }, [fetchWorkflows, syncWorkflowCatalog]);
 
-  const handleStartInstance = async (workflowId: string) => {
+  const handleStartInstance = async (workflowId: string, version?: number) => {
     try {
       const instance = await api.startInstance(workflowId);
       setPendingInstanceSync(instance.id);
-      alert(`Instance ${instance.id} started. It may take a few seconds to appear on Instances.`);
+      alert(
+        `Instance ${instance.id} started on definition ${workflowId}` +
+          (version ? ` (version ${version})` : "") +
+          `. Open instances keep their original version (drain policy).`,
+      );
     } catch (error) {
       console.error("Failed to start instance:", error);
       alert("Failed to start instance");
@@ -200,11 +204,12 @@ export default function Processes() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleStartInstance(workflow.id.toString())}
+                      onClick={() => handleStartInstance(workflow.id.toString(), workflow.version)}
                       disabled={syncingWorkflowId === workflow.id.toString()}
+                      title="Starts this definition key (pinned version). Open instances are not migrated."
                     >
                       <Play className="mr-2 h-4 w-4" />
-                      Start
+                      Start v{workflow.version}
                     </Button>
                   ) : null}
                   <Button

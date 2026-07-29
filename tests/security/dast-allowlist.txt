@@ -1,0 +1,1 @@
+# One ZAP plugin id per line (comments start with #)

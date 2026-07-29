@@ -6,6 +6,25 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-28
+
+### Added
+
+- Runtime Postgres scheduler lease, HA reference, capacity snapshot, CQRS lag k6 scenario, golden-demo bake-off.
+- Browser Task Inbox, instance job ops/retry, CQRS status banner, Go/Python worker samples, external IAM recipes (Keycloak/Entra/Auth0).
+- DMN-lite JSON decision tables (API/runtime; Decisions UI behind feature flag), official connectors (HTTP/Kafka/email/webhook/S3), process start versioning.
+- Modeler: editable element IDs, labeled palette (no horizontal scroll), inline deploy/BPMN validation errors, Tier-3 visual artifacts.
+- Send Task support via external jobs (default `io.artificialflow.connector.send`).
+- Terminate end event and link catch/throw; clear parse errors for escalation/conditional/cancel/event sub-process.
+- Release test suite (`make test-release-suite`), DAST (`make test-dast`), mega BPMN UAT fixture/spec.
+- Helm managed-deps example values; Node SDK worker processing example; gateway BPMN examples.
+- Partner bake-off scorecard vs Camunda 8.9 Self-Managed.
+
+### Changed
+
+- BPMN support matrix tiered (Tier-1/2/3) for honest Camunda displacement claims.
+- Compatibility matrix and release pins target `v0.4.x` toward `1.0.0`.
+
 ## [0.3.0] - 2026-07-22
 
 ### Changed

@@ -1,3 +1,4 @@
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { type Node, type Edge } from '@xyflow/react';
@@ -13,10 +14,15 @@ import {
 interface PropertiesPanelProps {
   element: Node | Edge | null;
   onUpdate: (id: string, newData: Record<string, unknown>) => void;
+  onRenameId?: (oldId: string, newId: string) => string | null;
+  existingIds?: string[];
 }
 
-export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelProps) {
-  
+const NCNAME_RE = /^[A-Za-z_][\w.-]*$/;
+
+export default function PropertiesPanel({ element, onUpdate, onRenameId, existingIds = [] }: PropertiesPanelProps) {
+  const [idError, setIdError] = React.useState<string | null>(null);
+
   const updateField = (key: string, value: string) => {
     if (!element) return;
 
@@ -99,7 +105,7 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
   
   const isUserTask = originalType === 'bpmn:userTask';
   const isBusinessRuleTask = originalType === 'bpmn:businessRuleTask';
-  const isServiceTask = originalType === 'bpmn:serviceTask';
+  const isServiceTask = originalType === 'bpmn:serviceTask' || originalType === 'bpmn:sendTask';
   const isScriptTask = originalType === 'bpmn:scriptTask';
   const isCallActivity = originalType === 'bpmn:callActivity';
   const isSequenceFlow = originalType === 'bpmn:sequenceFlow' || element.type === 'floating' || element.type === 'smoothstep'; // React Flow edges
@@ -136,11 +142,43 @@ export default function PropertiesPanel({ element, onUpdate }: PropertiesPanelPr
                             />
                         </div>
                         
-                        <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">ID</Label>
-                            <div className="text-xs font-mono text-muted-foreground bg-muted p-1.5 rounded select-all truncate border">
-                                {elementId}
-                            </div>
+                        <div className="space-y-2">
+                            <Label>ID</Label>
+                            <DebouncedInput
+                              value={elementId}
+                              onValueChange={(val) => {
+                                const next = val.trim();
+                                if (!next) {
+                                  setIdError("ID is required");
+                                  return;
+                                }
+                                if (!NCNAME_RE.test(next)) {
+                                  setIdError("ID must be a valid NCName (letter or _ first)");
+                                  return;
+                                }
+                                if (next !== elementId && existingIds.includes(next)) {
+                                  setIdError("ID must be unique in this diagram");
+                                  return;
+                                }
+                                if (next === elementId) {
+                                  setIdError(null);
+                                  return;
+                                }
+                                if (onRenameId) {
+                                  const err = onRenameId(elementId, next);
+                                  setIdError(err);
+                                  return;
+                                }
+                                setIdError(null);
+                              }}
+                              placeholder="e.g. validateOrder"
+                              className="bg-white font-mono text-xs"
+                            />
+                            {idError ? (
+                              <p className="text-xs text-destructive">{idError}</p>
+                            ) : (
+                              <p className="text-[10px] text-muted-foreground">BPMN element id used in XML and runtime.</p>
+                            )}
                         </div>
                     </div>
 

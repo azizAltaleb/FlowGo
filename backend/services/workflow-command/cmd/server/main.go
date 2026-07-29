@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -255,7 +256,8 @@ func main() {
 
 	runtimeEnabled := envBool("RUNTIME_ENABLED", true)
 	if runtimeEnabled {
-		// Start Background Tasks (Timers & SLAs)
+		leaseHolder := envOrDefault("RUNTIME_LEASE_HOLDER", fmt.Sprintf("%s-%d", hostnameOrUnknown(), os.Getpid()))
+		leaseTTL := parseDurationEnv("RUNTIME_LEASE_TTL", 15*time.Second)
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
 			defer ticker.Stop()
@@ -264,8 +266,17 @@ func main() {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					// Use a fresh context for background tasks
 					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					acquired, err := repo.TryAcquireRuntimeSchedulerLease(bgCtx, leaseHolder, leaseTTL)
+					if err != nil {
+						log.Error(bgCtx, "runtime scheduler lease acquire failed", map[string]any{"error": err.Error()})
+						cancel()
+						continue
+					}
+					if !acquired {
+						cancel()
+						continue
+					}
 					if err := eng.CheckTimers(bgCtx); err != nil {
 						log.Error(bgCtx, "check timers failed", map[string]any{"error": err.Error()})
 					}
@@ -276,7 +287,10 @@ func main() {
 				}
 			}
 		}()
-		log.Info(ctx, "in-process runtime scheduler enabled", nil)
+		log.Info(ctx, "in-process runtime scheduler enabled", map[string]any{
+			"lease_holder": leaseHolder,
+			"lease_ttl":    leaseTTL.String(),
+		})
 	} else {
 		log.Info(ctx, "in-process runtime scheduler disabled", nil)
 	}
@@ -470,4 +484,12 @@ func splitAndTrim(v string) []string {
 		out = append(out, p)
 	}
 	return out
+}
+
+func hostnameOrUnknown() string {
+	host, err := os.Hostname()
+	if err != nil || strings.TrimSpace(host) == "" {
+		return "unknown"
+	}
+	return host
 }

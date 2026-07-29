@@ -11,8 +11,13 @@ const Processes = lazy(() => import("@/pages/Processes"));
 const Instances = lazy(() => import("@/pages/Instances"));
 const InstanceDetails = lazy(() => import("@/pages/InstanceDetails"));
 const History = lazy(() => import("@/pages/History"));
+const TaskInbox = lazy(() => import("@/pages/TaskInbox"));
 const IdentityManagement = lazy(() => import("@/pages/IdentityManagement"));
 const ArtificialFlowClients = lazy(() => import("@/pages/ArtificialFlowClients"));
+
+// Decisions/DMN UI is implemented but hidden until the next release train.
+const SHOW_DECISIONS_UI = false;
+const Decisions = SHOW_DECISIONS_UI ? lazy(() => import("@/pages/Decisions")) : null;
 
 type AppProps = {
   authDisabled?: boolean;
@@ -39,9 +44,13 @@ function AppRoutes({ onLogout }: AppRoutesProps) {
             <Route index element={<Dashboard />} />
             <Route path="modeler" element={<Modeler />} />
             <Route path="processes" element={<Processes />} />
+            {SHOW_DECISIONS_UI && Decisions ? (
+              <Route path="decisions" element={<Decisions />} />
+            ) : null}
             <Route path="instances" element={<Instances />} />
             <Route path="instances/:id" element={<InstanceDetails />} />
             <Route path="history" element={<History />} />
+            <Route path="inbox" element={<TaskInbox />} />
             <Route path="identity" element={<IdentityManagement />} />
             <Route path="sdk-clients" element={<ArtificialFlowClients />} />
           </Route>

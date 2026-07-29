@@ -3,6 +3,7 @@
  */
 import http from "k6/http";
 import { check, sleep } from "k6";
+import { authHeaders } from "../lib/auth.js";
 
 const BASE = __ENV.COMMAND_URL || "http://localhost:8080";
 
@@ -36,7 +37,7 @@ export function setup() {
   const res = http.post(
     `${BASE}/workflows`,
     minimalBpmn(jobType),
-    { headers: { "Content-Type": "text/xml; charset=utf-8" } }
+    { headers: authHeaders({ "Content-Type": "text/xml; charset=utf-8" }) }
   );
   if (res.status === 200) {
     const body = JSON.parse(res.body);
@@ -53,7 +54,7 @@ export function workflowThroughput(data) {
     const deployRes = http.post(
       `${BASE}/workflows`,
       minimalBpmn(jobType),
-      { headers: { "Content-Type": "text/xml; charset=utf-8" } }
+      { headers: authHeaders({ "Content-Type": "text/xml; charset=utf-8" }) }
     );
     if (deployRes.status !== 200) {
       return;
@@ -70,7 +71,7 @@ export function workflowThroughput(data) {
       workflow_id: workflowId,
       context: { load_test: true, vu: __VU, iter: __ITER },
     }),
-    { headers: { "Content-Type": "application/json" } }
+    { headers: authHeaders({ "Content-Type": "application/json" }) }
   );
 
   check(startRes, {
@@ -96,7 +97,7 @@ export function workflowThroughput(data) {
         maxJobs: 1,
         lockDurationMs: 30000,
       }),
-      { headers: { "Content-Type": "application/json" } }
+      { headers: authHeaders({ "Content-Type": "application/json" }) }
     );
 
     if (activateRes.status === 200) {
@@ -109,7 +110,7 @@ export function workflowThroughput(data) {
           const completeRes = http.post(
             `${BASE}/jobs/${jobKey}/complete`,
             JSON.stringify({ worker, variables: { result: "ok" } }),
-            { headers: { "Content-Type": "application/json" } }
+            { headers: authHeaders({ "Content-Type": "application/json" }) }
           );
           check(completeRes, {
             "job completed (200/204)": (r) => r.status === 200 || r.status === 204,
