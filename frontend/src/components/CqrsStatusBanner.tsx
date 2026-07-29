@@ -11,12 +11,16 @@ const STALE_MS = 15_000;
  */
 export function CqrsStatusBanner({ admin }: { admin: boolean }) {
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [outboxPending, setOutboxPending] = useState<number | null>(null);
 
   useEffect(() => {
-    const read = () => setLastSyncAt(readQueryProjectionSampledAt());
-    read();
-    const id = window.setInterval(read, 2000);
+    const tick = () => {
+      setLastSyncAt(readQueryProjectionSampledAt());
+      setNowMs(Date.now());
+    };
+    tick();
+    const id = window.setInterval(tick, 2000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -41,7 +45,7 @@ export function CqrsStatusBanner({ admin }: { admin: boolean }) {
     };
   }, [admin]);
 
-  const ageMs = lastSyncAt ? Date.now() - lastSyncAt : null;
+  const ageMs = lastSyncAt ? nowMs - lastSyncAt : null;
   const stale = ageMs !== null && ageMs > STALE_MS;
 
   return (
