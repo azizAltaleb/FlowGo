@@ -1,6 +1,6 @@
 import { createLogger, generateCorrelationId } from './logger';
 import { runtimeConfig } from './runtimeConfig';
-import { markQueryProjectionSampled } from '@/lib/cqrsStatus';
+import { markQueryProjectionSampled } from './cqrsStatus';
 
 const API_BASE_URL = (runtimeConfig.apiUrl || "/api").replace(/\/+$/, "");
 const log = createLogger('api');
