@@ -1,24 +1,15 @@
-/**
- * Mega BPMN UAT — exercises Supported matrix elements via API + light UI checks.
- * Covers GitHub #40 quickstart path pieces (deploy/start) when AUTH is available.
- *
- * Env:
- *   ARTIFICIALFLOW_BASE_URL (default http://localhost:9100/api)
- *   ARTIFICIALFLOW_TOKEN (required for API path)
- *   ARTIFICIALFLOW_ACTING_USER (default approver)
- *   UAT_MEGA_SCALE (default 3 parallel instances)
- */
+// Mega BPMN UAT: Supported matrix elements via API + light UI checks.
+// Covers GitHub issue 40 quickstart path pieces (deploy/start) when AUTH is available.
+// Env: ARTIFICIALFLOW_BASE_URL, ARTIFICIALFLOW_TOKEN, ARTIFICIALFLOW_ACTING_USER, UAT_MEGA_SCALE
 import { test, expect } from "@playwright/test";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 const base = (process.env.ARTIFICIALFLOW_BASE_URL || "http://localhost:9100/api").replace(/\/$/, "");
 const token = process.env.ARTIFICIALFLOW_TOKEN || "";
 const actingUser = process.env.ARTIFICIALFLOW_ACTING_USER || "approver";
 const scale = Math.max(1, Number(process.env.UAT_MEGA_SCALE || 3));
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const megaBpmn = readFileSync(join(__dirname, "../../fixtures/mega-process.bpmn"), "utf8");
 
 async function api(method: string, path: string, body?: unknown, raw = false) {
