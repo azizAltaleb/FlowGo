@@ -176,7 +176,7 @@ make up-external-iam
 To use published images:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=1.0.0-rc.1 make up-external-iam-release
+ARTIFICIALFLOW_IMAGE_TAG=1.0.0 make up-external-iam-release
 ```
 
 ### 3. External-IAM postconditions
@@ -229,7 +229,7 @@ make up-zitadel
 To use published images:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=1.0.0-rc.1 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_TAG=1.0.0 make up-zitadel-release
 ```
 
 The first boot can take several minutes while ZITADEL initializes and ArtificialFlow

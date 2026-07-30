@@ -4,6 +4,10 @@ All notable changes to ArtificialFlow will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning while it remains pre-1.0.
 
+## [1.0.0] - 2026-07-30
+
+1.0.0 GA — freeze tip after partner/self-run bake-off and RC Phase T.
+
 ## [1.0.0-rc.1] - 2026-07-29
 
 1.0 freeze candidate (same product tip as 0.4.0 plus RC version pins).

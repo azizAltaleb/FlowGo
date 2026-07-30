@@ -73,23 +73,23 @@ autoscaling:
 images:
   command:
     repository: artificialflow/workflow-command
-    tag: "1.0.0-rc.1"
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   query:
     repository: artificialflow/workflow-query
-    tag: "1.0.0-rc.1"
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   runtime:
     repository: artificialflow/workflow-runtime
-    tag: "1.0.0-rc.1"
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   syncWorker:
     repository: artificialflow/sync-worker
-    tag: "1.0.0-rc.1"
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   frontend:
     repository: artificialflow/frontend
-    tag: "1.0.0-rc.1"
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   gateway:
     repository: nginx
