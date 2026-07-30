@@ -38,7 +38,7 @@ ARTIFICIALFLOW_IMAGE_TAG=v1.0.0-rc.1 make test-release-suite
 
 ## Partner bake-off
 
-Fill [PARTNER_BAKEOFF_CAMUNDA89.md](PARTNER_BAKEOFF_CAMUNDA89.md).
+Fill [PARTNER_BAKEOFF.md](PARTNER_BAKEOFF.md).
 
 ## GA v1.0.0
 

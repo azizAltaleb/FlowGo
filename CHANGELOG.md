@@ -31,11 +31,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Terminate end event and link catch/throw; clear parse errors for escalation/conditional/cancel/event sub-process.
 - Release test suite (`make test-release-suite`), DAST (`make test-dast`), mega BPMN UAT fixture/spec.
 - Helm managed-deps example values; Node SDK worker processing example; gateway BPMN examples.
-- Partner bake-off scorecard vs Camunda 8.9 Self-Managed.
+- Partner bake-off scorecard for design-partner self-hosted evaluation.
 
 ### Changed
 
-- BPMN support matrix tiered (Tier-1/2/3) for honest Camunda displacement claims.
+- BPMN support matrix tiered (Tier-1/2/3) for honest Supported / Not supported claims.
 - Compatibility matrix and release pins target `v0.4.x` toward `1.0.0`.
 
 ## [0.3.0] - 2026-07-22

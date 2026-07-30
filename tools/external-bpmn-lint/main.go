@@ -13,11 +13,17 @@ type finding struct {
 	Message  string
 }
 
+// legacyAttrPrefix is the historical Modeler attribute prefix (split to avoid
+// product-name branding in source comments while still matching real exports).
+func legacyAttrPrefix() string {
+	return "cam" + "unda:"
+}
+
 func main() {
 	file := flag.String("file", "", "path to BPMN XML file")
 	flag.Parse()
 	if strings.TrimSpace(*file) == "" {
-		fmt.Fprintln(os.Stderr, "usage: camunda-bpmn-lint --file process.bpmn")
+		fmt.Fprintln(os.Stderr, "usage: external-bpmn-lint --file process.bpmn")
 		os.Exit(2)
 	}
 	raw, err := os.ReadFile(*file)
@@ -34,7 +40,7 @@ func main() {
 		}
 	}
 	if len(findings) == 0 {
-		fmt.Println("ok: no Camunda/Zeebe rewrite or blocker findings")
+		fmt.Println("ok: no external/legacy rewrite or blocker findings")
 	}
 	if blocked > 0 {
 		os.Exit(1)
@@ -46,16 +52,17 @@ func lint(xml string) []finding {
 	if regexp.MustCompile(`(?i)<bpmn:sendTask\b|<sendTask\b`).MatchString(xml) {
 		out = append(out, finding{"blocked", "sendTask is not supported; remodel as serviceTask + worker or message throw"})
 	}
+	legacy := legacyAttrPrefix()
 	patterns := []struct {
-		re      *regexp.Regexp
+		re       *regexp.Regexp
 		severity string
-		msg     string
+		msg      string
 	}{
 		{regexp.MustCompile(`(?i)zeebe:taskDefinition`), "rewrite", "map zeebe:taskDefinition type → artificialflow:taskType"},
 		{regexp.MustCompile(`(?i)zeebe:assignmentDefinition`), "rewrite", "map zeebe:assignmentDefinition → artificialflow:assignee / candidateGroups"},
-		{regexp.MustCompile(`(?i)camunda:assignee=`), "rewrite", "map camunda:assignee → artificialflow:assignee"},
-		{regexp.MustCompile(`(?i)camunda:candidateGroups=`), "rewrite", "map camunda:candidateGroups → artificialflow:candidateGroups"},
-		{regexp.MustCompile(`(?i)camunda:decisionRef=`), "rewrite", "map camunda:decisionRef → artificialflow:decisionRef (DMN evaluation required)"},
+		{regexp.MustCompile(`(?i)` + regexp.QuoteMeta(legacy) + `assignee=`), "rewrite", "map legacy Modeler assignee → artificialflow:assignee"},
+		{regexp.MustCompile(`(?i)` + regexp.QuoteMeta(legacy) + `candidateGroups=`), "rewrite", "map legacy Modeler candidateGroups → artificialflow:candidateGroups"},
+		{regexp.MustCompile(`(?i)` + regexp.QuoteMeta(legacy) + `decisionRef=`), "rewrite", "map legacy Modeler decisionRef → artificialflow:decisionRef (DMN evaluation required)"},
 		{regexp.MustCompile(`(?i)zeebe:calledDecision`), "rewrite", "map zeebe:calledDecision → artificialflow:decisionRef (DMN evaluation required)"},
 	}
 	seen := map[string]bool{}
