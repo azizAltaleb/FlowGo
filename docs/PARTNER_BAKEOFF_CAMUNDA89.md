@@ -10,7 +10,7 @@ Scorecard for Phase C of the 1.0 displacement plan. Pass = partner completes the
 | One human task | Task Inbox / inbox API | Tasklist | **PASS** (local) — mega UAT inbox claim/complete |
 | Their IdP | [docs/iam/](iam/) recipe | Identity/Keycloak | **PASS** (docs) — ZITADEL quickstart + Keycloak/Entra/Auth0 recipes shipped |
 | Day-2: runtime restart / lag | Lease drill + CQRS banner | Operate | **PASS** (code+docs) — HA/lease docs + CQRS banner on admin UI |
-| Mega Supported BPMN UAT | `uat-mega-bpmn.spec.ts` | n/a | **PASS** (local) — 4/4 on 2026-07-29 |
+| Mega Supported BPMN UAT | `uat-mega-bpmn.spec.ts` | n/a | **PASS** (local) — 4/4 on RC images 2026-07-30 |
 
 ## ArtificialFlow runbook
 
@@ -23,10 +23,11 @@ node examples/golden-demo/run-bakeoff.mjs
 make test-release-suite
 ```
 
-## Evidence (maintainer self-run, 2026-07-29)
+## Evidence (maintainer self-run, 2026-07-29 → 2026-07-30)
 
 - Partner: **internal maintainer self-run** (no external design partner scheduled yet; scorecard filled from Phase T gates on tip `b32906a` / tags `v0.4.0` + `v1.0.0-rc.1`).
 - Release suite / DAST / mega UAT / dry-run: `reports/release-suite-local.md`
+- RC re-gate (2026-07-30): `worker-conformance` + mega UAT 4/4 + `smoke-release-profiles` against `v1.0.0-rc.1` images
 - Issues closed with evidence: #35–#40 (screenshots #34 checklist remains open for PNG refresh)
 - Verdict: **PASS for GA gate under maintainer self-run**; re-validate with a named external partner when available.
 
