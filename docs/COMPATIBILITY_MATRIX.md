@@ -17,20 +17,20 @@ ArtificialFlow publishes compatibility guarantees for the surfaces below. Pre-`1
 | Helm chart | `charts/artificialflow` `0.4.x` | Values may be added. Renames/removals require migration notes. |
 | BPMN semantics | See [BPMN_SUPPORT_MATRIX.md](BPMN_SUPPORT_MATRIX.md) | Supported/not-supported/not-evaluated statuses are part of the contract. |
 
-## Camunda-Facing Supported Contracts
+## Bake-off Supported Contracts
 
-Teams evaluating ArtificialFlow against Camunda 8 self-managed should treat these as the bake-off contracts:
+Teams evaluating ArtificialFlow for self-hosted BPMN ops should treat these as the bake-off contracts:
 
 | Contract | ArtificialFlow surface | Notes |
 | :--- | :--- | :--- |
-| Process deploy / start | Command API + modeler | BPMN 2.0 XML with ArtificialFlow extensions; see Camunda import guide. |
+| Process deploy / start | Command API + modeler | BPMN 2.0 XML with ArtificialFlow extensions; see external import guide. |
 | External workers | `/jobs/*` + Node/Go SDKs | Job activate, complete, fail, extend-lock, capabilities, idempotency. |
 | Human tasks | `/inbox*` + instance task APIs | Claim/complete with acting-user identity; browser inbox in the frontend. |
 | Ops history / search | Query API + Elasticsearch/OpenSearch | Eventually consistent CQRS projection. |
 | Identity | External OIDC or bundled ZITADEL | Roles: `artificialflow admin`, `artificialflow modeler`, `artificialflow client`. |
 | Kubernetes install | Helm chart | External Postgres, Kafka/NATS, Elasticsearch/OpenSearch, Debezium for Kafka projection. |
 
-See also [CAMUNDA_BPMN_IMPORT.md](CAMUNDA_BPMN_IMPORT.md) and [HA_REFERENCE.md](HA_REFERENCE.md).
+See also [EXTERNAL_BPMN_IMPORT.md](EXTERNAL_BPMN_IMPORT.md) and [HA_REFERENCE.md](HA_REFERENCE.md).
 
 ## Supported Deployment Combinations
 

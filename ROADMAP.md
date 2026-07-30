@@ -11,12 +11,12 @@ This roadmap communicates the intended direction for the open-source project. It
 
 ## P0 — Trust / 1.0 readiness
 
-Compete with Camunda 8 self-managed on reliability, upgrade, and BPMN honesty before marketing as an alternative.
+Ship reliability, upgrade, and honest BPMN coverage before marketing as a self-hosted alternative.
 
 - **1.0 contract**: freeze worker, inbox, SDK, Helm, IAM, and BPMN semantics ([docs/COMPATIBILITY_MATRIX.md](docs/COMPATIBILITY_MATRIX.md), [docs/STABILITY_POLICY.md](docs/STABILITY_POLICY.md)).
 - **HA evidence**: supported replica topology, runtime safety, k6 capacity numbers ([docs/HA_REFERENCE.md](docs/HA_REFERENCE.md)).
 - **Day-2 ops**: upgrade guide, CQRS rebuild, outbox drain, lag SLOs ([docs/UPGRADE.md](docs/UPGRADE.md)).
-- **BPMN honesty**: matrix aligned with runtime; Camunda/Zeebe import guide ([docs/BPMN_SUPPORT_MATRIX.md](docs/BPMN_SUPPORT_MATRIX.md), [docs/CAMUNDA_BPMN_IMPORT.md](docs/CAMUNDA_BPMN_IMPORT.md)).
+- **BPMN honesty**: matrix aligned with runtime; external BPMN import guide ([docs/BPMN_SUPPORT_MATRIX.md](docs/BPMN_SUPPORT_MATRIX.md), [docs/EXTERNAL_BPMN_IMPORT.md](docs/EXTERNAL_BPMN_IMPORT.md)).
 - **Golden demo**: human task + worker + timer bake-off path under `examples/golden-demo/`.
 
 ## P1 — Daily experience
@@ -27,7 +27,7 @@ Compete with Camunda 8 self-managed on reliability, upgrade, and BPMN honesty be
 - **Worker DX**: published Go worker library, Node + Go samples; Python worker after Go is solid.
 - **IAM recipes**: Keycloak, Entra ID, Auth0; harden bundled ZITADEL bootstrap constraints.
 
-## P2 — Selective Camunda parity
+## P2 — Selective engine parity
 
 - **DMN**: real decision-table evaluation for `decisionRef` business-rule tasks.
 - **Connectors**: HTTP first, then a small official set (~8), not a marketplace.
@@ -35,8 +35,8 @@ Compete with Camunda 8 self-managed on reliability, upgrade, and BPMN honesty be
 
 ## Explicitly deferred
 
-- Camunda Optimize / process mining.
+- Process-mining / Optimize-style analytics products.
 - Connector marketplace.
-- Zeebe throughput leaderboard competition.
+- Throughput leaderboard competition.
 - Real multi-tenancy (tenant fields exist but deployments use `default`).
 - Managed cloud / support SKU until after P1 design-partner traction.

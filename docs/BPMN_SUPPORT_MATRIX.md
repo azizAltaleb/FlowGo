@@ -39,7 +39,7 @@ Statuses must match runtime behavior (honesty over fake parity).
 | Call activities | Supported | Requires called definition deployed. |
 | Multi-instance tasks | Supported | Parallel loop metadata. |
 | Sequence flows (conditional / default) | Supported | Core token routing. |
-| Camunda / Zeebe extensions | Not native | See [CAMUNDA_BPMN_IMPORT.md](CAMUNDA_BPMN_IMPORT.md). |
+| External / legacy Modeler extensions | Not native | See [EXTERNAL_BPMN_IMPORT.md](EXTERNAL_BPMN_IMPORT.md). |
 
 ## Tier-2
 

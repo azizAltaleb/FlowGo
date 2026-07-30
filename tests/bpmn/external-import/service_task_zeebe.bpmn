@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://zeebe.io/schema/zeebe/1.0"
+                  xmlns:artificialflow="https://artificialflow.io/schema"
+                  id="Definitions_external_import"
+                  targetNamespace="https://artificialflow.io/external-import">
+  <bpmn:process id="external_import_rewrite" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <!-- Original third-party shape (lint: rewrite). Remodeled ArtificialFlow attribute below. -->
+    <bpmn:serviceTask id="validate" name="Validate">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="legacy-validate"/>
+        <!-- After rewrite:
+        <artificialflow:taskType>legacy-validate</artificialflow:taskType>
+        -->
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="validate"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="validate" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>

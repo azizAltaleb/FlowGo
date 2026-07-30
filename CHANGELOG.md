@@ -4,6 +4,10 @@ All notable changes to ArtificialFlow will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning while it remains pre-1.0.
 
+## [1.0.0] - 2026-07-30
+
+1.0.0 GA — freeze tip after partner/self-run bake-off and RC Phase T.
+
 ## [1.0.0-rc.1] - 2026-07-29
 
 1.0 freeze candidate (same product tip as 0.4.0 plus RC version pins).
@@ -27,11 +31,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Terminate end event and link catch/throw; clear parse errors for escalation/conditional/cancel/event sub-process.
 - Release test suite (`make test-release-suite`), DAST (`make test-dast`), mega BPMN UAT fixture/spec.
 - Helm managed-deps example values; Node SDK worker processing example; gateway BPMN examples.
-- Partner bake-off scorecard vs Camunda 8.9 Self-Managed.
+- Partner bake-off scorecard for design-partner self-hosted evaluation.
 
 ### Changed
 
-- BPMN support matrix tiered (Tier-1/2/3) for honest Camunda displacement claims.
+- BPMN support matrix tiered (Tier-1/2/3) for honest Supported / Not supported claims.
 - Compatibility matrix and release pins target `v0.4.x` toward `1.0.0`.
 
 ## [0.3.0] - 2026-07-22

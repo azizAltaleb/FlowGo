@@ -1,6 +1,6 @@
-# Golden displacement demo
+# Golden demo
 
-Camunda 8 bake-off path: **service worker + user task + boundary timer**.
+Bake-off path: **service worker + user task + boundary timer**.
 
 ## Process
 
