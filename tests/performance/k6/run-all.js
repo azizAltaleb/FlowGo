@@ -2,7 +2,10 @@
  * run-all.js — k6 entry point that runs all scenarios sequentially.
  * Usage: k6 run --out json=/reports/k6.json tests/performance/k6/run-all.js
  */
-import { workflowThroughput } from "./scenarios/workflow_throughput.js";
+import {
+  setup as setupWorkflow,
+  workflowThroughput,
+} from "./scenarios/workflow_throughput.js";
 import { queryReadLoad } from "./scenarios/query_read_load.js";
 import { workerActivateJobs } from "./scenarios/worker_activate_jobs.js";
 import { cqrsLag } from "./scenarios/cqrs_lag.js";
@@ -48,8 +51,12 @@ export const options = {
   },
 };
 
-export function runWorkflowThroughput() {
-  workflowThroughput();
+export function setup() {
+  return setupWorkflow();
+}
+
+export function runWorkflowThroughput(data) {
+  workflowThroughput(data);
 }
 
 export function runQueryReadLoad() {
@@ -60,6 +67,6 @@ export function runWorkerActivateJobs() {
   workerActivateJobs();
 }
 
-export function runCqrsLag() {
-  cqrsLag();
+export function runCqrsLag(data) {
+  cqrsLag(data);
 }

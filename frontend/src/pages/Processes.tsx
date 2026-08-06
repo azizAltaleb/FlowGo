@@ -180,8 +180,9 @@ export default function Processes() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Name</TableHead>
+              <TableHead>Definition ID</TableHead>
+              <TableHead>Business Process ID</TableHead>
+              <TableHead>Process Name</TableHead>
               <TableHead>Version</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -189,14 +190,15 @@ export default function Processes() {
           <TableBody>
             {workflows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   No workflows found. Create one to get started.
                 </TableCell>
               </TableRow>
             ) : (
               workflows.map((workflow) => (
                 <TableRow key={workflow.id}>
-                <TableCell>{workflow.process_definition_id}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">{workflow.id}</TableCell>
+                <TableCell className="font-mono text-xs">{workflow.process_definition_id}</TableCell>
                 <TableCell>{workflow.name}</TableCell>
                 <TableCell>{workflow.version}</TableCell>
                 <TableCell className="space-x-2">

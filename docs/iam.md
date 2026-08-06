@@ -51,7 +51,8 @@ automation should use these exact lowercase names:
   catalog and modeler but is not a platform administrator.
 - `artificialflow client`: non-human SDK, worker, API, and automation identities. It can
   start instances, publish messages/signals, and operate jobs. It must not be
-  used as a general human login role.
+  used as a general human login role. Full HTTP route map:
+  [API.md](API.md).
 
 Recommended assignments:
 
@@ -123,7 +124,17 @@ it only with a trusted internal route and an explicit security review.
 
 ## Bundled ZITADEL
 
-Use bundled mode when ArtificialFlow should deploy and bootstrap ZITADEL.
+Use bundled mode (internal IAM) when ArtificialFlow should deploy and bootstrap
+ZITADEL.
+
+Local Compose quickstart:
+
+- Compose: [`docker-compose.zitadel.yml`](../docker-compose.zitadel.yml)
+  (+ optional [`docker-compose.release.yml`](../docker-compose.release.yml) for
+  published images)
+- Commands: `make up-zitadel` or `make up-zitadel-release`
+- Walkthrough: [README Quickstart](../README.md#quickstart-bundled--internal-iam)
+  and [Getting started](getting-started.md#option-1-bundled-zitadel-internal-iam)
 
 The bootstrap process creates:
 

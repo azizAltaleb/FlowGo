@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_NPM_CHECKS="${RUN_NPM_CHECKS:-true}"
 RUN_DOCKER_BUILDS="${RUN_DOCKER_BUILDS:-true}"
-VERSION="${VERSION:-1.0.0-dry-run}"
+VERSION="${VERSION:-1.1.0-dry-run}"
 REVISION="${REVISION:-$(git -C "${ROOT_DIR}" rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 
 run() {
@@ -32,6 +32,7 @@ run bash -n scripts/cqrs_e2e_smoke.sh
 run bash -n scripts/worker_conformance_smoke.sh
 run bash -n scripts/validate_compose_kafka_wiring.sh
 run bash -n scripts/validate_compose_identities.sh
+run bash -n scripts/validate_gateway_cors.sh
 run bash -n scripts/validate_helm.sh
 run bash -n scripts/validate_generated_proto.sh
 run bash -n scripts/validate_nodejs_sdk_install.sh
@@ -53,6 +54,7 @@ run bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.yml -f docke
 run bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.external-iam.yml -f docker-compose.release.yml
 run bash scripts/validate_compose_kafka_wiring.sh -f docker-compose.zitadel.yml -f docker-compose.release.yml
 run bash scripts/validate_compose_identities.sh
+run bash scripts/validate_gateway_cors.sh
 run bash scripts/validate_helm.sh
 run node scripts/validate_nodejs_sdk_package.mjs
 

@@ -2,6 +2,8 @@
 
 Official connectors are external workers that implement a documented job type and payload contract. Prefer a few hardened connectors over a marketplace.
 
+Descriptor registry (shared schemas): `connectors/internal/common/descriptors.go` and `frontend/src/lib/connector-descriptors.ts`. The modeler Properties panel shows connector-specific fields when `taskType` matches a known job type; values are exported as `artificialflow:property` pairs and copied into instance variables at job creation (start variables with the same keys can supply or override them).
+
 ## Starter set
 
 | Connector | Job type | Status |
@@ -22,13 +24,27 @@ Shared helpers live in `connectors/internal/common`.
 | `ARTIFICIALFLOW_TOKEN` | _(required)_ | Bearer token with job activate/complete |
 | `WORKER_NAME` | per-connector default | Worker identity string |
 
+## Security (HTTP / webhook)
+
+Allowlists are **required by default**:
+
+| Variable | Notes |
+| :--- | :--- |
+| `HTTP_CONNECTOR_ALLOWED_HOSTS` / `WEBHOOK_CONNECTOR_ALLOWED_HOSTS` | Comma-separated hostnames |
+| `HTTP_CONNECTOR_ALLOW_ANY_HOST` / `WEBHOOK_CONNECTOR_ALLOW_ANY_HOST` | Set `true` only for local/dev when no allowlist |
+| `HTTP_CONNECTOR_FAIL_ON_NON_2XX` / `WEBHOOK_CONNECTOR_FAIL_ON_NON_2XX` | Default fail on non-2xx when instance var `failOnNon2xx` is unset |
+
+Redirects re-check the allowlist. Header count/size is bounded.
+
 ## Run examples
 
 ```bash
 export ARTIFICIALFLOW_TOKEN=...
 
-# HTTP — see http/README.md
-go run ./connectors/http
+# HTTP — see http/README.md (allowlist required unless ALLOW_ANY_HOST=true)
+HTTP_CONNECTOR_ALLOWED_HOSTS=api.example.com go run ./connectors/http
+# Dev only:
+# HTTP_CONNECTOR_ALLOW_ANY_HOST=true go run ./connectors/http
 
 # Webhook / Slack incoming webhook URL
 WEBHOOK_CONNECTOR_ALLOWED_HOSTS=hooks.slack.com go run ./connectors/webhook

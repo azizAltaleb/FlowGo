@@ -367,6 +367,7 @@ func (e *Engine) cancelEventGatewaySiblings(ctx context.Context, instance *model
 					}
 					// Fire and forget update
 					e.repo.UpdateElementInstance(ctx, el)
+					e.cancelCreatedTimersForElementInstance(ctx, ex.ElementInstanceKey)
 				}
 			}
 		}

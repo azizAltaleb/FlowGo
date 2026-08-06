@@ -7,6 +7,7 @@ import { type Execution } from '@/lib/api';
 import { TaskNode } from './nodes/TaskNode';
 import { EventNode } from './nodes/EventNode';
 import { GatewayNode } from './nodes/GatewayNode';
+import { VisualArtifactNode } from './nodes/VisualArtifactNode';
 import { AlertCircle } from 'lucide-react';
 
 const nodeTypes = {
@@ -17,6 +18,7 @@ const nodeTypes = {
   boundaryEvent: EventNode,
   userTask: TaskNode,
   serviceTask: TaskNode,
+  sendTask: TaskNode,
   scriptTask: TaskNode,
   businessRuleTask: TaskNode,
   receiveTask: TaskNode,
@@ -27,6 +29,7 @@ const nodeTypes = {
   parallelGateway: GatewayNode,
   inclusiveGateway: GatewayNode,
   eventBasedGateway: GatewayNode,
+  visualArtifact: VisualArtifactNode,
 };
 
 const defaultEdgeOptions = {

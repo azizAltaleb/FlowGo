@@ -49,15 +49,13 @@ func main() {
 
 func lint(xml string) []finding {
 	var out []finding
-	if regexp.MustCompile(`(?i)<bpmn:sendTask\b|<sendTask\b`).MatchString(xml) {
-		out = append(out, finding{"blocked", "sendTask is not supported; remodel as serviceTask + worker or message throw"})
-	}
 	legacy := legacyAttrPrefix()
 	patterns := []struct {
 		re       *regexp.Regexp
 		severity string
 		msg      string
 	}{
+		{regexp.MustCompile(`(?i)<bpmn:sendTask\b|<sendTask\b`), "rewrite", "sendTask is supported as an external job; ensure artificialflow:taskType (or topic) is set — default io.artificialflow.connector.send"},
 		{regexp.MustCompile(`(?i)zeebe:taskDefinition`), "rewrite", "map zeebe:taskDefinition type → artificialflow:taskType"},
 		{regexp.MustCompile(`(?i)zeebe:assignmentDefinition`), "rewrite", "map zeebe:assignmentDefinition → artificialflow:assignee / candidateGroups"},
 		{regexp.MustCompile(`(?i)` + regexp.QuoteMeta(legacy) + `assignee=`), "rewrite", "map legacy Modeler assignee → artificialflow:assignee"},

@@ -2,6 +2,10 @@
 
 The Node.js SDK package is `@artificialflow/nodejs-sdk`.
 
+Integrating from another language, a BFF, or without npm? Use the raw
+[HTTP API guide](API.md) — the SDK is a thin client over the same gateway
+contract (`…/api` and `…/api/query`).
+
 ## Prerequisites
 
 - Node.js 20 or newer.
@@ -270,6 +274,19 @@ unset ARTIFICIALFLOW_TOKEN
 Add provider-specific scopes and audience/resource parameters when required.
 Never include `Bearer ` in `ARTIFICIALFLOW_TOKEN`.
 `ARTIFICIALFLOW_*` equivalents.
+
+### Publishing events
+
+```ts
+await client.publishMessage('MsgOrderPlaced', 'order-123', { amount: 100 });
+await client.publishSignal('OrderApproved', { orderId: '123' });
+await client.publishEscalation('NEED_HELP', { reason: 'timeout' });
+```
+
+`publishEscalation` maps to `POST /escalations` with `{ escalation_code, payload }`
+and correlates to escalation catch/boundary events, escalation start events, and
+matching event sub-processes. User-task due-date breaches also publish the code
+`user-task.due-date.breached` from the runtime scheduler.
 
 Optional smoke-test inputs:
 

@@ -7,6 +7,8 @@ POSTGRES_DB="${POSTGRES_DB:-workflow_db}"
 ES_ADDR="${ES_ADDR:-http://localhost:9200}"
 ES_INDEX_PREFIX="${ES_INDEX_PREFIX:-artificialflow}"
 INCLUDE_KEY_DIFF="${INCLUDE_KEY_DIFF:-false}"
+PARITY_WAIT_TIMEOUT_SEC="${PARITY_WAIT_TIMEOUT_SEC:-30}"
+PARITY_POLL_INTERVAL_SEC="${PARITY_POLL_INTERVAL_SEC:-1}"
 
 TABLES=(
   process
@@ -114,30 +116,43 @@ echo "- Postgres DB: ${POSTGRES_DB}"
 echo "- ES address: ${ES_ADDR}"
 echo "- Index prefix: ${ES_INDEX_PREFIX}"
 
-overall_status=0
-for table in "${TABLES[@]}"; do
-  index="${ES_INDEX_PREFIX}-${table}"
-  pg_val="$(pg_count "${table}")"
-  es_val="$(es_count "${index}")"
+deadline=$((SECONDS + PARITY_WAIT_TIMEOUT_SEC))
+while true; do
+  overall_status=0
+  for table in "${TABLES[@]}"; do
+    index="${ES_INDEX_PREFIX}-${table}"
+    pg_val="$(pg_count "${table}")"
+    es_val="$(es_count "${index}")"
 
-  status="OK"
-  if [[ "${pg_val}" != "${es_val}" ]]; then
-    status="MISMATCH"
-    overall_status=1
-  fi
-
-  echo "- ${table}: pg=${pg_val} es=${es_val} [${status}]"
-
-  if [[ "${INCLUDE_KEY_DIFF}" == "true" ]] && contains_table "${table}" "${KEY_DIFF_TABLES[@]}"; then
-    if ! key_diff "${table}" "${index}"; then
+    status="OK"
+    if [[ "${pg_val}" != "${es_val}" ]]; then
+      status="MISMATCH"
       overall_status=1
     fi
+
+    echo "- ${table}: pg=${pg_val} es=${es_val} [${status}]"
+  done
+
+  if [[ "${overall_status}" -eq 0 || "${SECONDS}" -ge "${deadline}" ]]; then
+    break
   fi
+
+  echo "Parity has not converged; retrying in ${PARITY_POLL_INTERVAL_SEC}s"
+  sleep "${PARITY_POLL_INTERVAL_SEC}"
 done
 
 if [[ "${overall_status}" -ne 0 ]]; then
   echo "Parity check failed"
   exit 1
+fi
+
+if [[ "${INCLUDE_KEY_DIFF}" == "true" ]]; then
+  for table in "${KEY_DIFF_TABLES[@]}"; do
+    if ! key_diff "${table}" "${ES_INDEX_PREFIX}-${table}"; then
+      echo "Parity key check failed"
+      exit 1
+    fi
+  done
 fi
 
 echo "Parity check passed"

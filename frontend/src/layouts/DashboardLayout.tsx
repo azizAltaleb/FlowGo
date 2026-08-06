@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, Layers, Activity, ShieldUser, Menu, X, LogOut, KeyRound, History, Inbox, Scale, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Layers, Activity, ShieldUser, Menu, X, LogOut, KeyRound, History, Inbox, Scale, AlertTriangle, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { api, type IdentityConfigResponse, type IdentityResponse } from "@/lib/api";
@@ -13,10 +13,19 @@ import {
   isClientOnly,
   isModeler,
 } from "@/lib/roles";
+import {
+  canAccessIdentityConsole,
+  identityConsoleDeniedMessage,
+  isDashboardPathAllowed,
+  isIdentityConsolePath,
+} from "@/lib/dashboardAccess";
 import { CqrsStatusBanner } from "@/components/CqrsStatusBanner";
+import { ConsoleAccessDenied } from "@/components/ConsoleAccessDenied";
 
 // Keep in sync with App.tsx — Decisions/DMN UI hidden until the next release train.
 const SHOW_DECISIONS_UI = false;
+// Keep in sync with App.tsx — Incidents UI hidden in the frontend; API remains available.
+const SHOW_INCIDENTS_UI = false;
 
 type SidebarItem = { icon: LucideIcon; label: string; href: string };
 
@@ -25,6 +34,7 @@ const sidebarItems: SidebarItem[] = [
   { icon: Layers, label: "Processes", href: "/processes" },
   ...(SHOW_DECISIONS_UI ? [{ icon: Scale, label: "Decisions", href: "/decisions" }] : []),
   { icon: Activity, label: "Instances", href: "/instances" },
+  ...(SHOW_INCIDENTS_UI ? [{ icon: AlertTriangle, label: "Incidents", href: "/incidents" }] : []),
   { icon: Inbox, label: "Task Inbox", href: "/inbox" },
   { icon: History, label: "History", href: "/history" },
   { icon: ShieldUser, label: "Identity", href: "/identity" },
@@ -45,9 +55,7 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
   const modeler = isModeler(identity);
   const flexUser = hasFlexRole(identity);
   const clientOnly = isClientOnly(identity);
-  const canShowIdentity =
-    identityConfig?.deployment_mode === "zitadel" &&
-    admin;
+  const canShowIdentity = canAccessIdentityConsole(identity, identityConfig);
   const visibleSidebarItems = sidebarItems.filter((item) => {
     if (item.href === "/") {
       return admin;
@@ -58,7 +66,11 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
     if (item.href === "/inbox") {
       return flexUser && !clientOnly && !admin && !modeler;
     }
-    if (item.href === "/instances" || item.href === "/history") {
+    if (
+      item.href === "/instances" ||
+      item.href === "/history" ||
+      (SHOW_INCIDENTS_UI && item.href === "/incidents")
+    ) {
       return admin || (flexUser && !clientOnly);
     }
     if (item.href === "/identity" || item.href === "/sdk-clients") {
@@ -122,38 +134,28 @@ export default function DashboardLayout({ onLogout }: DashboardLayoutProps) {
 
   const firstAllowedPath = visibleSidebarItems[0]?.href || "";
   const path = location.pathname;
-  const isAllowedPath =
-    admin ||
-    (modeler && (path === "/processes" || (SHOW_DECISIONS_UI && path === "/decisions") || path.startsWith("/modeler"))) ||
-    (flexUser && !modeler && !admin && path === "/inbox") ||
-    (flexUser && !modeler && (path === "/instances" || path.startsWith("/instances/") || path === "/history"));
+  const isAllowedPath = isDashboardPathAllowed({
+    path,
+    identity,
+    config: identityConfig,
+    showDecisionsUi: SHOW_DECISIONS_UI,
+    showIncidentsUi: SHOW_INCIDENTS_UI,
+  });
 
   if (path === "/" && firstAllowedPath && firstAllowedPath !== "/") {
     return <Navigate to={firstAllowedPath} replace />;
   }
 
   if (!isAllowedPath) {
+    const message = isIdentityConsolePath(path)
+      ? identityConsoleDeniedMessage(identity, identityConfig)
+      : "Your ArtificialFlow role does not allow this page. Administrators have full access (including Identity and SDK Clients in bundled ZITADEL mode), modelers can use Processes and Modeler, and business users can use Instances, History, and Task Inbox.";
     return (
-      <div className="flex h-screen items-center justify-center bg-muted/50 p-6">
-        <div className="max-w-lg rounded-lg border bg-card p-6 text-center shadow-sm">
-          <h1 className="text-2xl font-bold">Access Not Allowed</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Your ArtificialFlow role does not allow this page. Administrators have full access,
-            modelers can use Processes and Modeler, and business users can use Instances and History.
-          </p>
-          {firstAllowedPath ? (
-            <Button className="mt-6" asChild>
-              <Link to={firstAllowedPath}>Go to allowed area</Link>
-            </Button>
-          ) : null}
-          {onLogout && (
-            <Button className="mt-6 ml-2" variant="outline" onClick={onLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
-          )}
-        </div>
-      </div>
+      <ConsoleAccessDenied
+        message={message}
+        firstAllowedPath={firstAllowedPath || undefined}
+        onLogout={onLogout}
+      />
     );
   }
 

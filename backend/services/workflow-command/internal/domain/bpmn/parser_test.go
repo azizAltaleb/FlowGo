@@ -326,28 +326,85 @@ func TestParse_PopulatesIncomingForGatewayJoin(t *testing.T) {
 }
 
 func TestParse_FailsForUnsupportedElementReferences(t *testing.T) {
-	xml := `<?xml version="1.0" encoding="UTF-8"?>
+	cases := []struct {
+		name   string
+		xml    string
+		flowID string
+		target string
+	}{
+		{
+			name: "adHocSubProcess",
+			xml: `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_Unsupported" targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="Process_Unsupported" name="Unsupported Process" isExecutable="true">
     <bpmn:startEvent id="start"/>
     <bpmn:adHocSubProcess id="adhoc"/>
     <bpmn:endEvent id="end"/>
-
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="adhoc"/>
     <bpmn:sequenceFlow id="f2" sourceRef="adhoc" targetRef="end"/>
   </bpmn:process>
+</bpmn:definitions>`,
+			flowID: "f1",
+			target: "adhoc",
+		},
+		{
+			name: "complexGateway",
+			xml: `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_ComplexGW" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_ComplexGW" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:complexGateway id="cgw"/>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="cgw"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="cgw" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>`,
+			flowID: "f1",
+			target: "cgw",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Parse(strings.NewReader(tc.xml))
+			if err == nil {
+				t.Fatalf("expected Parse to fail for unsupported %s reference", tc.name)
+			}
+			if !strings.Contains(err.Error(), "sequenceFlow "+tc.flowID) {
+				t.Fatalf("expected sequenceFlow id in error, got: %v", err)
+			}
+			if !strings.Contains(err.Error(), "targetRef="+tc.target) {
+				t.Fatalf("expected missing targetRef=%s in error, got: %v", tc.target, err)
+			}
+		})
+	}
+}
+
+func TestParse_SendTaskDefaultsToHTTPConnector(t *testing.T) {
+	xml := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_SendDefault" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_SendDefault" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:sendTask id="send" name="Notify"/>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="send"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="send" targetRef="end"/>
+  </bpmn:process>
 </bpmn:definitions>`
 
-	_, err := Parse(strings.NewReader(xml))
-	if err == nil {
-		t.Fatalf("expected Parse to fail for unsupported adHocSubProcess reference")
+	wf, err := Parse(strings.NewReader(xml))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
 	}
-	if !strings.Contains(err.Error(), "sequenceFlow f1") {
-		t.Fatalf("expected sequenceFlow id in error, got: %v", err)
+	for _, step := range wf.Steps {
+		if step.ID == "send" {
+			if step.Implementation != "io.artificialflow.connector.http" {
+				t.Fatalf("expected default HTTP connector, got %q", step.Implementation)
+			}
+			return
+		}
 	}
-	if !strings.Contains(err.Error(), "targetRef=adhoc") {
-		t.Fatalf("expected missing targetRef=adhoc in error, got: %v", err)
-	}
+	t.Fatalf("send task not found")
 }
 
 func TestParse_SupportsSendTask(t *testing.T) {
@@ -937,6 +994,174 @@ func TestParse_TerminateAndLink(t *testing.T) {
 	}
 	if byID["term"].Properties["event_definition_type"] != "terminate" {
 		t.Fatalf("terminate: %#v", byID["term"].Properties)
+	}
+}
+
+func TestParse_MultiInstance(t *testing.T) {
+	xml := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="D" targetNamespace="t">
+  <bpmn:process id="MIParse" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:userTask id="seqTask" artificialflow:collection="items" artificialflow:elementVariable="item">
+      <bpmn:multiInstanceLoopCharacteristics isSequential="true"/>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="parTask" artificialflow:taskType="work">
+      <bpmn:multiInstanceLoopCharacteristics isSequential="false" collection="rows" elementVariable="row"/>
+    </bpmn:serviceTask>
+    <bpmn:callActivity id="call" calledElement="Child" artificialflow:calledElementVersion="2"/>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="seqTask"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="seqTask" targetRef="parTask"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="parTask" targetRef="call"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="call" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>`
+	wf, err := Parse(strings.NewReader(xml))
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	byID := map[string]model.StepDefinition{}
+	for _, s := range wf.Steps {
+		byID[s.ID] = s
+	}
+	seq := byID["seqTask"]
+	if seq.LoopType != "SEQUENTIAL" || seq.LoopCollection != "items" || seq.LoopElement != "item" {
+		t.Fatalf("seqTask loop mismatch: type=%q collection=%q element=%q", seq.LoopType, seq.LoopCollection, seq.LoopElement)
+	}
+	par := byID["parTask"]
+	if par.LoopType != "PARALLEL" || par.LoopCollection != "rows" || par.LoopElement != "row" {
+		t.Fatalf("parTask loop mismatch: type=%q collection=%q element=%q", par.LoopType, par.LoopCollection, par.LoopElement)
+	}
+	call := byID["call"]
+	if call.Properties["called_element_version"] != "2" {
+		t.Fatalf("expected called_element_version=2, got %#v", call.Properties)
+	}
+}
+
+func TestParse_IOMappingsAndListeners(t *testing.T) {
+	xml := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:artificialflow="http://artificialflow.io/schema/1.0/bpmn" id="D" targetNamespace="t">
+  <bpmn:process id="IOParse" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:serviceTask id="svc" artificialflow:taskType="work">
+      <bpmn:extensionElements>
+        <artificialflow:properties>
+          <artificialflow:property name="input.localOrder" value="orderId"/>
+          <artificialflow:property name="output.result" value="localResult"/>
+          <artificialflow:property name="listener.create" value="onCreateHandler"/>
+          <artificialflow:property name="listener.complete" value="onCompleteHandler"/>
+        </artificialflow:properties>
+        <artificialflow:ioMapping>
+          <artificialflow:input target="fromXml" source="xmlSource"/>
+          <artificialflow:output target="xmlOut" source="localOut"/>
+        </artificialflow:ioMapping>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="user">
+      <bpmn:extensionElements>
+        <artificialflow:properties>
+          <artificialflow:property name="inputParameters" value='{"a":"b","c":"d"}'/>
+          <artificialflow:property name="outputParameters" value='{"x":"y"}'/>
+          <artificialflow:property name="input:colonVar" value="colonSource"/>
+        </artificialflow:properties>
+      </bpmn:extensionElements>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="svc"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="svc" targetRef="user"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="user" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>`
+
+	wf, err := Parse(strings.NewReader(xml))
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	byID := map[string]model.StepDefinition{}
+	for _, s := range wf.Steps {
+		byID[s.ID] = s
+	}
+
+	svc := byID["svc"]
+	if svc.InputParameters["localOrder"] != "orderId" {
+		t.Fatalf("expected input.localOrder mapping, got %#v", svc.InputParameters)
+	}
+	if svc.InputParameters["fromXml"] != "xmlSource" {
+		t.Fatalf("expected ioMapping input, got %#v", svc.InputParameters)
+	}
+	if svc.OutputParameters["result"] != "localResult" {
+		t.Fatalf("expected output.result mapping, got %#v", svc.OutputParameters)
+	}
+	if svc.OutputParameters["xmlOut"] != "localOut" {
+		t.Fatalf("expected ioMapping output, got %#v", svc.OutputParameters)
+	}
+	if len(svc.TaskListeners) != 2 {
+		t.Fatalf("expected 2 listeners, got %#v", svc.TaskListeners)
+	}
+	listenerByEvent := map[string]string{}
+	for _, l := range svc.TaskListeners {
+		listenerByEvent[l.Event] = l.Implementation
+	}
+	if listenerByEvent["create"] != "onCreateHandler" || listenerByEvent["complete"] != "onCompleteHandler" {
+		t.Fatalf("unexpected listeners: %#v", listenerByEvent)
+	}
+	if _, ok := svc.Properties["input.localOrder"]; ok {
+		t.Fatalf("input.* property should be consumed from Properties")
+	}
+
+	user := byID["user"]
+	if user.InputParameters["a"] != "b" || user.InputParameters["c"] != "d" {
+		t.Fatalf("expected JSON inputParameters, got %#v", user.InputParameters)
+	}
+	if user.InputParameters["colonVar"] != "colonSource" {
+		t.Fatalf("expected input: colon mapping, got %#v", user.InputParameters)
+	}
+	if user.OutputParameters["x"] != "y" {
+		t.Fatalf("expected JSON outputParameters, got %#v", user.OutputParameters)
+	}
+}
+
+func TestParse_IsInterruptingOnEventSubProcessStart(t *testing.T) {
+	xml := `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="D" targetNamespace="t">
+  <bpmn:signal id="Sig_1" name="Ping"/>
+  <bpmn:process id="P" isExecutable="true">
+    <bpmn:startEvent id="start"/>
+    <bpmn:subProcess id="esp" triggeredByEvent="true">
+      <bpmn:startEvent id="espStart" isInterrupting="false">
+        <bpmn:signalEventDefinition signalRef="Sig_1"/>
+      </bpmn:startEvent>
+      <bpmn:endEvent id="espEnd"/>
+      <bpmn:sequenceFlow id="ef" sourceRef="espStart" targetRef="espEnd"/>
+    </bpmn:subProcess>
+    <bpmn:endEvent id="end"/>
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="end"/>
+  </bpmn:process>
+</bpmn:definitions>`
+	wf, err := Parse(strings.NewReader(xml))
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	var espStart *model.StepDefinition
+	for i := range wf.Steps {
+		if wf.Steps[i].ID != "esp" {
+			continue
+		}
+		for j := range wf.Steps[i].SubSteps {
+			if wf.Steps[i].SubSteps[j].ID == "espStart" {
+				espStart = &wf.Steps[i].SubSteps[j]
+			}
+		}
+	}
+	if espStart == nil {
+		t.Fatal("espStart missing")
+	}
+	cancel, ok := espStart.Properties["cancel_activity"].(bool)
+	if !ok || cancel {
+		t.Fatalf("expected cancel_activity=false from isInterrupting=false, got %#v", espStart.Properties)
+	}
+	if espStart.Properties["event_definition_type"] != "signal" {
+		t.Fatalf("expected signal start, got %#v", espStart.Properties)
 	}
 }
 

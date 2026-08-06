@@ -106,6 +106,8 @@ async function runUatCase(page: Page, uatCase: UatCase, mode: UatDeployment): Pr
         await runServiceWorkerCase(page, api, uatCase, created);
         break;
       case "UAT-BPMN-009":
+        await runDeployOnlyBpmnCase(page, api, uatCase, created);
+        break;
       case "UAT-BPMN-010":
         await runExpectedRejectionCase(page, api, uatCase);
         break;

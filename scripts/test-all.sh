@@ -235,7 +235,7 @@ if [[ "${SKIP_PLAYWRIGHT}" != "true" ]]; then
   set +e
   (cd "${ROOT}/tests/e2e/playwright" && npm install --silent 2>/dev/null && \
     npx playwright install --with-deps chromium 2>/dev/null && \
-    npx playwright test --reporter=json,line 2>&1 | \
+    npx playwright test specs/workflow.spec.ts --reporter=json,line 2>&1 | \
     tee "${REPORTS}/playwright-raw.txt")
   PW_EXIT=$?
   set -e

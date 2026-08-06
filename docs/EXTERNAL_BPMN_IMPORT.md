@@ -19,9 +19,9 @@ ArtificialFlow accepts BPMN 2.0 XML with `artificialflow:` extensions. Diagrams 
 | `zeebe:assignmentDefinition candidateGroups="…"` | `artificialflow:candidateGroups="…"` | Rewrite |
 | `zeebe:calledElement processId="…"` | Call activity `calledElement` / ArtificialFlow call binding | Rewrite |
 | Legacy Modeler `assignee` / `candidateGroups` attributes | `artificialflow:assignee` / `artificialflow:candidateGroups` | Rewrite |
-| Legacy Modeler `decisionRef` on business rule task | `artificialflow:decisionRef` | Rewrite (evaluation requires DMN runtime) |
-| Send task / connector outbound | Service task + worker or HTTP connector | Rewrite / Blocked |
-| External decision-table bindings | ArtificialFlow DMN deploy | Blocked until DMN ships |
+| Legacy Modeler `decisionRef` on business rule task | `artificialflow:decisionRef` | Rewrite (DMN runtime evaluates JSON decision tables) |
+| Send task / connector outbound | External job / connector (`artificialflow:taskType`) | Supported |
+| External decision-table bindings | ArtificialFlow DMN deploy | Supported with DMN runtime (not blocked) |
 
 ## Core element outcomes
 
@@ -30,8 +30,8 @@ ArtificialFlow accepts BPMN 2.0 XML with `artificialflow:` extensions. Diagrams 
 | User / service / script tasks, exclusive/parallel/inclusive/event gateways | Supported (after extension rewrite) |
 | Timer / message boundary events | Supported |
 | Error boundary events | Supported |
-| `<sendTask>` | Remodel as service task + worker (or message throw) when not supported |
-| Business rule task with decisionRef | Rewrite metadata; runtime not evaluated until DMN |
+| `<sendTask>` | Supported (external job / connector; default type `io.artificialflow.connector.send`) |
+| Business rule task with decisionRef | Supported with DMN runtime (JSON decision tables; see [DMN.md](DMN.md)) |
 | Complex compensation | Partial — validate with tests |
 
 ## Lint tool

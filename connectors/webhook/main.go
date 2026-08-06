@@ -8,10 +8,8 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -25,7 +23,10 @@ const jobType = "io.artificialflow.connector.webhook"
 func main() {
 	baseURL := common.EnvOr("ARTIFICIALFLOW_BASE_URL", "http://localhost:9100/api")
 	token := os.Getenv("ARTIFICIALFLOW_TOKEN")
-	allowed := parseAllowlist(os.Getenv("WEBHOOK_CONNECTOR_ALLOWED_HOSTS"))
+	allowed := common.ParseAllowlist(os.Getenv("WEBHOOK_CONNECTOR_ALLOWED_HOSTS"))
+	if err := common.ValidateAllowlistRequired(allowed, "WEBHOOK_CONNECTOR_ALLOW_ANY_HOST", "WEBHOOK_CONNECTOR_ALLOWED_HOSTS"); err != nil {
+		log.Fatal(err)
+	}
 
 	client, err := worker.NewClient(worker.ClientConfig{BaseURL: baseURL, BearerToken: token})
 	if err != nil {
@@ -64,18 +65,17 @@ func executeWebhook(ctx context.Context, vars map[string]any, allowed map[string
 	if urlStr == "" {
 		return nil, fmt.Errorf("webhookUrl (or url) is required")
 	}
-	parsed, err := url.Parse(urlStr)
-	if err != nil {
+	if _, err := common.AssertURLHostAllowed(urlStr, allowed, "WEBHOOK_CONNECTOR_ALLOWED_HOSTS"); err != nil {
 		return nil, err
 	}
-	if len(allowed) > 0 {
-		if _, ok := allowed[strings.ToLower(parsed.Hostname())]; !ok {
-			return nil, fmt.Errorf("host %q not in WEBHOOK_CONNECTOR_ALLOWED_HOSTS", parsed.Hostname())
-		}
-	}
+
 	payload := vars["payload"]
 	if payload == nil {
 		payload = vars["body"]
+	}
+	payload, err := common.CoerceJSONValue(payload)
+	if err != nil {
+		return nil, err
 	}
 	var bodyReader io.Reader
 	if payload != nil {
@@ -87,6 +87,7 @@ func executeWebhook(ctx context.Context, vars map[string]any, allowed map[string
 	} else {
 		bodyReader = bytes.NewReader([]byte("{}"))
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlStr, bodyReader)
 	if err != nil {
 		return nil, err
@@ -95,26 +96,25 @@ func executeWebhook(ctx context.Context, vars map[string]any, allowed map[string
 	if token := common.StringVar(vars, "webhookToken"); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+
+	httpClient := &http.Client{
+		Timeout:       15 * time.Second,
+		CheckRedirect: common.CheckRedirectAllowlist(allowed),
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	return map[string]any{
+	ok := resp.StatusCode >= 200 && resp.StatusCode < 300
+	result := map[string]any{
 		"webhookStatus": resp.StatusCode,
 		"webhookBody":   string(raw),
-		"webhookOk":     resp.StatusCode >= 200 && resp.StatusCode < 300,
-	}, nil
-}
-
-func parseAllowlist(raw string) map[string]struct{} {
-	out := map[string]struct{}{}
-	for _, p := range strings.Split(raw, ",") {
-		p = strings.ToLower(strings.TrimSpace(p))
-		if p != "" {
-			out[p] = struct{}{}
-		}
+		"webhookOk":     ok,
 	}
-	return out
+	if !ok && common.FailOnNon2xxDefault(vars, "WEBHOOK_CONNECTOR_FAIL_ON_NON_2XX") {
+		return result, fmt.Errorf("webhook status %d (failOnNon2xx)", resp.StatusCode)
+	}
+	return result, nil
 }

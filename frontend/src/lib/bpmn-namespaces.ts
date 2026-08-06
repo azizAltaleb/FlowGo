@@ -19,6 +19,9 @@ const EXTENSION_ATTRIBUTE_NAMES = [
   "condition",
   "sourceHandle",
   "targetHandle",
+  "collection",
+  "elementVariable",
+  "calledElementVersion",
 ] as const;
 
 export type ArtificialFlowAttributeName = (typeof EXTENSION_ATTRIBUTE_NAMES)[number];

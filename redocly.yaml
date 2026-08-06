@@ -1,0 +1,10 @@
+extends:
+  - recommended
+
+rules:
+  # ArtificialFlow documents concrete local and illustrative production gateway
+  # URLs so imported collections work without rewriting the base path.
+  no-server-example.com: off
+  # Plain-text 4xx behavior is defined once in docs/API.md. Operations still
+  # declare resource-specific 4xx responses where they add contract detail.
+  operation-4xx-response: off

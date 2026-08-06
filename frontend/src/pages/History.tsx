@@ -12,7 +12,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api, type UserTask, type WorkflowInstance } from "@/lib/api";
+import { buildProcessLookup, resolveProcessRef, type ProcessRef } from "@/lib/processLookup";
 import { Eye, RefreshCw } from "lucide-react";
+import VariablesEditor from "@/components/VariablesEditor";
 
 type CompletedInstanceHistory = {
   instance: WorkflowInstance;
@@ -32,6 +34,7 @@ function actorForTask(task: UserTask): string {
 
 export default function History() {
   const [rows, setRows] = useState<CompletedInstanceHistory[]>([]);
+  const [processLookup, setProcessLookup] = useState<Map<string, ProcessRef>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +47,11 @@ export default function History() {
     }
 
     try {
-      const completed = await api.getCompletedInstanceHistory();
+      const [completed, workflows] = await Promise.all([
+        api.getCompletedInstanceHistory(),
+        api.getWorkflows().catch(() => []),
+      ]);
+      setProcessLookup(buildProcessLookup(workflows || []));
       const historyRows = await Promise.all(
         completed.map(async (instance) => {
           try {
@@ -106,10 +113,12 @@ export default function History() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Instance</TableHead>
-                <TableHead>Workflow</TableHead>
+                <TableHead>Instance ID</TableHead>
+                <TableHead>Process Name</TableHead>
+                <TableHead>Definition ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Completed At</TableHead>
+                <TableHead className="min-w-[320px]">Variables</TableHead>
                 <TableHead>Actions Taken</TableHead>
                 <TableHead className="text-right">View</TableHead>
               </TableRow>
@@ -117,19 +126,25 @@ export default function History() {
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     No completed instances found.
                   </TableCell>
                 </TableRow>
               ) : (
-                rows.map(({ instance, actions }) => (
+                rows.map(({ instance, actions }) => {
+                  const process = resolveProcessRef(processLookup, instance.workflow_id);
+                  return (
                   <TableRow key={instance.id}>
-                    <TableCell className="font-medium">{instance.id}</TableCell>
-                    <TableCell>{instance.workflow_id}</TableCell>
+                    <TableCell className="font-medium font-mono text-xs">{instance.id}</TableCell>
+                    <TableCell className="font-medium">{process.processName}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{process.definitionKey}</TableCell>
                     <TableCell>
                       <Badge variant="success">{instance.status}</Badge>
                     </TableCell>
                     <TableCell>{formatDate(instance.updated_at || instance.created_at)}</TableCell>
+                    <TableCell className="align-top">
+                      <VariablesEditor value={instance.context || {}} compact />
+                    </TableCell>
                     <TableCell>
                       {actions.length === 0 ? (
                         <span className="text-sm text-muted-foreground">No recorded user task actions</span>
@@ -163,7 +178,8 @@ export default function History() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

@@ -135,11 +135,13 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 	r.Handle("/instances/{id}/tasks/{executionId}/claim", adminOnly(h.claimUserTask)).Methods("POST")
 	r.Handle("/instances/{id}/tasks/{executionId}/complete", adminOnly(h.completeUserTask)).Methods("POST")
 	r.Handle("/instances/{id}/jobs", adminOnly(h.listInstanceJobs)).Methods("GET")
+	r.Handle("/incidents", adminOnly(h.listIncidents)).Methods("GET")
 	r.Handle("/jobs/{key}/retry", adminOnly(h.retryJob)).Methods("POST")
 	r.Handle("/instances/{id}", scopedInstanceRead(h.getInstance)).Methods("GET")
 	r.Handle("/instances/{id}", adminOnly(h.deleteInstance)).Methods("DELETE")
 	r.Handle("/signals", adminOrClient(h.publishSignal)).Methods("POST")
 	r.Handle("/messages", adminOrClient(h.publishMessage)).Methods("POST")
+	r.Handle("/escalations", adminOrClient(h.publishEscalation)).Methods("POST")
 	r.Handle("/jobs/activate", adminOrClient(h.activateJobs)).Methods("POST")
 	r.Handle("/jobs/capabilities", adminOrClient(h.jobsCapabilities)).Methods("GET")
 	r.Handle("/jobs/{key}/complete", adminOrClient(h.completeJob)).Methods("POST")
@@ -436,6 +438,65 @@ func (h *Handler) listInstanceJobs(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"jobs": jobs})
 }
 
+// @Summary List incidents
+// @Description List engine incidents (including SLA due-date breaches)
+// @Tags incidents
+// @Produce json
+// @Param processInstanceKey query string false "Filter by process instance key"
+// @Param limit query int false "Max rows (default 100)"
+// @Success 200 {object} map[string]any
+// @Router /incidents [get]
+func (h *Handler) listIncidents(w http.ResponseWriter, r *http.Request) {
+	ctx := logger.ContextFromRequest(r)
+	var processInstanceKey int64
+	if raw := strings.TrimSpace(r.URL.Query().Get("processInstanceKey")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid processInstanceKey", http.StatusBadRequest)
+			return
+		}
+		processInstanceKey = parsed
+	}
+	limit := 100
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 {
+			http.Error(w, "invalid limit", http.StatusBadRequest)
+			return
+		}
+		limit = parsed
+	}
+	incidents, err := h.engine.ListIncidents(ctx, processInstanceKey, limit)
+	if err != nil {
+		h.log.Error(ctx, "failed to list incidents", map[string]any{"error": err.Error()})
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	resp := make([]dto.IncidentResponse, 0, len(incidents))
+	for _, inc := range incidents {
+		item := dto.IncidentResponse{
+			Key:                strconv.FormatInt(inc.Key, 10),
+			ID:                 inc.ID,
+			ProcessInstanceKey: strconv.FormatInt(inc.ProcessInstanceKey, 10),
+			ElementInstanceKey: strconv.FormatInt(inc.ElementInstanceKey, 10),
+			ErrorType:          inc.ErrorType,
+			ErrorMessage:       inc.ErrorMessage,
+			State:              inc.State,
+			CreatedAt:          inc.CreatedAt,
+		}
+		if inc.JobKey != 0 {
+			item.JobKey = strconv.FormatInt(inc.JobKey, 10)
+		}
+		if !inc.ResolvedAt.IsZero() {
+			resolved := inc.ResolvedAt
+			item.ResolvedAt = &resolved
+		}
+		resp = append(resp, item)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"incidents": resp})
+}
+
 func (h *Handler) retryJob(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	jobKey, err := strconv.ParseInt(vars["key"], 10, 64)
@@ -694,7 +755,6 @@ func actingPrincipalFromRequest(r *http.Request) (auth.Principal, error) {
 		Claims:  claims,
 	}, nil
 }
-
 
 func principalIdentifiers(principal auth.Principal) []string {
 	values := []string{principal.Subject, principal.Email, principal.Name}
@@ -1513,4 +1573,47 @@ func (h *Handler) publishMessage(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Message published"))
+}
+
+// @Summary Publish an escalation
+// @Description Publish an escalation to trigger catch/boundary events and escalation start / event sub-processes
+// @Tags escalations
+// @Accept json
+// @Produce json
+// @Param request body dto.PublishEscalationRequest true "Publish Escalation Request"
+// @Success 200 {string} string "Escalation published"
+// @Failure 400 {string} string "Bad Request"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /escalations [post]
+func (h *Handler) publishEscalation(w http.ResponseWriter, r *http.Request) {
+	ctx := logger.ContextFromRequest(r)
+
+	var req dto.PublishEscalationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.log.Error(ctx, "failed to decode escalation request", map[string]any{"error": err.Error()})
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.EscalationCode) == "" {
+		http.Error(w, "escalation_code is required", http.StatusBadRequest)
+		return
+	}
+
+	h.log.Info(ctx, "publishing escalation", map[string]any{
+		"escalation_code": req.EscalationCode,
+	})
+
+	if err := h.engine.PublishEscalation(ctx, req.EscalationCode, req.Payload); err != nil {
+		h.log.Error(ctx, "failed to publish escalation", map[string]any{
+			"escalation_code": req.EscalationCode,
+			"error":           err.Error(),
+		})
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.log.Info(ctx, "escalation published", map[string]any{"escalation_code": req.EscalationCode})
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Escalation published"))
 }

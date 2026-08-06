@@ -1,6 +1,6 @@
 # Stability Policy
 
-ArtificialFlow is approaching a `1.0.0` compatibility freeze for the surfaces listed below.
+ArtificialFlow `1.x` maintains the compatibility surfaces listed below.
 
 ## Versioning
 
@@ -27,9 +27,9 @@ Compatibility-sensitive surfaces include:
 
 RC freeze tip is tagged `v1.0.0-rc.1` on `main` after the 1.0.0-rc.1 version-pin commit (2026-07-29). Compatibility surfaces above are frozen for the RC → GA window; only security and RC-blocking defects land without a new RC tag.
 
-## 1.0 Contract Policy
+## 1.x Contract Policy
 
-Once `1.0.0` is tagged:
+For `1.0.0` and later `1.x` releases:
 
 - Additive changes are preferred on all compatibility surfaces.
 - Removals or meaning changes require: replacement behavior, migration notes, and at least one minor release of deprecation overlap.

@@ -9,14 +9,15 @@ import { authHeaders } from "../lib/auth.js";
 
 const COMMAND_BASE = __ENV.COMMAND_URL || "http://localhost:8080";
 const QUERY_BASE = __ENV.QUERY_URL || "http://localhost:8081";
-const WORKFLOW_ID = __ENV.WORKFLOW_ID || "";
+const CONFIGURED_WORKFLOW_ID = __ENV.WORKFLOW_ID || "";
 const MAX_WAIT_MS = Number(__ENV.CQRS_LAG_MAX_WAIT_MS || 15000);
 const POLL_MS = Number(__ENV.CQRS_LAG_POLL_MS || 500);
 
 const cqrsLagMs = new Trend("cqrs_lag_ms", true);
 
-export function cqrsLag() {
-  if (!WORKFLOW_ID) {
+export function cqrsLag(data) {
+  const workflowId = (data && data.workflowId) || CONFIGURED_WORKFLOW_ID;
+  if (!workflowId) {
     check(null, { "WORKFLOW_ID provided": () => false });
     return;
   }
@@ -25,7 +26,7 @@ export function cqrsLag() {
   const startRes = http.post(
     `${COMMAND_BASE}/instances`,
     JSON.stringify({
-      workflow_id: WORKFLOW_ID,
+      workflow_id: workflowId,
       context: { k6: true, startedAt: start },
     }),
     { headers: authHeaders({ "Content-Type": "application/json" }), tags: { name: "start_instance" } },

@@ -29,6 +29,7 @@ import {
     ListOptions,
     ListUserTasksOptions,
     ListWorkflowsOptions,
+    PublishEscalationRequest,
     PublishMessageRequest,
     PublishSignalRequest,
     RequestOptions,
@@ -275,6 +276,20 @@ export class ArtificialFlowClient {
             : messageNameOrRequest;
         const options = typeof messageNameOrRequest === 'string' ? maybeOptions : correlationKeyOrOptions as RequestOptions;
         await this.request<void>('POST', '/messages', { ...request, payload: request.payload || {} }, options);
+    }
+
+    public async publishEscalation(escalationCode: string, payload?: Record<string, unknown>, options?: RequestOptions): Promise<void>;
+    public async publishEscalation(request: PublishEscalationRequest, options?: RequestOptions): Promise<void>;
+    public async publishEscalation(
+        escalationCodeOrRequest: string | PublishEscalationRequest,
+        payloadOrOptions: Record<string, unknown> | RequestOptions = {},
+        maybeOptions: RequestOptions = {},
+    ): Promise<void> {
+        const request = typeof escalationCodeOrRequest === 'string'
+            ? { escalation_code: escalationCodeOrRequest, payload: payloadOrOptions as Record<string, unknown> }
+            : escalationCodeOrRequest;
+        const options = typeof escalationCodeOrRequest === 'string' ? maybeOptions : payloadOrOptions as RequestOptions;
+        await this.request<void>('POST', '/escalations', { ...request, payload: request.payload || {} }, options);
     }
 
     public async activateJobs(request: ActivateJobsRequest, options?: RequestOptions): Promise<ActivateJobsResponse> {

@@ -265,6 +265,11 @@ func (e *Engine) ListInstanceJobs(ctx context.Context, instanceID string) ([]mod
 	return e.repo.ListJobsByProcessInstanceAndType(ctx, instanceKey, "")
 }
 
+// ListIncidents returns engine incidents, optionally filtered by process instance key.
+func (e *Engine) ListIncidents(ctx context.Context, processInstanceKey int64, limit int) ([]model.Incident, error) {
+	return e.repo.ListIncidents(ctx, processInstanceKey, limit)
+}
+
 // RetryJob resets a failed or unlocked job so workers can pick it up again (ops/admin).
 func (e *Engine) RetryJob(ctx context.Context, jobKey int64, retries int) error {
 	if retries <= 0 {

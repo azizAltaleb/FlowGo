@@ -17,7 +17,7 @@ ENV VITE_OIDC_CLIENT_ID=$VITE_OIDC_CLIENT_ID
 
 RUN npm run build
 
-FROM nginx:1.30-alpine
+FROM nginx:1.31-alpine
 
 ARG VERSION=dev
 ARG REVISION=unknown

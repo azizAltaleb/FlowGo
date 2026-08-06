@@ -67,6 +67,85 @@ The command database is the source of truth. Search-backed query views are
 eventually consistent. Read the detailed [architecture guide](docs/architecture.md)
 and [CQRS runbook](docs/RUNBOOK_CQRS_SYNC.md).
 
+## Quickstart (bundled / internal IAM)
+
+Fastest path to a running ArtificialFlow stack: **bundled ZITADEL** (internal IAM).
+ArtificialFlow bootstraps the ZITADEL project, frontend and API clients, standard
+roles, and the local administrator. Use this for local evaluation; for an
+existing corporate IdP see [Option 2: external IAM](#option-2-external-iam).
+
+### Compose files
+
+| File | Role |
+| :--- | :--- |
+| [`docker-compose.zitadel.yml`](docker-compose.zitadel.yml) | Full stack with bundled ZITADEL (Postgres, Kafka, Elasticsearch, Debezium, gateway, app services) |
+| [`docker-compose.release.yml`](docker-compose.release.yml) | Override: pull published `artificialflow/*` images instead of building from source |
+| [`docker-compose.external-iam.yml`](docker-compose.external-iam.yml) | Alternate stack when you bring your own OIDC provider (not this quickstart) |
+| [`docker-compose.yml`](docker-compose.yml) | Base Compose fragment used by validation / legacy wiring checks |
+
+IAM details for this mode: [Bundled ZITADEL](docs/iam.md#bundled-zitadel).
+Longer walkthrough: [Getting started](docs/getting-started.md).
+
+### Start from source (build locally)
+
+```bash
+git clone https://github.com/artificialflow/artificialflow.git
+cd artificialflow
+make up-zitadel
+```
+
+Equivalent Compose invocation:
+
+```bash
+docker compose -f docker-compose.zitadel.yml up -d --build
+```
+
+### Start from published images
+
+```bash
+git clone --depth 1 --branch v1.1.0 https://github.com/artificialflow/artificialflow.git
+cd artificialflow
+export ARTIFICIALFLOW_IMAGE_TAG=v1.1.0
+make up-zitadel-release
+```
+
+Equivalent Compose invocation:
+
+```bash
+docker compose \
+  -f docker-compose.zitadel.yml \
+  -f docker-compose.release.yml \
+  up -d
+```
+
+### Open and sign in
+
+| Surface | URL |
+| :--- | :--- |
+| ArtificialFlow UI / gateway | <http://localhost:9100> |
+| Command API | <http://localhost:9100/api> |
+| Query API | <http://localhost:9100/api/query> |
+| Bundled ZITADEL | <http://localhost:9180> |
+
+Local administrator (development only):
+
+- Username: `admin`
+- Password: `admin`
+- Email: `admin@admin.localhost`
+
+### Verify
+
+```bash
+curl -fsS http://localhost:9100/api/health
+curl -fsS http://localhost:9100/api/query/health
+```
+
+Next steps:
+
+- Create a machine client under **SDK Clients**, then call the [HTTP API](docs/API.md)
+  or the [Node.js SDK](docs/sdk-nodejs.md).
+- Stop: `make down-zitadel` · wipe volumes: `make clean-zitadel`.
+
 ## Run the released solution from Docker Hub
 
 The release Compose override removes local image builds and uses the published
@@ -82,7 +161,7 @@ For one transition release, the matching `azizaltaleb/*` references point to
 the exact same manifest digests. New deployments should use the canonical
 namespace.
 
-The commands below pin release `v1.0.0`. Review available tags and image
+The commands below pin release `v1.1.0`. Review available tags and image
 verification guidance in [Docker images](docs/DOCKER_IMAGES.md).
 
 ### Prerequisites
@@ -96,9 +175,9 @@ verification guidance in [Docker images](docs/DOCKER_IMAGES.md).
 Obtain the matching deployment files:
 
 ```bash
-git clone --depth 1 --branch v1.0.0 https://github.com/artificialflow/artificialflow.git
+git clone --depth 1 --branch v1.1.0 https://github.com/artificialflow/artificialflow.git
 cd artificialflow
-export ARTIFICIALFLOW_IMAGE_TAG=v1.0.0
+export ARTIFICIALFLOW_IMAGE_TAG=v1.1.0
 ```
 
 This checkout supplies the Compose and configuration files. The release
@@ -125,7 +204,7 @@ docker compose \
 Equivalent shortcut:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=v1.0.0 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_TAG=v1.1.0 make up-zitadel-release
 ```
 
 Open:
@@ -182,7 +261,7 @@ docker compose \
 Equivalent shortcut:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=v1.0.0 make up-external-iam-release
+ARTIFICIALFLOW_IMAGE_TAG=v1.1.0 make up-external-iam-release
 ```
 
 ArtificialFlow validates and authorizes external identities but does not create or
@@ -291,13 +370,21 @@ human-task inbox integration, rotation, and smoke testing.
 ## APIs and documentation
 
 - ArtificialFlow UI and gateway: <http://localhost:9100>
-- Command API: <http://localhost:8080>
-- Query API: <http://localhost:8081>
-- OpenAPI/Swagger document: <http://localhost:8080/swagger/doc.json>
+- Command API (via gateway): <http://localhost:9100/api>
+- Query API (via gateway): <http://localhost:9100/api/query>
+- Direct command/query (dev only): <http://localhost:8080> / <http://localhost:8081>
+
+**Integrating without the Node.js SDK?** Use the [HTTP API guide](docs/API.md)
+for auth, roles, command/query/worker/inbox contracts, curl examples, and
+when to prefer REST over an SDK. Import the checked-in
+[OpenAPI contract](docs/openapi.yaml) into Swagger Editor, Redocly, Postman,
+Insomnia, Bruno, or OpenAPI Generator.
 
 Operator and user guides:
 
 - [Getting started](docs/getting-started.md)
+- [HTTP API (non-SDK integration)](docs/API.md)
+- [OpenAPI 3 contract](docs/openapi.yaml)
 - [Screenshot capture checklist](docs/SCREENSHOTS.md) (README UI refresh for #34)
 - [BPMN support matrix](docs/BPMN_SUPPORT_MATRIX.md)
 - [v0.4 → 1.0 release train](docs/RELEASE_TRAIN_v0.4.md)
@@ -305,7 +392,7 @@ Operator and user guides:
 - [Architecture](docs/architecture.md)
 - [IAM](docs/iam.md)
 - [Node.js SDK](docs/sdk-nodejs.md)
-- [BPMN support](docs/BPMN_SUPPORT_MATRIX.md)
+- [Worker API](docs/worker-api.md)
 - [Compatibility matrix](docs/COMPATIBILITY_MATRIX.md)
 - [Operations](docs/operations.md)
 - [Troubleshooting](docs/troubleshooting.md)

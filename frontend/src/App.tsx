@@ -19,6 +19,10 @@ const ArtificialFlowClients = lazy(() => import("@/pages/ArtificialFlowClients")
 const SHOW_DECISIONS_UI = false;
 const Decisions = SHOW_DECISIONS_UI ? lazy(() => import("@/pages/Decisions")) : null;
 
+// Incidents UI is implemented but hidden in the frontend; API remains available.
+const SHOW_INCIDENTS_UI = false;
+const Incidents = SHOW_INCIDENTS_UI ? lazy(() => import("@/pages/Incidents")) : null;
+
 type AppProps = {
   authDisabled?: boolean;
 };
@@ -49,6 +53,9 @@ function AppRoutes({ onLogout }: AppRoutesProps) {
             ) : null}
             <Route path="instances" element={<Instances />} />
             <Route path="instances/:id" element={<InstanceDetails />} />
+            {SHOW_INCIDENTS_UI && Incidents ? (
+              <Route path="incidents" element={<Incidents />} />
+            ) : null}
             <Route path="history" element={<History />} />
             <Route path="inbox" element={<TaskInbox />} />
             <Route path="identity" element={<IdentityManagement />} />
@@ -67,17 +74,54 @@ function AuthenticatedApp() {
   useLayoutEffect(() => {
     if (auth.isAuthenticated && accessToken) {
       setAccessToken(accessToken);
-    } else {
+      return;
+    }
+    // Keep the previous bearer during loading / silent renew so in-flight API
+    // calls are not suddenly unauthenticated.
+    if (!auth.isLoading && !auth.isAuthenticated) {
       setAccessToken(null);
     }
-  }, [auth.isAuthenticated, accessToken]);
+  }, [auth.isAuthenticated, auth.isLoading, accessToken]);
 
   if (auth.isLoading) {
     return <LoadingScreen />;
   }
 
+  // Prefer an active session over a transient renew/error state. Showing a hard
+  // "Oops" page used to force users through refresh → login.
+  if (auth.isAuthenticated && accessToken) {
+    if (auth.error) {
+      console.warn("OIDC warning (session kept):", auth.error.message);
+    }
+
+    const logout = () => {
+      setAccessToken(null);
+      void auth.signoutRedirect({
+        post_logout_redirect_uri: window.location.origin,
+      });
+    };
+
+    return <AppRoutes onLogout={logout} />;
+  }
+
   if (auth.error) {
-    return <div>Oops... {auth.error.message}</div>;
+    return (
+      <div className="flex h-screen items-center justify-center bg-muted/50 p-6">
+        <div className="max-w-md space-y-4 text-center">
+          <h1 className="text-2xl font-bold">ArtificialFlow</h1>
+          <p className="text-sm text-muted-foreground">
+            Your session could not be renewed. Sign in again to continue.
+          </p>
+          <p className="text-xs text-muted-foreground break-words">{auth.error.message}</p>
+          <button
+            onClick={() => void auth.signinRedirect()}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+          >
+            Sign in again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!auth.isAuthenticated) {
@@ -97,18 +141,7 @@ function AuthenticatedApp() {
     );
   }
 
-  if (!accessToken) {
-    return <LoadingScreen />;
-  }
-
-  const logout = () => {
-    setAccessToken(null);
-    void auth.signoutRedirect({
-      post_logout_redirect_uri: window.location.origin,
-    });
-  };
-
-  return <AppRoutes onLogout={logout} />;
+  return <LoadingScreen />;
 }
 
 function AuthDisabledApp() {

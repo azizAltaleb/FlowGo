@@ -29,6 +29,8 @@ done < <(git ls-files 'scripts/*.sh' 'scripts/**/*.sh')
 
 run actionlint -color=false
 run node --test scripts/bootstrap_zitadel.test.mjs
+run bash scripts/cqrs_parity_check.test.sh
+run bash scripts/validate_gateway_cors.sh
 run bash scripts/test_persistent_migrations.sh
 
 run go test ./backend/api/v1/go -run 'TestCanonicalJobWorkerServicePath|TestProtobufNamespaceAndWireEncoding' -count=1

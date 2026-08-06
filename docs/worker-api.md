@@ -1,10 +1,14 @@
 # Worker API
 
-Workers use the command service job APIs to activate, complete, fail, and extend locks for external jobs.
+Workers use the command service job APIs to activate, complete, fail, and extend
+locks for external jobs.
+
+For the full HTTP contract (headers, request/response JSON, idempotency rules,
+and a language-agnostic worker loop), see **[API.md — Worker / jobs API](API.md#worker--jobs-api)**.
 
 ## Compatibility
 
-- Protocol negotiation request header: `X-Workflow-Worker-Protocol-Version`.
+- Protocol negotiation request header: `X-Workflow-Worker-Protocol-Version` (`v1`).
 - Protocol negotiation response header: `X-Workflow-Engine-Protocol-Version`.
 - Capabilities endpoint: `GET /jobs/capabilities`.
 
@@ -12,11 +16,21 @@ Workers use the command service job APIs to activate, complete, fail, and extend
 
 Mutation calls should include an `Idempotency-Key` header:
 
-- Complete job.
-- Fail job.
-- Extend lock.
+- Complete job (`POST /jobs/{key}/complete`).
+- Fail job (`POST /jobs/{key}/fail`).
+- Extend lock (`POST /jobs/{key}/extend-lock`).
 
-Retries with the same key should be replay-safe when the original request was accepted.
+Retries with the same key should be replay-safe when the original request was
+accepted. Scope is operation + job key (for example `jobs.complete:{jobKey}`).
+
+## Official clients
+
+| Language | Client |
+| :--- | :--- |
+| Any (raw HTTP) | [API.md](API.md#worker--jobs-api) |
+| Node.js | [`@artificialflow/nodejs-sdk`](sdk-nodejs.md) `createWorker` |
+| Go | [`backend/libs/worker`](../backend/libs/worker/README.md) |
+| Python | [`clients/python-sdk`](../clients/python-sdk/README.md) |
 
 ## Conformance
 
@@ -26,4 +40,5 @@ Run:
 make worker-conformance
 ```
 
-The Node.js SDK should preserve wire compatibility with this API.
+Wire changes to `/jobs/*` must keep this suite green. See
+[WORKER_CONFORMANCE.md](WORKER_CONFORMANCE.md).

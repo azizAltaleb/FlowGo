@@ -1,0 +1,1463 @@
+openapi: 3.0.3
+info:
+  title: ArtificialFlow HTTP API
+  version: 1.1.0
+  description: |
+    Supported HTTP contract for ArtificialFlow command, query, worker, inbox,
+    and bundled-IAM integrations. The gateway `/api` URL is the public base.
+    Query operations under `/query` are eventually consistent.
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+  contact:
+    name: ArtificialFlow
+    url: https://github.com/artificialflow/artificialflow
+servers:
+  - url: http://localhost:9100/api
+    description: Local Compose gateway
+  - url: https://app.example.com/api
+    description: Production gateway example
+tags:
+  - name: Identity
+    description: Principal inspection and deployment IAM metadata
+  - name: Workflows
+    description: BPMN process-definition deployment and management
+  - name: Decisions
+    description: JSON decision-table deployment and evaluation
+  - name: Instances
+    description: Authoritative workflow-instance commands and reads
+  - name: Events
+    description: BPMN message, signal, and escalation publication
+  - name: Jobs
+    description: External worker activation, locking, completion, and failure
+  - name: Inbox
+    description: Human-task BFF and acting-user operations
+  - name: Query
+    description: Eventually consistent projected search operations
+  - name: Operations
+    description: Health, incidents, retries, and engine counters
+  - name: IAM administration
+    description: Bundled-ZITADEL administration for trusted admin automation
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      tags: [Operations]
+      summary: Check command service health
+      operationId: commandHealth
+      security: []
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /identity/me:
+    get:
+      tags: [Identity]
+      summary: Inspect the authenticated principal
+      operationId: getIdentity
+      responses:
+        "200":
+          description: Authentication state and principal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /identity/config:
+    get:
+      tags: [Identity]
+      summary: Read non-secret IAM deployment configuration
+      operationId: getIdentityConfig
+      responses:
+        "200":
+          description: IAM mode, issuers, claim paths, and standard roles
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /workflows:
+    get:
+      tags: [Workflows]
+      summary: List authoritative workflow definitions
+      operationId: listWorkflows
+      responses:
+        "200":
+          description: Workflow definitions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkflowDefinition"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Workflows]
+      summary: Deploy a BPMN 2.0 workflow
+      operationId: deployWorkflow
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: string
+              format: binary
+          text/xml:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Deployed definition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDefinition"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          description: BPMN exceeds the 20 MiB request limit
+  /workflows/{id}:
+    parameters:
+      - $ref: "#/components/parameters/WorkflowId"
+    get:
+      tags: [Workflows]
+      summary: Get a workflow definition by key or BPMN process id
+      operationId: getWorkflow
+      responses:
+        "200":
+          description: Workflow definition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDefinition"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Workflows]
+      summary: Delete a workflow definition
+      operationId: deleteWorkflow
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /decisions:
+    get:
+      tags: [Decisions]
+      summary: List deployed decisions
+      operationId: listDecisions
+      responses:
+        "200":
+          description: Decisions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  decisions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Decision"
+    post:
+      tags: [Decisions]
+      summary: Deploy a JSON decision table
+      operationId: deployDecision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeployDecisionRequest"
+      responses:
+        "200":
+          description: Deployed decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Decision"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /decisions/{id}/evaluate:
+    post:
+      tags: [Decisions]
+      summary: Evaluate the latest version of a decision
+      operationId: evaluateDecision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inputs]
+              properties:
+                inputs:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Decision outputs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outputs:
+                    type: object
+                    additionalProperties: true
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /instances:
+    get:
+      tags: [Instances]
+      summary: List active instances from the command store
+      operationId: listInstances
+      responses:
+        "200":
+          description: Active instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkflowInstance"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Instances]
+      summary: Start a workflow instance
+      operationId: startInstance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartInstanceRequest"
+      responses:
+        "200":
+          description: Started instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowInstance"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /instances/history/completed:
+    get:
+      tags: [Instances]
+      summary: List completed instance history
+      operationId: listCompletedInstances
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Completed instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkflowInstance"
+  /instances/{id}:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      tags: [Instances]
+      summary: Get authoritative instance details
+      operationId: getInstance
+      responses:
+        "200":
+          description: Instance, executions, and task metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowInstance"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Instances]
+      summary: Cancel and delete an instance
+      operationId: deleteInstance
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /instances/{id}/variables:
+    post:
+      tags: [Instances]
+      summary: Merge variables into an instance
+      operationId: updateInstanceVariables
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [variables]
+              properties:
+                variables:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Updated instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowInstance"
+  /instances/{id}/complete:
+    post:
+      tags: [Instances]
+      summary: Complete an instance step by BPMN step id
+      operationId: completeInstanceStep
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [step_id]
+              properties:
+                step_id:
+                  type: string
+      responses:
+        "200":
+          description: Step completed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /instances/{id}/tasks:
+    get:
+      tags: [Instances]
+      summary: List user tasks for an instance
+      operationId: listInstanceTasks
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IncludeCompleted"
+      responses:
+        "200":
+          description: User tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserTaskList"
+  /instances/{id}/tasks/{executionId}/claim:
+    post:
+      tags: [Instances]
+      summary: Administratively claim a user task
+      operationId: adminClaimTask
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/ExecutionId"
+      responses:
+        "200":
+          description: Claimed task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserTask"
+  /instances/{id}/tasks/{executionId}/complete:
+    post:
+      tags: [Instances]
+      summary: Administratively complete a user task
+      operationId: adminCompleteTask
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/ExecutionId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                variables:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Completed task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserTask"
+  /instances/{id}/jobs:
+    get:
+      tags: [Jobs]
+      summary: List jobs belonging to an instance
+      operationId: listInstanceJobs
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+  /signals:
+    post:
+      tags: [Events]
+      summary: Publish a BPMN signal
+      operationId: publishSignal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignalRequest"
+      responses:
+        "200":
+          description: Published
+  /messages:
+    post:
+      tags: [Events]
+      summary: Correlate and publish a BPMN message
+      operationId: publishMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageRequest"
+      responses:
+        "200":
+          description: Published
+  /escalations:
+    post:
+      tags: [Events]
+      summary: Publish a BPMN escalation
+      operationId: publishEscalation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EscalationRequest"
+      responses:
+        "200":
+          description: Published
+  /jobs/capabilities:
+    get:
+      tags: [Jobs]
+      summary: Read worker protocol capabilities
+      operationId: getJobCapabilities
+      parameters:
+        - $ref: "#/components/parameters/WorkerProtocol"
+      responses:
+        "200":
+          description: Supported protocol and operations
+          headers:
+            X-Workflow-Engine-Protocol-Version:
+              schema:
+                type: string
+                example: v1
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCapabilities"
+  /jobs/activate:
+    post:
+      tags: [Jobs]
+      summary: Activate and lock available jobs
+      operationId: activateJobs
+      parameters:
+        - $ref: "#/components/parameters/WorkerProtocol"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivateJobsRequest"
+      responses:
+        "200":
+          description: Activated jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs]
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Job"
+  /jobs/{key}/complete:
+    post:
+      tags: [Jobs]
+      summary: Complete an activated job
+      operationId: completeJob
+      parameters:
+        - $ref: "#/components/parameters/JobKey"
+        - $ref: "#/components/parameters/WorkerProtocol"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteJobRequest"
+      responses:
+        "200":
+          description: Completed or safely replayed
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /jobs/{key}/fail:
+    post:
+      tags: [Jobs]
+      summary: Fail an activated job
+      operationId: failJob
+      parameters:
+        - $ref: "#/components/parameters/JobKey"
+        - $ref: "#/components/parameters/WorkerProtocol"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailJobRequest"
+      responses:
+        "200":
+          description: Failed or safely replayed
+  /jobs/{key}/extend-lock:
+    post:
+      tags: [Jobs]
+      summary: Extend an activated job lock
+      operationId: extendJobLock
+      parameters:
+        - $ref: "#/components/parameters/JobKey"
+        - $ref: "#/components/parameters/WorkerProtocol"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtendJobLockRequest"
+      responses:
+        "200":
+          description: Lock extended or safely replayed
+  /jobs/{key}/retry:
+    post:
+      tags: [Jobs]
+      summary: Administratively retry a failed job
+      operationId: retryJob
+      parameters:
+        - $ref: "#/components/parameters/JobKey"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                retries:
+                  type: integer
+                  minimum: 0
+      responses:
+        "200":
+          description: Job scheduled for retry
+  /incidents:
+    get:
+      tags: [Operations]
+      summary: List incidents
+      operationId: listIncidents
+      parameters:
+        - name: processInstanceKey
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Incident"
+  /internal/metrics:
+    get:
+      tags: [Operations]
+      summary: Read engine operational counters
+      operationId: getEngineMetrics
+      responses:
+        "200":
+          description: Outbox and idempotency metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /inbox:
+    get:
+      tags: [Inbox]
+      summary: List active instances visible to the acting user
+      operationId: listInbox
+      parameters:
+        - $ref: "#/components/parameters/ActingSubject"
+        - $ref: "#/components/parameters/ActingUsername"
+        - $ref: "#/components/parameters/ActingEmail"
+        - $ref: "#/components/parameters/ActingName"
+        - $ref: "#/components/parameters/ActingRoles"
+      responses:
+        "200":
+          description: Visible instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkflowInstance"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /inbox/history:
+    get:
+      tags: [Inbox]
+      summary: List completed history visible to the acting user
+      operationId: listInboxHistory
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/ActingSubject"
+        - $ref: "#/components/parameters/ActingUsername"
+        - $ref: "#/components/parameters/ActingEmail"
+        - $ref: "#/components/parameters/ActingRoles"
+      responses:
+        "200":
+          description: Completed instances
+  /inbox/instances/{id}:
+    get:
+      tags: [Inbox]
+      summary: Get an inbox instance and task metadata
+      operationId: getInboxInstance
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IncludeCompleted"
+        - $ref: "#/components/parameters/ActingSubject"
+        - $ref: "#/components/parameters/ActingUsername"
+        - $ref: "#/components/parameters/ActingEmail"
+        - $ref: "#/components/parameters/ActingRoles"
+      responses:
+        "200":
+          description: Inbox instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowInstance"
+  /inbox/instances/{id}/tasks:
+    get:
+      tags: [Inbox]
+      summary: List inbox tasks for an instance
+      operationId: listInboxTasks
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/IncludeCompleted"
+        - $ref: "#/components/parameters/ActingSubject"
+        - $ref: "#/components/parameters/ActingUsername"
+        - $ref: "#/components/parameters/ActingEmail"
+        - $ref: "#/components/parameters/ActingRoles"
+      responses:
+        "200":
+          description: Tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserTaskList"
+  /inbox/instances/{id}/tasks/{executionId}/claim:
+    post:
+      tags: [Inbox]
+      summary: Claim a task as the acting user
+      operationId: claimInboxTask
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/ExecutionId"
+        - $ref: "#/components/parameters/ActingSubject"
+        - $ref: "#/components/parameters/ActingUsername"
+        - $ref: "#/components/parameters/ActingEmail"
+        - $ref: "#/components/parameters/ActingRoles"
+      responses:
+        "200":
+          description: Claimed task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /inbox/instances/{id}/tasks/{executionId}/complete:
+    post:
+      tags: [Inbox]
+      summary: Complete a claimed task as the acting user
+      operationId: completeInboxTask
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+        - $ref: "#/components/parameters/ExecutionId"
+        - $ref: "#/components/parameters/ActingSubject"
+        - $ref: "#/components/parameters/ActingUsername"
+        - $ref: "#/components/parameters/ActingEmail"
+        - $ref: "#/components/parameters/ActingRoles"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                variables:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Completed task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserTask"
+  /query/health:
+    get:
+      tags: [Query]
+      summary: Check query service health
+      operationId: queryHealth
+      security: []
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /query/identity/me:
+    get:
+      tags: [Query, Identity]
+      summary: Inspect the query-service principal
+      operationId: getQueryIdentity
+      responses:
+        "200":
+          description: Authentication state and principal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityResponse"
+  /query/instances:
+    get:
+      tags: [Query]
+      summary: Search projected workflow instances
+      description: Results are eventually consistent with command writes.
+      operationId: searchInstances
+      parameters:
+        - name: workflowId
+          in: query
+          schema:
+            type: string
+          description: Numeric process-definition key
+        - name: state
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Projected instances
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectedInstancePage"
+  /query/instances/{id}:
+    get:
+      tags: [Query]
+      summary: Get a projected instance
+      operationId: getProjectedInstance
+      parameters:
+        - $ref: "#/components/parameters/InstanceId"
+      responses:
+        "200":
+          description: Projected instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowInstance"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /query/workflows:
+    get:
+      tags: [Query]
+      summary: Search projected workflow definitions
+      operationId: searchWorkflows
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Projected workflows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectedWorkflowPage"
+  /identity/management/clients:
+    get:
+      tags: [IAM administration]
+      summary: List bundled-IAM machine clients
+      operationId: listIamClients
+      responses:
+        "200":
+          description: Machine clients
+    post:
+      tags: [IAM administration]
+      summary: Create a bundled-IAM machine client
+      operationId: createIamClient
+      responses:
+        "200":
+          description: Client and one-time credential/profile
+  /identity/management/clients/{id}:
+    delete:
+      tags: [IAM administration]
+      summary: Delete a bundled-IAM machine client
+      operationId: deleteIamClient
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: Deleted
+  /identity/management/clients/{id}/tokens:
+    post:
+      tags: [IAM administration]
+      summary: Rotate or create a client token
+      operationId: rotateIamClientToken
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: One-time token response
+  /identity/management/clients/{id}/tokens/{tokenId}:
+    delete:
+      tags: [IAM administration]
+      summary: Revoke a client token
+      operationId: revokeIamClientToken
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Revoked
+  /identity/management/clients/{id}/keys:
+    post:
+      tags: [IAM administration]
+      summary: Add a JWT Profile public key
+      operationId: addIamClientKey
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Added key
+  /identity/management/clients/{id}/keys/{keyId}:
+    delete:
+      tags: [IAM administration]
+      summary: Revoke a JWT Profile public key
+      operationId: revokeIamClientKey
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Revoked
+  /identity/management/users:
+    get:
+      tags: [IAM administration]
+      summary: List bundled-IAM users
+      operationId: listIamUsers
+      responses:
+        "200":
+          description: Users
+    post:
+      tags: [IAM administration]
+      summary: Create a bundled-IAM user
+      operationId: createIamUser
+      responses:
+        "200":
+          description: Created user
+  /identity/management/users/{id}:
+    put:
+      tags: [IAM administration]
+      summary: Update a bundled-IAM user
+      operationId: updateIamUser
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Updated user
+    delete:
+      tags: [IAM administration]
+      summary: Delete a bundled-IAM user
+      operationId: deleteIamUser
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: Deleted
+  /identity/management/users/{id}/terminate:
+    post:
+      tags: [IAM administration]
+      summary: Terminate a bundled-IAM user
+      operationId: terminateIamUser
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Terminated
+  /identity/management/users/{id}/reactivate:
+    post:
+      tags: [IAM administration]
+      summary: Reactivate a bundled-IAM user
+      operationId: reactivateIamUser
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Reactivated
+  /identity/management/roles:
+    get:
+      tags: [IAM administration]
+      summary: List bundled-IAM roles
+      operationId: listIamRoles
+      responses:
+        "200":
+          description: Roles
+    post:
+      tags: [IAM administration]
+      summary: Create a custom bundled-IAM role
+      operationId: createIamRole
+      responses:
+        "200":
+          description: Created role
+  /identity/management/roles/{roleKey}:
+    put:
+      tags: [IAM administration]
+      summary: Update a bundled-IAM role
+      operationId: updateIamRole
+      parameters:
+        - name: roleKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated role
+    delete:
+      tags: [IAM administration]
+      summary: Delete a custom bundled-IAM role
+      operationId: deleteIamRole
+      parameters:
+        - name: roleKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    WorkflowId:
+      name: id
+      in: path
+      required: true
+      description: Numeric definition key or BPMN process id
+      schema:
+        type: string
+    InstanceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    ExecutionId:
+      name: executionId
+      in: path
+      required: true
+      schema:
+        type: string
+    JobKey:
+      name: key
+      in: path
+      required: true
+      schema:
+        type: string
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 100
+        minimum: 1
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+    IncludeCompleted:
+      name: includeCompleted
+      in: query
+      schema:
+        type: boolean
+        default: false
+    WorkerProtocol:
+      name: X-Workflow-Worker-Protocol-Version
+      in: header
+      required: true
+      schema:
+        type: string
+        enum: [v1]
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        maxLength: 128
+    ActingSubject:
+      name: X-ArtificialFlow-Acting-Subject
+      in: header
+      schema:
+        type: string
+    ActingUsername:
+      name: X-ArtificialFlow-Acting-Username
+      in: header
+      schema:
+        type: string
+    ActingEmail:
+      name: X-ArtificialFlow-Acting-Email
+      in: header
+      schema:
+        type: string
+        format: email
+    ActingName:
+      name: X-ArtificialFlow-Acting-Name
+      in: header
+      schema:
+        type: string
+    ActingRoles:
+      name: X-ArtificialFlow-Acting-Roles
+      in: header
+      schema:
+        type: string
+      description: Comma-separated candidate-group roles
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        text/plain:
+          schema:
+            $ref: "#/components/schemas/ErrorText"
+    Unauthorized:
+      description: Missing, invalid, or expired access token
+      content:
+        text/plain:
+          schema:
+            $ref: "#/components/schemas/ErrorText"
+    Forbidden:
+      description: Principal does not have the required role or acting-user scope
+      content:
+        text/plain:
+          schema:
+            $ref: "#/components/schemas/ErrorText"
+    NotFound:
+      description: Resource not found
+      content:
+        text/plain:
+          schema:
+            $ref: "#/components/schemas/ErrorText"
+    Conflict:
+      description: Resource state or ownership conflict
+      content:
+        text/plain:
+          schema:
+            $ref: "#/components/schemas/ErrorText"
+  schemas:
+    ErrorText:
+      type: string
+      example: Bad Request
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+    Principal:
+      type: object
+      properties:
+        subject:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+    IdentityResponse:
+      type: object
+      required: [authenticated]
+      properties:
+        authenticated:
+          type: boolean
+        principal:
+          $ref: "#/components/schemas/Principal"
+    WorkflowDefinition:
+      type: object
+      properties:
+        id:
+          type: string
+        process_definition_id:
+          type: string
+        name:
+          type: string
+        version:
+          type: integer
+        resource_name:
+          type: string
+        deployment_id:
+          type: string
+        tenant_id:
+          type: string
+        resource_checksum:
+          type: string
+        bpmn_xml:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    WorkflowInstance:
+      type: object
+      properties:
+        id:
+          type: string
+        workflow_id:
+          type: string
+        status:
+          type: string
+        context:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        executions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    StartInstanceRequest:
+      type: object
+      required: [workflow_id]
+      properties:
+        workflow_id:
+          type: string
+          description: Numeric definition key or BPMN process id
+        version:
+          type: integer
+          minimum: 1
+        context:
+          type: object
+          additionalProperties: true
+    Decision:
+      type: object
+      properties:
+        key:
+          type: string
+        decision_id:
+          type: string
+        name:
+          type: string
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    DeployDecisionRequest:
+      type: object
+      required: [decision_id, resource]
+      properties:
+        decision_id:
+          type: string
+        name:
+          type: string
+        resource:
+          type: string
+          description: JSON decision table encoded as a string
+    SignalRequest:
+      type: object
+      required: [signal_name]
+      properties:
+        signal_name:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+    MessageRequest:
+      type: object
+      required: [message_name]
+      properties:
+        message_name:
+          type: string
+        correlation_key:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+    EscalationRequest:
+      type: object
+      required: [escalation_code]
+      properties:
+        escalation_code:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+    JobCapabilities:
+      type: object
+      required: [protocolVersion, capabilities]
+      properties:
+        protocolVersion:
+          type: string
+          example: v1
+        capabilities:
+          type: array
+          items:
+            type: string
+          example: [activate, complete, fail, extend-lock]
+    ActivateJobsRequest:
+      type: object
+      required: [type, worker]
+      properties:
+        type:
+          type: string
+        worker:
+          type: string
+        maxJobs:
+          type: integer
+          minimum: 1
+        timeoutMs:
+          type: integer
+          minimum: 0
+        lockDurationMs:
+          type: integer
+          minimum: 1
+    Job:
+      type: object
+      properties:
+        key:
+          type: string
+        type:
+          type: string
+        processInstanceKey:
+          type: string
+        elementInstanceKey:
+          type: string
+        processDefinitionKey:
+          type: string
+        elementId:
+          type: string
+        worker:
+          type: string
+        retries:
+          type: integer
+        state:
+          type: string
+        lockExpirationTime:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CompleteJobRequest:
+      type: object
+      required: [worker]
+      properties:
+        worker:
+          type: string
+        variables:
+          type: object
+          additionalProperties: true
+    FailJobRequest:
+      type: object
+      required: [worker, errorMessage]
+      properties:
+        worker:
+          type: string
+        errorMessage:
+          type: string
+        retries:
+          type: integer
+          minimum: 0
+    ExtendJobLockRequest:
+      type: object
+      required: [worker, lockDurationMs]
+      properties:
+        worker:
+          type: string
+        lockDurationMs:
+          type: integer
+          minimum: 1
+    UserTask:
+      type: object
+      properties:
+        key:
+          type: string
+        elementId:
+          type: string
+        executionId:
+          type: string
+        state:
+          type: string
+        assignee:
+          type: string
+        candidateUsers:
+          type: array
+          items:
+            type: string
+        candidateGroups:
+          type: array
+          items:
+            type: string
+        claimedBy:
+          type: string
+        canClaim:
+          type: boolean
+        canComplete:
+          type: boolean
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UserTaskList:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserTask"
+    Incident:
+      type: object
+      properties:
+        key:
+          type: string
+        id:
+          type: string
+        processInstanceKey:
+          type: string
+        elementInstanceKey:
+          type: string
+        jobKey:
+          type: string
+        errorType:
+          type: string
+        errorMessage:
+          type: string
+        state:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ProjectedInstancePage:
+      type: object
+      required: [instances, total]
+      properties:
+        instances:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowInstance"
+        total:
+          type: integer
+          format: int64
+    ProjectedWorkflowPage:
+      type: object
+      required: [workflows, total]
+      properties:
+        workflows:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDefinition"
+        total:
+          type: integer
+          format: int64

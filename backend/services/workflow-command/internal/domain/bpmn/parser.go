@@ -1,13 +1,16 @@
 package bpmn
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"html"
 	"io"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/artificialflow/artificialflow/backend/libs/model"
 )
 
 const (
@@ -17,12 +20,12 @@ const (
 // Definitions represents the top-level element in a BPMN 2.0 XML file.
 // It's simplified to focus on the process definition.
 type Definitions struct {
-	XMLName     xml.Name             `xml:"definitions"`
-	Process     Process              `xml:"process"`
-	Messages    []MessageElement     `xml:"message"`
-	Signals     []SignalElement      `xml:"signal"`
-	Errors      []ErrorElementDef    `xml:"error"`
-	Escalations []EscalationElement  `xml:"escalation"`
+	XMLName     xml.Name            `xml:"definitions"`
+	Process     Process             `xml:"process"`
+	Messages    []MessageElement    `xml:"message"`
+	Signals     []SignalElement     `xml:"signal"`
+	Errors      []ErrorElementDef   `xml:"error"`
+	Escalations []EscalationElement `xml:"escalation"`
 }
 
 type EscalationElement struct {
@@ -76,45 +79,66 @@ type Process struct {
 }
 
 type SubProcess struct {
-	ID                      string                   `xml:"id,attr"`
-	Name                    string                   `xml:"name,attr"`
-	TriggeredByEvent        string                   `xml:"triggeredByEvent,attr"`
-	fromTransaction         bool                     // set when unmarshaled from <transaction>
-	ExtensionElements       *ExtensionElements       `xml:"extensionElements"`
-	StartEvents             []StartEvent             `xml:"startEvent"`
-	EndEvents               []EndEvent               `xml:"endEvent"`
-	ServiceTasks            []ServiceTask            `xml:"serviceTask"`
-	SendTasks               []SendTask               `xml:"sendTask"`
-	UserTasks               []UserTask               `xml:"userTask"`
-	ScriptTasks             []ScriptTask             `xml:"scriptTask"`
-	ReceiveTasks            []ReceiveTask            `xml:"receiveTask"`
-	ManualTasks             []ManualTask             `xml:"manualTask"`
-	BusinessRuleTasks       []BusinessRuleTask       `xml:"businessRuleTask"`
-	CallActivities          []CallActivity           `xml:"callActivity"`
-	IntermediateCatchEvents []IntermediateCatchEvent `xml:"intermediateCatchEvent"`
-	IntermediateThrowEvents []IntermediateThrowEvent `xml:"intermediateThrowEvent"`
-	BoundaryEvents          []BoundaryEvent          `xml:"boundaryEvent"`
-	SequenceFlows           []SequenceFlow           `xml:"sequenceFlow"`
-	ExclusiveGateways       []ExclusiveGateway       `xml:"exclusiveGateway"`
-	ParallelGateways        []ParallelGateway        `xml:"parallelGateway"`
-	InclusiveGateways       []InclusiveGateway       `xml:"inclusiveGateway"`
-	EventBasedGateways      []EventBasedGateway      `xml:"eventBasedGateway"`
-	SubProcesses            []SubProcess             `xml:"subProcess"`
-	Transactions            []SubProcess             `xml:"transaction"`
+	ID                               string                            `xml:"id,attr"`
+	Name                             string                            `xml:"name,attr"`
+	TriggeredByEvent                 string                            `xml:"triggeredByEvent,attr"`
+	fromTransaction                  bool                              // set when unmarshaled from <transaction>
+	ExtensionElements                *ExtensionElements                `xml:"extensionElements"`
+	MultiInstanceLoopCharacteristics *MultiInstanceLoopCharacteristics `xml:"multiInstanceLoopCharacteristics"`
+	ArtificialFlowCollection         string                            `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection                  string                            `xml:"collection,attr"`
+	ArtificialFlowElementVariable    string                            `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable             string                            `xml:"elementVariable,attr"`
+	ArtificialFlowIsSequential       string                            `xml:"http://artificialflow.io/schema/1.0/bpmn isSequential,attr"`
+	PlainIsSequential                string                            `xml:"isSequential,attr"`
+	StartEvents                      []StartEvent                      `xml:"startEvent"`
+	EndEvents                        []EndEvent                        `xml:"endEvent"`
+	ServiceTasks                     []ServiceTask                     `xml:"serviceTask"`
+	SendTasks                        []SendTask                        `xml:"sendTask"`
+	UserTasks                        []UserTask                        `xml:"userTask"`
+	ScriptTasks                      []ScriptTask                      `xml:"scriptTask"`
+	ReceiveTasks                     []ReceiveTask                     `xml:"receiveTask"`
+	ManualTasks                      []ManualTask                      `xml:"manualTask"`
+	BusinessRuleTasks                []BusinessRuleTask                `xml:"businessRuleTask"`
+	CallActivities                   []CallActivity                    `xml:"callActivity"`
+	IntermediateCatchEvents          []IntermediateCatchEvent          `xml:"intermediateCatchEvent"`
+	IntermediateThrowEvents          []IntermediateThrowEvent          `xml:"intermediateThrowEvent"`
+	BoundaryEvents                   []BoundaryEvent                   `xml:"boundaryEvent"`
+	SequenceFlows                    []SequenceFlow                    `xml:"sequenceFlow"`
+	ExclusiveGateways                []ExclusiveGateway                `xml:"exclusiveGateway"`
+	ParallelGateways                 []ParallelGateway                 `xml:"parallelGateway"`
+	InclusiveGateways                []InclusiveGateway                `xml:"inclusiveGateway"`
+	EventBasedGateways               []EventBasedGateway               `xml:"eventBasedGateway"`
+	SubProcesses                     []SubProcess                      `xml:"subProcess"`
+	Transactions                     []SubProcess                      `xml:"transaction"`
 }
 
 // --- BPMN Elements ---
 
 type StartEvent struct {
-	ID                     string                   `xml:"id,attr"`
-	Name                   string                   `xml:"name,attr"`
-	ExtensionElements      *ExtensionElements       `xml:"extensionElements"`
-	TimerEventDefinition   *TimerEventDefinition    `xml:"timerEventDefinition"`
-	MessageEventDefinition *MessageEventDefinition  `xml:"messageEventDefinition"`
-	SignalEventDefinition  *SignalEventDefinition   `xml:"signalEventDefinition"`
+	ID                     string                  `xml:"id,attr"`
+	Name                   string                  `xml:"name,attr"`
+	IsInterrupting         string                  `xml:"isInterrupting,attr"`
+	ExtensionElements      *ExtensionElements      `xml:"extensionElements"`
+	TimerEventDefinition   *TimerEventDefinition   `xml:"timerEventDefinition"`
+	MessageEventDefinition *MessageEventDefinition `xml:"messageEventDefinition"`
+	SignalEventDefinition  *SignalEventDefinition  `xml:"signalEventDefinition"`
 	// Unsupported on start until Tier-2/3: detect and reject below.
-	EscalationEventDefinition *EscalationEventDefinition `xml:"escalationEventDefinition"`
+	EscalationEventDefinition  *EscalationEventDefinition  `xml:"escalationEventDefinition"`
 	ConditionalEventDefinition *ConditionalEventDefinition `xml:"conditionalEventDefinition"`
+}
+
+// MultiInstanceLoopCharacteristics models bpmn:multiInstanceLoopCharacteristics.
+type MultiInstanceLoopCharacteristics struct {
+	IsSequential                  string `xml:"isSequential,attr"`
+	ArtificialFlowCollection      string `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection               string `xml:"collection,attr"`
+	ArtificialFlowLoopCollection  string `xml:"http://artificialflow.io/schema/1.0/bpmn loopCollection,attr"`
+	PlainLoopCollection           string `xml:"loopCollection,attr"`
+	ArtificialFlowElementVariable string `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable          string `xml:"elementVariable,attr"`
+	ArtificialFlowLoopElement     string `xml:"http://artificialflow.io/schema/1.0/bpmn loopElement,attr"`
+	PlainLoopElement              string `xml:"loopElement,attr"`
 }
 
 type EndEvent struct {
@@ -130,90 +154,150 @@ type EndEvent struct {
 }
 
 type ServiceTask struct {
-	ID                     string             `xml:"id,attr"`
-	Name                   string             `xml:"name,attr"`
-	JobType                string             `xml:"jobType,attr"`
-	ExtensionElements      *ExtensionElements `xml:"extensionElements"`
-	ArtificialFlowTopic    string             `xml:"http://artificialflow.io/schema/1.0/bpmn topic,attr"`
-	PlainTopic             string             `xml:"topic,attr"`
-	ArtificialFlowTaskType string             `xml:"http://artificialflow.io/schema/1.0/bpmn taskType,attr"`
-	PlainTaskType          string             `xml:"taskType,attr"`
+	ID                               string                            `xml:"id,attr"`
+	Name                             string                            `xml:"name,attr"`
+	JobType                          string                            `xml:"jobType,attr"`
+	ExtensionElements                *ExtensionElements                `xml:"extensionElements"`
+	MultiInstanceLoopCharacteristics *MultiInstanceLoopCharacteristics `xml:"multiInstanceLoopCharacteristics"`
+	ArtificialFlowTopic              string                            `xml:"http://artificialflow.io/schema/1.0/bpmn topic,attr"`
+	PlainTopic                       string                            `xml:"topic,attr"`
+	ArtificialFlowTaskType           string                            `xml:"http://artificialflow.io/schema/1.0/bpmn taskType,attr"`
+	PlainTaskType                    string                            `xml:"taskType,attr"`
+	ArtificialFlowCollection         string                            `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection                  string                            `xml:"collection,attr"`
+	ArtificialFlowElementVariable    string                            `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable             string                            `xml:"elementVariable,attr"`
+	ArtificialFlowIsSequential       string                            `xml:"http://artificialflow.io/schema/1.0/bpmn isSequential,attr"`
+	PlainIsSequential                string                            `xml:"isSequential,attr"`
 }
 
 type SendTask struct {
-	ID                     string             `xml:"id,attr"`
-	Name                   string             `xml:"name,attr"`
-	JobType                string             `xml:"jobType,attr"`
-	ExtensionElements      *ExtensionElements `xml:"extensionElements"`
-	ArtificialFlowTopic    string             `xml:"http://artificialflow.io/schema/1.0/bpmn topic,attr"`
-	PlainTopic             string             `xml:"topic,attr"`
-	ArtificialFlowTaskType string             `xml:"http://artificialflow.io/schema/1.0/bpmn taskType,attr"`
-	PlainTaskType          string             `xml:"taskType,attr"`
-	MessageRef             string             `xml:"messageRef,attr"`
+	ID                               string                            `xml:"id,attr"`
+	Name                             string                            `xml:"name,attr"`
+	JobType                          string                            `xml:"jobType,attr"`
+	ExtensionElements                *ExtensionElements                `xml:"extensionElements"`
+	MultiInstanceLoopCharacteristics *MultiInstanceLoopCharacteristics `xml:"multiInstanceLoopCharacteristics"`
+	ArtificialFlowTopic              string                            `xml:"http://artificialflow.io/schema/1.0/bpmn topic,attr"`
+	PlainTopic                       string                            `xml:"topic,attr"`
+	ArtificialFlowTaskType           string                            `xml:"http://artificialflow.io/schema/1.0/bpmn taskType,attr"`
+	PlainTaskType                    string                            `xml:"taskType,attr"`
+	MessageRef                       string                            `xml:"messageRef,attr"`
+	ArtificialFlowCollection         string                            `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection                  string                            `xml:"collection,attr"`
+	ArtificialFlowElementVariable    string                            `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable             string                            `xml:"elementVariable,attr"`
+	ArtificialFlowIsSequential       string                            `xml:"http://artificialflow.io/schema/1.0/bpmn isSequential,attr"`
+	PlainIsSequential                string                            `xml:"isSequential,attr"`
 }
 
 type ScriptTask struct {
-	ID                           string             `xml:"id,attr"`
-	Name                         string             `xml:"name,attr"`
-	ExtensionElements            *ExtensionElements `xml:"extensionElements"`
-	ArtificialFlowScriptFormat   string             `xml:"http://artificialflow.io/schema/1.0/bpmn scriptFormat,attr"`
-	PlainScriptFormat            string             `xml:"scriptFormat,attr"`
-	ArtificialFlowResultVariable string             `xml:"http://artificialflow.io/schema/1.0/bpmn resultVariable,attr"`
-	PlainResultVariable          string             `xml:"resultVariable,attr"`
-	ArtificialFlowTimeout        string             `xml:"http://artificialflow.io/schema/1.0/bpmn timeout,attr"`
-	PlainTimeout                 string             `xml:"timeout,attr"`
-	Script                       string             `xml:"script"`
+	ID                               string                            `xml:"id,attr"`
+	Name                             string                            `xml:"name,attr"`
+	ExtensionElements                *ExtensionElements                `xml:"extensionElements"`
+	MultiInstanceLoopCharacteristics *MultiInstanceLoopCharacteristics `xml:"multiInstanceLoopCharacteristics"`
+	ArtificialFlowScriptFormat       string                            `xml:"http://artificialflow.io/schema/1.0/bpmn scriptFormat,attr"`
+	PlainScriptFormat                string                            `xml:"scriptFormat,attr"`
+	ArtificialFlowResultVariable     string                            `xml:"http://artificialflow.io/schema/1.0/bpmn resultVariable,attr"`
+	PlainResultVariable              string                            `xml:"resultVariable,attr"`
+	ArtificialFlowTimeout            string                            `xml:"http://artificialflow.io/schema/1.0/bpmn timeout,attr"`
+	PlainTimeout                     string                            `xml:"timeout,attr"`
+	Script                           string                            `xml:"script"`
+	ArtificialFlowCollection         string                            `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection                  string                            `xml:"collection,attr"`
+	ArtificialFlowElementVariable    string                            `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable             string                            `xml:"elementVariable,attr"`
+	ArtificialFlowIsSequential       string                            `xml:"http://artificialflow.io/schema/1.0/bpmn isSequential,attr"`
+	PlainIsSequential                string                            `xml:"isSequential,attr"`
 }
 
 type UserTask struct {
-	ID                            string             `xml:"id,attr"`
-	Name                          string             `xml:"name,attr"`
-	ExtensionElements             *ExtensionElements `xml:"extensionElements"`
-	ArtificialFlowAssignee        string             `xml:"http://artificialflow.io/schema/1.0/bpmn assignee,attr"`
-	PlainAssignee                 string             `xml:"assignee,attr"`
-	ArtificialFlowCandidateUsers  string             `xml:"http://artificialflow.io/schema/1.0/bpmn candidateUsers,attr"`
-	PlainCandidateUsers           string             `xml:"candidateUsers,attr"`
-	ArtificialFlowCandidateGroups string             `xml:"http://artificialflow.io/schema/1.0/bpmn candidateGroups,attr"`
-	PlainCandidateGroups          string             `xml:"candidateGroups,attr"`
-	ArtificialFlowDueDate         string             `xml:"http://artificialflow.io/schema/1.0/bpmn dueDate,attr"`
-	PlainDueDate                  string             `xml:"dueDate,attr"`
+	ID                               string                            `xml:"id,attr"`
+	Name                             string                            `xml:"name,attr"`
+	ExtensionElements                *ExtensionElements                `xml:"extensionElements"`
+	MultiInstanceLoopCharacteristics *MultiInstanceLoopCharacteristics `xml:"multiInstanceLoopCharacteristics"`
+	ArtificialFlowAssignee           string                            `xml:"http://artificialflow.io/schema/1.0/bpmn assignee,attr"`
+	PlainAssignee                    string                            `xml:"assignee,attr"`
+	ArtificialFlowCandidateUsers     string                            `xml:"http://artificialflow.io/schema/1.0/bpmn candidateUsers,attr"`
+	PlainCandidateUsers              string                            `xml:"candidateUsers,attr"`
+	ArtificialFlowCandidateGroups    string                            `xml:"http://artificialflow.io/schema/1.0/bpmn candidateGroups,attr"`
+	PlainCandidateGroups             string                            `xml:"candidateGroups,attr"`
+	ArtificialFlowDueDate            string                            `xml:"http://artificialflow.io/schema/1.0/bpmn dueDate,attr"`
+	PlainDueDate                     string                            `xml:"dueDate,attr"`
+	ArtificialFlowCollection         string                            `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection                  string                            `xml:"collection,attr"`
+	ArtificialFlowElementVariable    string                            `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable             string                            `xml:"elementVariable,attr"`
+	ArtificialFlowIsSequential       string                            `xml:"http://artificialflow.io/schema/1.0/bpmn isSequential,attr"`
+	PlainIsSequential                string                            `xml:"isSequential,attr"`
 }
 
 type ReceiveTask struct {
-	ID                           string             `xml:"id,attr"`
-	Name                         string             `xml:"name,attr"`
-	ExtensionElements            *ExtensionElements `xml:"extensionElements"`
-	MessageRef                   string             `xml:"messageRef,attr"`
-	ArtificialFlowCorrelationKey string             `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
-	PlainCorrelationKey          string             `xml:"correlationKey,attr"`
+	ID                               string                            `xml:"id,attr"`
+	Name                             string                            `xml:"name,attr"`
+	ExtensionElements                *ExtensionElements                `xml:"extensionElements"`
+	MultiInstanceLoopCharacteristics *MultiInstanceLoopCharacteristics `xml:"multiInstanceLoopCharacteristics"`
+	MessageRef                       string                            `xml:"messageRef,attr"`
+	ArtificialFlowCorrelationKey     string                            `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
+	PlainCorrelationKey              string                            `xml:"correlationKey,attr"`
+	ArtificialFlowCollection         string                            `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection                  string                            `xml:"collection,attr"`
+	ArtificialFlowElementVariable    string                            `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable             string                            `xml:"elementVariable,attr"`
+	ArtificialFlowIsSequential       string                            `xml:"http://artificialflow.io/schema/1.0/bpmn isSequential,attr"`
+	PlainIsSequential                string                            `xml:"isSequential,attr"`
 }
 
 type ManualTask struct {
-	ID                string             `xml:"id,attr"`
-	Name              string             `xml:"name,attr"`
-	ExtensionElements *ExtensionElements `xml:"extensionElements"`
+	ID                               string                            `xml:"id,attr"`
+	Name                             string                            `xml:"name,attr"`
+	ExtensionElements                *ExtensionElements                `xml:"extensionElements"`
+	MultiInstanceLoopCharacteristics *MultiInstanceLoopCharacteristics `xml:"multiInstanceLoopCharacteristics"`
+	ArtificialFlowCollection         string                            `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection                  string                            `xml:"collection,attr"`
+	ArtificialFlowElementVariable    string                            `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable             string                            `xml:"elementVariable,attr"`
+	ArtificialFlowIsSequential       string                            `xml:"http://artificialflow.io/schema/1.0/bpmn isSequential,attr"`
+	PlainIsSequential                string                            `xml:"isSequential,attr"`
 }
 
 type BusinessRuleTask struct {
-	ID                           string             `xml:"id,attr"`
-	Name                         string             `xml:"name,attr"`
-	ExtensionElements            *ExtensionElements `xml:"extensionElements"`
-	ArtificialFlowDecisionRef    string             `xml:"http://artificialflow.io/schema/1.0/bpmn decisionRef,attr"`
-	PlainDecisionRef             string             `xml:"decisionRef,attr"`
-	ArtificialFlowResultVariable string             `xml:"http://artificialflow.io/schema/1.0/bpmn resultVariable,attr"`
-	PlainResultVariable          string             `xml:"resultVariable,attr"`
+	ID                               string                            `xml:"id,attr"`
+	Name                             string                            `xml:"name,attr"`
+	ExtensionElements                *ExtensionElements                `xml:"extensionElements"`
+	MultiInstanceLoopCharacteristics *MultiInstanceLoopCharacteristics `xml:"multiInstanceLoopCharacteristics"`
+	ArtificialFlowDecisionRef        string                            `xml:"http://artificialflow.io/schema/1.0/bpmn decisionRef,attr"`
+	PlainDecisionRef                 string                            `xml:"decisionRef,attr"`
+	ArtificialFlowResultVariable     string                            `xml:"http://artificialflow.io/schema/1.0/bpmn resultVariable,attr"`
+	PlainResultVariable              string                            `xml:"resultVariable,attr"`
+	ArtificialFlowCollection         string                            `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection                  string                            `xml:"collection,attr"`
+	ArtificialFlowElementVariable    string                            `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable             string                            `xml:"elementVariable,attr"`
+	ArtificialFlowIsSequential       string                            `xml:"http://artificialflow.io/schema/1.0/bpmn isSequential,attr"`
+	PlainIsSequential                string                            `xml:"isSequential,attr"`
 }
 
 type CallActivity struct {
-	ID                string             `xml:"id,attr"`
-	Name              string             `xml:"name,attr"`
-	ExtensionElements *ExtensionElements `xml:"extensionElements"`
-	CalledElement     string             `xml:"calledElement,attr"`
+	ID                                 string                            `xml:"id,attr"`
+	Name                               string                            `xml:"name,attr"`
+	ExtensionElements                  *ExtensionElements                `xml:"extensionElements"`
+	MultiInstanceLoopCharacteristics   *MultiInstanceLoopCharacteristics `xml:"multiInstanceLoopCharacteristics"`
+	CalledElement                      string                            `xml:"calledElement,attr"`
+	ArtificialFlowCalledElementVersion string                            `xml:"http://artificialflow.io/schema/1.0/bpmn calledElementVersion,attr"`
+	PlainCalledElementVersion          string                            `xml:"calledElementVersion,attr"`
+	PlainVersion                       string                            `xml:"version,attr"`
+	ArtificialFlowCollection           string                            `xml:"http://artificialflow.io/schema/1.0/bpmn collection,attr"`
+	PlainCollection                    string                            `xml:"collection,attr"`
+	ArtificialFlowElementVariable      string                            `xml:"http://artificialflow.io/schema/1.0/bpmn elementVariable,attr"`
+	PlainElementVariable               string                            `xml:"elementVariable,attr"`
+	ArtificialFlowIsSequential         string                            `xml:"http://artificialflow.io/schema/1.0/bpmn isSequential,attr"`
+	PlainIsSequential                  string                            `xml:"isSequential,attr"`
 }
 
 type TimerEventDefinition struct {
 	TimeDuration string `xml:"timeDuration"`
 	TimeDate     string `xml:"timeDate"`
+	TimeCycle    string `xml:"timeCycle"`
 }
 
 type MessageEventDefinition struct {
@@ -249,20 +333,20 @@ type ConditionalEventDefinition struct {
 type CancelEventDefinition struct{}
 
 type IntermediateCatchEvent struct {
-	ID                           string                  `xml:"id,attr"`
-	Name                         string                  `xml:"name,attr"`
-	ExtensionElements            *ExtensionElements      `xml:"extensionElements"`
-	ArtificialFlowTimerDuration  string                  `xml:"http://artificialflow.io/schema/1.0/bpmn timerDuration,attr"`
-	PlainTimerDuration           string                  `xml:"timerDuration,attr"`
-	ArtificialFlowCorrelationKey string                  `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
-	PlainCorrelationKey          string                  `xml:"correlationKey,attr"`
-	TimerEventDefinition         *TimerEventDefinition   `xml:"timerEventDefinition"`
-	MessageEventDefinition       *MessageEventDefinition `xml:"messageEventDefinition"`
-	SignalEventDefinition        *SignalEventDefinition  `xml:"signalEventDefinition"`
-	LinkEventDefinition          *LinkEventDefinition    `xml:"linkEventDefinition"`
-	EscalationEventDefinition    *EscalationEventDefinition `xml:"escalationEventDefinition"`
+	ID                           string                      `xml:"id,attr"`
+	Name                         string                      `xml:"name,attr"`
+	ExtensionElements            *ExtensionElements          `xml:"extensionElements"`
+	ArtificialFlowTimerDuration  string                      `xml:"http://artificialflow.io/schema/1.0/bpmn timerDuration,attr"`
+	PlainTimerDuration           string                      `xml:"timerDuration,attr"`
+	ArtificialFlowCorrelationKey string                      `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
+	PlainCorrelationKey          string                      `xml:"correlationKey,attr"`
+	TimerEventDefinition         *TimerEventDefinition       `xml:"timerEventDefinition"`
+	MessageEventDefinition       *MessageEventDefinition     `xml:"messageEventDefinition"`
+	SignalEventDefinition        *SignalEventDefinition      `xml:"signalEventDefinition"`
+	LinkEventDefinition          *LinkEventDefinition        `xml:"linkEventDefinition"`
+	EscalationEventDefinition    *EscalationEventDefinition  `xml:"escalationEventDefinition"`
 	ConditionalEventDefinition   *ConditionalEventDefinition `xml:"conditionalEventDefinition"`
-	CancelEventDefinition        *CancelEventDefinition  `xml:"cancelEventDefinition"`
+	CancelEventDefinition        *CancelEventDefinition      `xml:"cancelEventDefinition"`
 }
 
 type IntermediateThrowEvent struct {
@@ -284,27 +368,27 @@ type IntermediateThrowEvent struct {
 }
 
 type BoundaryEvent struct {
-	ID                           string                     `xml:"id,attr"`
-	Name                         string                     `xml:"name,attr"`
-	ExtensionElements            *ExtensionElements         `xml:"extensionElements"`
-	AttachedToRef                string                     `xml:"attachedToRef,attr"`
-	CancelActivity               string                     `xml:"cancelActivity,attr"`
-	ArtificialFlowTimerDuration  string                     `xml:"http://artificialflow.io/schema/1.0/bpmn timerDuration,attr"`
-	PlainTimerDuration           string                     `xml:"timerDuration,attr"`
-	ArtificialFlowCorrelationKey string                     `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
-	PlainCorrelationKey          string                     `xml:"correlationKey,attr"`
-	ArtificialFlowErrorCode      string                     `xml:"http://artificialflow.io/schema/1.0/bpmn errorCode,attr"`
-	PlainErrorCode               string                     `xml:"errorCode,attr"`
-	ArtificialFlowErrorMessage   string                     `xml:"http://artificialflow.io/schema/1.0/bpmn errorMessage,attr"`
-	PlainErrorMessage            string                     `xml:"errorMessage,attr"`
-	TimerEventDefinition          *TimerEventDefinition          `xml:"timerEventDefinition"`
-	MessageEventDefinition        *MessageEventDefinition        `xml:"messageEventDefinition"`
-	SignalEventDefinition         *SignalEventDefinition         `xml:"signalEventDefinition"`
-	ErrorEventDefinition          *ErrorEventDefinition          `xml:"errorEventDefinition"`
-	CompensateEventDefinition     *CompensateEventDefinition     `xml:"compensateEventDefinition"`
-	EscalationEventDefinition     *EscalationEventDefinition     `xml:"escalationEventDefinition"`
-	ConditionalEventDefinition    *ConditionalEventDefinition    `xml:"conditionalEventDefinition"`
-	CancelEventDefinition         *CancelEventDefinition         `xml:"cancelEventDefinition"`
+	ID                           string                      `xml:"id,attr"`
+	Name                         string                      `xml:"name,attr"`
+	ExtensionElements            *ExtensionElements          `xml:"extensionElements"`
+	AttachedToRef                string                      `xml:"attachedToRef,attr"`
+	CancelActivity               string                      `xml:"cancelActivity,attr"`
+	ArtificialFlowTimerDuration  string                      `xml:"http://artificialflow.io/schema/1.0/bpmn timerDuration,attr"`
+	PlainTimerDuration           string                      `xml:"timerDuration,attr"`
+	ArtificialFlowCorrelationKey string                      `xml:"http://artificialflow.io/schema/1.0/bpmn correlationKey,attr"`
+	PlainCorrelationKey          string                      `xml:"correlationKey,attr"`
+	ArtificialFlowErrorCode      string                      `xml:"http://artificialflow.io/schema/1.0/bpmn errorCode,attr"`
+	PlainErrorCode               string                      `xml:"errorCode,attr"`
+	ArtificialFlowErrorMessage   string                      `xml:"http://artificialflow.io/schema/1.0/bpmn errorMessage,attr"`
+	PlainErrorMessage            string                      `xml:"errorMessage,attr"`
+	TimerEventDefinition         *TimerEventDefinition       `xml:"timerEventDefinition"`
+	MessageEventDefinition       *MessageEventDefinition     `xml:"messageEventDefinition"`
+	SignalEventDefinition        *SignalEventDefinition      `xml:"signalEventDefinition"`
+	ErrorEventDefinition         *ErrorEventDefinition       `xml:"errorEventDefinition"`
+	CompensateEventDefinition    *CompensateEventDefinition  `xml:"compensateEventDefinition"`
+	EscalationEventDefinition    *EscalationEventDefinition  `xml:"escalationEventDefinition"`
+	ConditionalEventDefinition   *ConditionalEventDefinition `xml:"conditionalEventDefinition"`
+	CancelEventDefinition        *CancelEventDefinition      `xml:"cancelEventDefinition"`
 }
 
 type ExclusiveGateway struct {
@@ -351,6 +435,8 @@ type ConditionExpression struct {
 type ExtensionElements struct {
 	ArtificialFlowProperties *WorkflowProperties `xml:"http://artificialflow.io/schema/1.0/bpmn properties"`
 	PlainWorkflowProperties  *WorkflowProperties `xml:"properties"`
+	ArtificialFlowIOMapping  *IOMapping          `xml:"http://artificialflow.io/schema/1.0/bpmn ioMapping"`
+	PlainIOMapping           *IOMapping          `xml:"ioMapping"`
 }
 
 type WorkflowProperties struct {
@@ -361,6 +447,19 @@ type WorkflowProperties struct {
 type WorkflowProperty struct {
 	Name  string `xml:"name,attr"`
 	Value string `xml:"value,attr"`
+}
+
+// IOMapping models artificialflow:ioMapping with input/output entries.
+type IOMapping struct {
+	ArtificialFlowInputs  []IOMappingEntry `xml:"http://artificialflow.io/schema/1.0/bpmn input"`
+	PlainInputs           []IOMappingEntry `xml:"input"`
+	ArtificialFlowOutputs []IOMappingEntry `xml:"http://artificialflow.io/schema/1.0/bpmn output"`
+	PlainOutputs          []IOMappingEntry `xml:"output"`
+}
+
+type IOMappingEntry struct {
+	Target string `xml:"target,attr"`
+	Source string `xml:"source,attr"`
 }
 
 type elementRefs struct {
@@ -522,8 +621,7 @@ func parseFlowElements(
 
 	for _, se := range startEvents {
 		props := make(map[string]any)
-		if timerDuration := extractTimerDuration(se.TimerEventDefinition); timerDuration != "" {
-			setStringProperty(props, "timer_duration", timerDuration)
+		if applyTimerEventDefinition(props, se.TimerEventDefinition, "") {
 			setStringProperty(props, "event_definition_type", "timer")
 		}
 		if se.MessageEventDefinition != nil {
@@ -543,6 +641,14 @@ func parseFlowElements(
 		if cond := extractConditionExpression(se.ConditionalEventDefinition); cond != "" {
 			setStringProperty(props, "condition", cond)
 			setStringProperty(props, "event_definition_type", "conditional")
+		}
+		// BPMN isInterrupting on startEvent (event sub-process); default interrupting=true at runtime.
+		if raw := strings.TrimSpace(se.IsInterrupting); raw != "" {
+			cancelActivity := true
+			if parsed, err := strconv.ParseBool(raw); err == nil {
+				cancelActivity = parsed
+			}
+			props["cancel_activity"] = cancelActivity
 		}
 		props = mergeExtensionProperties(props, se.ExtensionElements)
 		steps = append(steps, model.StepDefinition{ID: se.ID, Name: se.Name, Type: model.StepTypeStart, Properties: nilIfEmpty(props)})
@@ -597,13 +703,20 @@ func parseFlowElements(
 			)
 		}
 
-		steps = append(steps, model.StepDefinition{
+		step := model.StepDefinition{
 			ID:             st.ID,
 			Name:           st.Name,
 			Type:           model.StepTypeServiceTask,
 			Implementation: impl,
 			Properties:     nilIfEmpty(props),
-		})
+		}
+		applyMultiInstance(&step, st.MultiInstanceLoopCharacteristics,
+			firstNonEmpty(st.ArtificialFlowCollection, st.PlainCollection),
+			firstNonEmpty(st.ArtificialFlowElementVariable, st.PlainElementVariable),
+			firstNonEmpty(st.ArtificialFlowIsSequential, st.PlainIsSequential),
+		)
+		applyIOMappingsAndListeners(&step, st.ExtensionElements)
+		steps = append(steps, step)
 	}
 
 	for _, st := range sendTasks {
@@ -626,16 +739,24 @@ func parseFlowElements(
 			)
 		}
 		if impl == "" {
-			impl = "io.artificialflow.connector.send"
+			// Default to the shipped HTTP connector; there is no connector.send worker.
+			impl = "io.artificialflow.connector.http"
 		}
 
-		steps = append(steps, model.StepDefinition{
+		step := model.StepDefinition{
 			ID:             st.ID,
 			Name:           st.Name,
 			Type:           model.StepTypeSendTask,
 			Implementation: impl,
 			Properties:     nilIfEmpty(props),
-		})
+		}
+		applyMultiInstance(&step, st.MultiInstanceLoopCharacteristics,
+			firstNonEmpty(st.ArtificialFlowCollection, st.PlainCollection),
+			firstNonEmpty(st.ArtificialFlowElementVariable, st.PlainElementVariable),
+			firstNonEmpty(st.ArtificialFlowIsSequential, st.PlainIsSequential),
+		)
+		applyIOMappingsAndListeners(&step, st.ExtensionElements)
+		steps = append(steps, step)
 	}
 
 	for _, ut := range userTasks {
@@ -645,12 +766,19 @@ func parseFlowElements(
 		setStringProperty(props, "candidate_groups", firstNonEmpty(ut.ArtificialFlowCandidateGroups, ut.PlainCandidateGroups))
 		setStringProperty(props, "due_date", firstNonEmpty(ut.ArtificialFlowDueDate, ut.PlainDueDate))
 		props = mergeExtensionProperties(props, ut.ExtensionElements)
-		steps = append(steps, model.StepDefinition{
+		step := model.StepDefinition{
 			ID:         ut.ID,
 			Name:       ut.Name,
 			Type:       model.StepTypeUserTask,
 			Properties: nilIfEmpty(props),
-		})
+		}
+		applyMultiInstance(&step, ut.MultiInstanceLoopCharacteristics,
+			firstNonEmpty(ut.ArtificialFlowCollection, ut.PlainCollection),
+			firstNonEmpty(ut.ArtificialFlowElementVariable, ut.PlainElementVariable),
+			firstNonEmpty(ut.ArtificialFlowIsSequential, ut.PlainIsSequential),
+		)
+		applyIOMappingsAndListeners(&step, ut.ExtensionElements)
+		steps = append(steps, step)
 	}
 
 	for _, st := range scriptTasks {
@@ -660,12 +788,19 @@ func parseFlowElements(
 		setStringProperty(props, "timeout", firstNonEmpty(st.ArtificialFlowTimeout, st.PlainTimeout))
 		setStringProperty(props, "script", strings.TrimSpace(st.Script))
 		props = mergeExtensionProperties(props, st.ExtensionElements)
-		steps = append(steps, model.StepDefinition{
+		step := model.StepDefinition{
 			ID:         st.ID,
 			Name:       st.Name,
 			Type:       model.StepTypeScriptTask,
 			Properties: nilIfEmpty(props),
-		})
+		}
+		applyMultiInstance(&step, st.MultiInstanceLoopCharacteristics,
+			firstNonEmpty(st.ArtificialFlowCollection, st.PlainCollection),
+			firstNonEmpty(st.ArtificialFlowElementVariable, st.PlainElementVariable),
+			firstNonEmpty(st.ArtificialFlowIsSequential, st.PlainIsSequential),
+		)
+		applyIOMappingsAndListeners(&step, st.ExtensionElements)
+		steps = append(steps, step)
 	}
 
 	for _, rt := range receiveTasks {
@@ -674,17 +809,31 @@ func parseFlowElements(
 		setStringProperty(props, "correlation_key", firstNonEmpty(rt.ArtificialFlowCorrelationKey, rt.PlainCorrelationKey))
 		props = mergeExtensionProperties(props, rt.ExtensionElements)
 
-		steps = append(steps, model.StepDefinition{
+		step := model.StepDefinition{
 			ID:         rt.ID,
 			Name:       rt.Name,
 			Type:       model.StepTypeReceiveTask,
 			Properties: nilIfEmpty(props),
-		})
+		}
+		applyMultiInstance(&step, rt.MultiInstanceLoopCharacteristics,
+			firstNonEmpty(rt.ArtificialFlowCollection, rt.PlainCollection),
+			firstNonEmpty(rt.ArtificialFlowElementVariable, rt.PlainElementVariable),
+			firstNonEmpty(rt.ArtificialFlowIsSequential, rt.PlainIsSequential),
+		)
+		applyIOMappingsAndListeners(&step, rt.ExtensionElements)
+		steps = append(steps, step)
 	}
 
 	for _, mt := range manualTasks {
 		props := mergeExtensionProperties(make(map[string]any), mt.ExtensionElements)
-		steps = append(steps, model.StepDefinition{ID: mt.ID, Name: mt.Name, Type: model.StepTypeManualTask, Properties: nilIfEmpty(props)})
+		step := model.StepDefinition{ID: mt.ID, Name: mt.Name, Type: model.StepTypeManualTask, Properties: nilIfEmpty(props)}
+		applyMultiInstance(&step, mt.MultiInstanceLoopCharacteristics,
+			firstNonEmpty(mt.ArtificialFlowCollection, mt.PlainCollection),
+			firstNonEmpty(mt.ArtificialFlowElementVariable, mt.PlainElementVariable),
+			firstNonEmpty(mt.ArtificialFlowIsSequential, mt.PlainIsSequential),
+		)
+		applyIOMappingsAndListeners(&step, mt.ExtensionElements)
+		steps = append(steps, step)
 	}
 
 	for _, br := range businessRuleTasks {
@@ -693,35 +842,49 @@ func parseFlowElements(
 		setStringProperty(props, "result_variable", firstNonEmpty(br.ArtificialFlowResultVariable, br.PlainResultVariable))
 		props = mergeExtensionProperties(props, br.ExtensionElements)
 
-		steps = append(steps, model.StepDefinition{
+		step := model.StepDefinition{
 			ID:         br.ID,
 			Name:       br.Name,
 			Type:       model.StepTypeBusinessRuleTask,
 			Properties: nilIfEmpty(props),
-		})
+		}
+		applyMultiInstance(&step, br.MultiInstanceLoopCharacteristics,
+			firstNonEmpty(br.ArtificialFlowCollection, br.PlainCollection),
+			firstNonEmpty(br.ArtificialFlowElementVariable, br.PlainElementVariable),
+			firstNonEmpty(br.ArtificialFlowIsSequential, br.PlainIsSequential),
+		)
+		applyIOMappingsAndListeners(&step, br.ExtensionElements)
+		steps = append(steps, step)
 	}
 
 	for _, ca := range callActivities {
 		props := make(map[string]any)
 		setStringProperty(props, "called_element", ca.CalledElement)
+		setStringProperty(props, "called_element_version", firstNonEmpty(ca.ArtificialFlowCalledElementVersion, ca.PlainCalledElementVersion, ca.PlainVersion))
 		props = mergeExtensionProperties(props, ca.ExtensionElements)
 
-		steps = append(steps, model.StepDefinition{
+		step := model.StepDefinition{
 			ID:         ca.ID,
 			Name:       ca.Name,
 			Type:       model.StepTypeCallActivity,
 			Properties: nilIfEmpty(props),
-		})
+		}
+		applyMultiInstance(&step, ca.MultiInstanceLoopCharacteristics,
+			firstNonEmpty(ca.ArtificialFlowCollection, ca.PlainCollection),
+			firstNonEmpty(ca.ArtificialFlowElementVariable, ca.PlainElementVariable),
+			firstNonEmpty(ca.ArtificialFlowIsSequential, ca.PlainIsSequential),
+		)
+		applyIOMappingsAndListeners(&step, ca.ExtensionElements)
+		steps = append(steps, step)
 	}
 
 	for _, catchEvent := range intermediateCatchEvents {
 		props := make(map[string]any)
 		stepType := model.StepTypeIntermediateCatchEvent
 
-		timerDuration := firstNonEmpty(catchEvent.ArtificialFlowTimerDuration, catchEvent.PlainTimerDuration, extractTimerDuration(catchEvent.TimerEventDefinition))
-		if timerDuration != "" {
+		attrDuration := firstNonEmpty(catchEvent.ArtificialFlowTimerDuration, catchEvent.PlainTimerDuration)
+		if applyTimerEventDefinition(props, catchEvent.TimerEventDefinition, attrDuration) {
 			stepType = model.StepTypeIntermediateTimerCatchEvent
-			setStringProperty(props, "timer_duration", timerDuration)
 		}
 
 		if catchEvent.MessageEventDefinition != nil {
@@ -729,6 +892,7 @@ func parseFlowElements(
 		}
 		if catchEvent.SignalEventDefinition != nil {
 			setStringProperty(props, "signal_ref", resolveRef(catchEvent.SignalEventDefinition.SignalRef, refs.signalByID))
+			setStringProperty(props, "event_definition_type", "signal")
 		}
 		if catchEvent.LinkEventDefinition != nil {
 			linkName := firstNonEmpty(catchEvent.LinkEventDefinition.Name, catchEvent.Name)
@@ -814,14 +978,15 @@ func parseFlowElements(
 			props["cancel_activity"] = cancelActivity
 		}
 
-		timerDuration := firstNonEmpty(boundaryEvent.ArtificialFlowTimerDuration, boundaryEvent.PlainTimerDuration, extractTimerDuration(boundaryEvent.TimerEventDefinition))
-		setStringProperty(props, "timer_duration", timerDuration)
+		attrDuration := firstNonEmpty(boundaryEvent.ArtificialFlowTimerDuration, boundaryEvent.PlainTimerDuration)
+		_ = applyTimerEventDefinition(props, boundaryEvent.TimerEventDefinition, attrDuration)
 
 		if boundaryEvent.MessageEventDefinition != nil {
 			setStringProperty(props, "message_ref", resolveRef(boundaryEvent.MessageEventDefinition.MessageRef, refs.messageByID))
 		}
 		if boundaryEvent.SignalEventDefinition != nil {
 			setStringProperty(props, "signal_ref", resolveRef(boundaryEvent.SignalEventDefinition.SignalRef, refs.signalByID))
+			setStringProperty(props, "event_definition_type", "signal")
 		}
 		if boundaryEvent.ErrorEventDefinition != nil {
 			errorCode := resolveRef(boundaryEvent.ErrorEventDefinition.ErrorRef, refs.errorCodeByID)
@@ -928,13 +1093,20 @@ func parseFlowElements(
 		if sp.fromTransaction {
 			props["transaction"] = true
 		}
-		steps = append(steps, model.StepDefinition{
+		step := model.StepDefinition{
 			ID:         sp.ID,
 			Name:       sp.Name,
 			Type:       stepType,
 			SubSteps:   subSteps,
 			Properties: nilIfEmpty(props),
-		})
+		}
+		applyMultiInstance(&step, sp.MultiInstanceLoopCharacteristics,
+			firstNonEmpty(sp.ArtificialFlowCollection, sp.PlainCollection),
+			firstNonEmpty(sp.ArtificialFlowElementVariable, sp.PlainElementVariable),
+			firstNonEmpty(sp.ArtificialFlowIsSequential, sp.PlainIsSequential),
+		)
+		applyIOMappingsAndListeners(&step, sp.ExtensionElements)
+		steps = append(steps, step)
 	}
 
 	stepByID := make(map[string]*model.StepDefinition, len(steps))
@@ -996,6 +1168,238 @@ func resolveRef(ref string, lookup map[string]string) string {
 	return trimmed
 }
 
+// applyIOMappingsAndListeners extracts InputParameters, OutputParameters, and TaskListeners
+// from extension properties (input./output./listener.*) and optional artificialflow:ioMapping.
+func applyIOMappingsAndListeners(step *model.StepDefinition, extensions *ExtensionElements) {
+	if step == nil {
+		return
+	}
+
+	inputs := make(map[string]string)
+	outputs := make(map[string]string)
+	var listeners []model.TaskListener
+
+	mergeIOMap := func(dst map[string]string, src map[string]string) {
+		for k, v := range src {
+			if k == "" || v == "" {
+				continue
+			}
+			if _, exists := dst[k]; !exists {
+				dst[k] = v
+			}
+		}
+	}
+
+	if extensions != nil {
+		for _, mapping := range []*IOMapping{extensions.ArtificialFlowIOMapping, extensions.PlainIOMapping} {
+			if mapping == nil {
+				continue
+			}
+			for _, in := range append(mapping.ArtificialFlowInputs, mapping.PlainInputs...) {
+				target := strings.TrimSpace(in.Target)
+				source := strings.TrimSpace(in.Source)
+				if target != "" && source != "" {
+					if _, exists := inputs[target]; !exists {
+						inputs[target] = source
+					}
+				}
+			}
+			for _, out := range append(mapping.ArtificialFlowOutputs, mapping.PlainOutputs...) {
+				target := strings.TrimSpace(out.Target)
+				source := strings.TrimSpace(out.Source)
+				if target != "" && source != "" {
+					if _, exists := outputs[target]; !exists {
+						outputs[target] = source
+					}
+				}
+			}
+		}
+	}
+
+	if step.Properties != nil {
+		keysToDelete := make([]string, 0)
+		for key, raw := range step.Properties {
+			trimmedKey := strings.TrimSpace(key)
+			if trimmedKey == "" {
+				continue
+			}
+			asString, ok := raw.(string)
+			if !ok {
+				continue
+			}
+			value := strings.TrimSpace(asString)
+			if value == "" {
+				continue
+			}
+
+			lower := strings.ToLower(trimmedKey)
+			switch {
+			case strings.HasPrefix(lower, "input."), strings.HasPrefix(lower, "input:"):
+				local := strings.TrimSpace(trimmedKey[len("input."):])
+				if strings.HasPrefix(lower, "input:") {
+					local = strings.TrimSpace(trimmedKey[len("input:"):])
+				}
+				if local != "" {
+					if _, exists := inputs[local]; !exists {
+						inputs[local] = value
+					}
+					keysToDelete = append(keysToDelete, key)
+				}
+			case strings.HasPrefix(lower, "output."), strings.HasPrefix(lower, "output:"):
+				global := strings.TrimSpace(trimmedKey[len("output."):])
+				if strings.HasPrefix(lower, "output:") {
+					global = strings.TrimSpace(trimmedKey[len("output:"):])
+				}
+				if global != "" {
+					if _, exists := outputs[global]; !exists {
+						outputs[global] = value
+					}
+					keysToDelete = append(keysToDelete, key)
+				}
+			case strings.HasPrefix(lower, "listener."):
+				event := strings.TrimSpace(trimmedKey[len("listener."):])
+				if event != "" {
+					listeners = append(listeners, model.TaskListener{
+						Event:          strings.ToLower(event),
+						Implementation: value,
+					})
+					keysToDelete = append(keysToDelete, key)
+				}
+			case lower == "inputparameters" || lower == "input_parameters":
+				parsed := parseParameterJSON(value)
+				mergeIOMap(inputs, parsed)
+				keysToDelete = append(keysToDelete, key)
+			case lower == "outputparameters" || lower == "output_parameters":
+				parsed := parseParameterJSON(value)
+				mergeIOMap(outputs, parsed)
+				keysToDelete = append(keysToDelete, key)
+			}
+		}
+		for _, key := range keysToDelete {
+			delete(step.Properties, key)
+		}
+		if len(step.Properties) == 0 {
+			step.Properties = nil
+		}
+	}
+
+	if len(inputs) > 0 {
+		step.InputParameters = inputs
+	}
+	if len(outputs) > 0 {
+		step.OutputParameters = outputs
+	}
+	if len(listeners) > 0 {
+		step.TaskListeners = listeners
+	}
+}
+
+func parseParameterJSON(value string) map[string]string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	var asMap map[string]string
+	if err := json.Unmarshal([]byte(trimmed), &asMap); err == nil && len(asMap) > 0 {
+		out := make(map[string]string, len(asMap))
+		for k, v := range asMap {
+			k = strings.TrimSpace(k)
+			v = strings.TrimSpace(v)
+			if k != "" && v != "" {
+				out[k] = v
+			}
+		}
+		return out
+	}
+	var asAny map[string]any
+	if err := json.Unmarshal([]byte(trimmed), &asAny); err != nil {
+		return nil
+	}
+	out := make(map[string]string)
+	for k, v := range asAny {
+		k = strings.TrimSpace(k)
+		if k == "" {
+			continue
+		}
+		switch typed := v.(type) {
+		case string:
+			if s := strings.TrimSpace(typed); s != "" {
+				out[k] = s
+			}
+		default:
+			if s := strings.TrimSpace(fmt.Sprint(typed)); s != "" && s != "<nil>" {
+				out[k] = s
+			}
+		}
+	}
+	return out
+}
+
+// applyMultiInstance sets LoopType/LoopCollection/LoopElement from
+// multiInstanceLoopCharacteristics and/or ArtificialFlow/plain task attributes.
+func applyMultiInstance(step *model.StepDefinition, mi *MultiInstanceLoopCharacteristics, collection, elementVariable, isSequential string) {
+	if step == nil {
+		return
+	}
+	hasMI := mi != nil
+	collection = strings.TrimSpace(collection)
+	elementVariable = strings.TrimSpace(elementVariable)
+	isSequential = strings.TrimSpace(isSequential)
+
+	if hasMI {
+		if collection == "" {
+			collection = firstNonEmpty(mi.ArtificialFlowCollection, mi.PlainCollection, mi.ArtificialFlowLoopCollection, mi.PlainLoopCollection)
+		}
+		if elementVariable == "" {
+			elementVariable = firstNonEmpty(mi.ArtificialFlowElementVariable, mi.PlainElementVariable, mi.ArtificialFlowLoopElement, mi.PlainLoopElement)
+		}
+		if isSequential == "" {
+			isSequential = strings.TrimSpace(mi.IsSequential)
+		}
+	}
+
+	// Also accept extension-property aliases already merged onto the step.
+	if step.Properties != nil {
+		if collection == "" {
+			collection = firstStringProperty(step.Properties, "collection", "loopCollection", "loop_collection")
+		}
+		if elementVariable == "" {
+			elementVariable = firstStringProperty(step.Properties, "elementVariable", "element_variable", "loopElement", "loop_element")
+		}
+		if isSequential == "" {
+			if v, ok := step.Properties["isSequential"].(string); ok {
+				isSequential = v
+			} else if v, ok := step.Properties["is_sequential"].(string); ok {
+				isSequential = v
+			} else if b, ok := step.Properties["isSequential"].(bool); ok {
+				if b {
+					isSequential = "true"
+				} else {
+					isSequential = "false"
+				}
+			}
+		}
+	}
+
+	if !hasMI && collection == "" && elementVariable == "" && isSequential == "" {
+		return
+	}
+
+	sequential := false
+	if isSequential != "" {
+		if parsed, err := strconv.ParseBool(isSequential); err == nil {
+			sequential = parsed
+		}
+	}
+	if sequential {
+		step.LoopType = "SEQUENTIAL"
+	} else {
+		step.LoopType = "PARALLEL"
+	}
+	step.LoopCollection = collection
+	step.LoopElement = elementVariable
+}
+
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if trimmed := strings.TrimSpace(value); trimmed != "" {
@@ -1009,7 +1413,70 @@ func extractTimerDuration(def *TimerEventDefinition) string {
 	if def == nil {
 		return ""
 	}
-	return firstNonEmpty(def.TimeDuration, def.TimeDate)
+	return firstNonEmpty(def.TimeDuration, def.TimeDate, def.TimeCycle)
+}
+
+// applyTimerEventDefinition sets timer_duration / timer_date / timer_cycle / timer_type.
+// Returns true when any timer property was applied.
+func applyTimerEventDefinition(props map[string]any, def *TimerEventDefinition, attrDuration string) bool {
+	applied := false
+	if def != nil {
+		if d := strings.TrimSpace(def.TimeDuration); d != "" {
+			setStringProperty(props, "timer_duration", d)
+			setStringProperty(props, "timer_type", "duration")
+			applied = true
+		}
+		if d := strings.TrimSpace(def.TimeDate); d != "" {
+			setStringProperty(props, "timer_date", d)
+			if _, ok := props["timer_type"]; !ok {
+				setStringProperty(props, "timer_type", "date")
+			}
+			applied = true
+		}
+		if c := strings.TrimSpace(def.TimeCycle); c != "" {
+			setStringProperty(props, "timer_cycle", c)
+			setStringProperty(props, "timer_type", "cycle")
+			applied = true
+		}
+	}
+	if attr := strings.TrimSpace(attrDuration); attr != "" {
+		if _, hasDur := props["timer_duration"]; !hasDur {
+			if _, hasDate := props["timer_date"]; !hasDate {
+				if _, hasCycle := props["timer_cycle"]; !hasCycle {
+					// Attr-only: duration unless value looks like absolute date or cycle.
+					if strings.HasPrefix(attr, "R") {
+						setStringProperty(props, "timer_cycle", attr)
+						setStringProperty(props, "timer_type", "cycle")
+					} else if looksLikeAbsoluteTime(attr) {
+						setStringProperty(props, "timer_date", attr)
+						setStringProperty(props, "timer_type", "date")
+					} else {
+						setStringProperty(props, "timer_duration", attr)
+						setStringProperty(props, "timer_type", "duration")
+					}
+					applied = true
+				}
+			}
+		}
+	}
+	return applied
+}
+
+func looksLikeAbsoluteTime(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || strings.HasPrefix(value, "P") || strings.HasPrefix(value, "R") {
+		return false
+	}
+	if _, err := time.Parse(time.RFC3339, value); err == nil {
+		return true
+	}
+	if _, err := time.Parse(time.RFC3339Nano, value); err == nil {
+		return true
+	}
+	if _, err := time.Parse("2006-01-02T15:04:05", value); err == nil {
+		return true
+	}
+	return false
 }
 
 func setStringProperty(props map[string]any, key string, value string) {
@@ -1086,6 +1553,14 @@ func canonicalPropertyKey(key string) string {
 		return "due_date"
 	case "calledelement", "called_element":
 		return "called_element"
+	case "calledelementversion", "called_element_version":
+		return "called_element_version"
+	case "collection", "loopcollection", "loop_collection":
+		return "collection"
+	case "elementvariable", "element_variable", "loopelement", "loop_element":
+		return "element_variable"
+	case "issequential", "is_sequential":
+		return "is_sequential"
 	case "decisionref", "decision_ref":
 		return "decision_ref"
 	case "resultvariable", "result_variable":

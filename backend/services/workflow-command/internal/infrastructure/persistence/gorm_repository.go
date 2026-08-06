@@ -305,6 +305,7 @@ func (s *GormRepository) UpdateJob(ctx context.Context, job *model.Job) error {
 		"assignee":             job.Assignee,
 		"candidate_users":      job.CandidateUsers,
 		"candidate_groups":     job.CandidateGroups,
+		"breached_at":          job.BreachedAt,
 		"updated_at":           job.UpdatedAt,
 	}).Error
 }
@@ -376,8 +377,36 @@ func (s *GormRepository) GetTimer(ctx context.Context, key int64) (*model.Timer,
 
 func (s *GormRepository) UpdateTimer(ctx context.Context, timer *model.Timer) error {
 	return s.DB.WithContext(ctx).Model(timer).Updates(map[string]interface{}{
-		"state": timer.State,
+		"state":        timer.State,
+		"due_date":     timer.DueDate,
+		"repeat_count": timer.RepeatCount,
 	}).Error
+}
+
+func (s *GormRepository) ListCreatedTimersByElementInstanceKey(ctx context.Context, elementInstanceKey int64) ([]model.Timer, error) {
+	var timers []model.Timer
+	if err := s.DB.WithContext(ctx).Where("state = ? AND element_instance_key = ?", "CREATED", elementInstanceKey).Find(&timers).Error; err != nil {
+		return nil, err
+	}
+	return timers, nil
+}
+
+func (s *GormRepository) ListIncidents(ctx context.Context, processInstanceKey int64, limit int) ([]model.Incident, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+	query := s.DB.WithContext(ctx).Order("created_at desc").Limit(limit)
+	if processInstanceKey != 0 {
+		query = query.Where("process_instance_key = ?", processInstanceKey)
+	}
+	var incidents []model.Incident
+	if err := query.Find(&incidents).Error; err != nil {
+		return nil, err
+	}
+	return incidents, nil
 }
 
 func (s *GormRepository) CreateMessageSubscription(ctx context.Context, subscription *model.MessageSubscription) error {
@@ -565,8 +594,12 @@ func (s *GormRepository) ListDueTimers(ctx context.Context, now time.Time) ([]mo
 
 func (s *GormRepository) ListOverdueJobs(ctx context.Context, now time.Time) ([]model.Job, error) {
 	var jobs []model.Job
-	// Find Active jobs with DueDate set, past, and NOT yet breached
-	if err := s.DB.WithContext(ctx).Where("state IN ? AND due_date IS NOT NULL AND due_date <= ? AND breached_at IS NULL", []string{"CREATED", "ACTIVATED"}, now).Find(&jobs).Error; err != nil {
+	// Find Active jobs with a real DueDate set (exclude zero-value), past, and NOT yet breached.
+	zeroDue := time.Time{}
+	if err := s.DB.WithContext(ctx).Where(
+		"state IN ? AND due_date > ? AND due_date <= ? AND breached_at IS NULL",
+		[]string{"CREATED", "ACTIVATED"}, zeroDue, now,
+	).Find(&jobs).Error; err != nil {
 		return nil, err
 	}
 	return jobs, nil

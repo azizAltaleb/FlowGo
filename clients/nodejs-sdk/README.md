@@ -146,6 +146,8 @@ const client = new ArtificialFlowClient({
 const workflows = await client.listWorkflows({ page: 1, pageSize: 100 });
 const instance = await client.startInstance('order-process', { orderId: '123' });
 await client.publishMessage('MsgOrderPlaced', '123', { amount: 100 });
+await client.publishSignal('OrderApproved', { orderId: '123' });
+await client.publishEscalation('NEED_HELP', { reason: 'timeout' });
 ```
 
 ## Human task inbox

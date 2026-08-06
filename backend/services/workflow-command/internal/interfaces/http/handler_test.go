@@ -1026,6 +1026,84 @@ func TestPublishMessageAPI(t *testing.T) {
 	}
 }
 
+func TestPublishEscalationAPI(t *testing.T) {
+	h := setupTestHandler(t)
+	r := mux.NewRouter()
+	registerTestRoutes(r, h)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	steps := []model.StepDefinition{
+		{ID: "start", Type: model.StepTypeStart, Outgoing: []model.Transition{{TargetRef: "work"}}},
+		{
+			ID:                "work",
+			Type:              model.StepTypeUserTask,
+			Incoming:          []string{"start"},
+			Outgoing:          []model.Transition{{TargetRef: "endOk"}},
+			BoundaryEventRefs: []string{"escBound"},
+		},
+		{
+			ID:   "escBound",
+			Type: model.StepTypeBoundaryEvent,
+			Properties: map[string]any{
+				"event_definition_type": "escalation",
+				"escalation_code":       "NEED_HELP",
+				"cancel_activity":       true,
+				"attached_to":           "work",
+			},
+			Outgoing: []model.Transition{{TargetRef: "endEsc"}},
+		},
+		{ID: "endOk", Type: model.StepTypeEnd, Incoming: []string{"work"}},
+		{ID: "endEsc", Type: model.StepTypeEnd, Incoming: []string{"escBound"}},
+	}
+	wf, err := h.engine.DeployWorkflow(context.Background(), "Escalation API Test", steps)
+	if err != nil {
+		t.Fatalf("deploy: %v", err)
+	}
+	instance, err := h.engine.StartInstance(context.Background(), strconv.FormatInt(wf.ID, 10), nil)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	url := ts.URL + "/escalations"
+	reqBody := dto.PublishEscalationRequest{
+		EscalationCode: "NEED_HELP",
+		Payload:        map[string]any{"api_escalation": true},
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		t.Fatalf("Failed to publish escalation: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("Expected 200 OK, got %d: %s", resp.StatusCode, string(body))
+	}
+
+	instance, err = h.engine.GetInstance(context.Background(), instance.ID)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if instance.Status != model.StatusCompleted {
+		t.Errorf("Expected instance completed, got %s", instance.Status)
+	}
+	if val, ok := instance.Context["api_escalation"]; !ok || val != true {
+		t.Errorf("Expected context api_escalation=true, got %v", val)
+	}
+
+	// Missing code → 400
+	badBody, _ := json.Marshal(dto.PublishEscalationRequest{Payload: map[string]any{}})
+	badResp, err := http.Post(url, "application/json", bytes.NewBuffer(badBody))
+	if err != nil {
+		t.Fatalf("bad request post: %v", err)
+	}
+	defer badResp.Body.Close()
+	if badResp.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected 400 for empty escalation_code, got %d", badResp.StatusCode)
+	}
+}
+
 func TestServiceTaskAPI(t *testing.T) {
 	h := setupTestHandler(t)
 	r := mux.NewRouter()
