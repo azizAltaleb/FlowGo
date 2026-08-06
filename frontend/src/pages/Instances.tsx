@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, type WorkflowInstance } from "@/lib/api";
 import { isAdmin } from "@/lib/roles";
+import { buildProcessLookup, resolveProcessRef, type ProcessRef } from "@/lib/processLookup";
 import {
   consumePendingInstanceSync,
   waitForInstanceInList,
@@ -21,6 +22,7 @@ import { Eye, Trash2, RefreshCw } from "lucide-react";
 
 export default function Instances() {
   const [instances, setInstances] = useState<WorkflowInstance[]>([]);
+  const [processLookup, setProcessLookup] = useState<Map<string, ProcessRef>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
@@ -32,7 +34,11 @@ export default function Instances() {
       setLoading(true);
     }
     try {
-      const data = await api.getInstances();
+      const [data, workflows] = await Promise.all([
+        api.getInstances(),
+        api.getWorkflows().catch(() => []),
+      ]);
+      setProcessLookup(buildProcessLookup(workflows || []));
       setInstances((data || []).filter((instance) => instance.status === "PENDING" || instance.status === "RUNNING"));
       setError(null);
     } catch (err) {
@@ -123,10 +129,10 @@ export default function Instances() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Workflow ID</TableHead>
+              <TableHead>Instance ID</TableHead>
+              <TableHead>Process Name</TableHead>
+              <TableHead>Definition ID</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Context</TableHead>
               <TableHead className="text-right">Created At</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -139,10 +145,13 @@ export default function Instances() {
                 </TableCell>
               </TableRow>
             ) : (
-              instances.map((instance) => (
+              instances.map((instance) => {
+                const process = resolveProcessRef(processLookup, instance.workflow_id);
+                return (
                 <TableRow key={instance.id}>
-                  <TableCell className="font-medium">{instance.id}</TableCell>
-                  <TableCell>{instance.workflow_id}</TableCell>
+                  <TableCell className="font-medium font-mono text-xs">{instance.id}</TableCell>
+                  <TableCell className="font-medium">{process.processName}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{process.definitionKey}</TableCell>
                   <TableCell>
                     <Badge
                       variant={
@@ -155,9 +164,6 @@ export default function Instances() {
                     >
                       {instance.status}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
-                    {JSON.stringify(instance.context)}
                   </TableCell>
                   <TableCell className="text-right">
                     {new Date(instance.created_at).toLocaleString()}
@@ -183,7 +189,8 @@ export default function Instances() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+              );
+              })
             )}
           </TableBody>
         </Table>

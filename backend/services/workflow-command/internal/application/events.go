@@ -13,6 +13,11 @@ import (
 // CheckTimers scans all active instances for timer events that are due
 // It processes each timer in its own transaction to ensure isolation.
 func (e *Engine) CheckTimers(ctx context.Context) error {
+	// Schedule definition-level timer start events (ISO-8601 PT… durations) before firing due timers.
+	if err := e.ensureTimerStartSchedules(ctx); err != nil {
+		return err
+	}
+
 	now := time.Now()
 	dueTimers, err := e.repo.ListDueTimers(ctx, now)
 	if err != nil {
@@ -40,7 +45,94 @@ func (e *Engine) CheckTimers(ctx context.Context) error {
 	return nil
 }
 
+// ensureTimerStartSchedules creates CREATED timers for process definitions
+// whose start event is a timer (duration PT…, absolute timeDate, or timeCycle R[n]/PT…).
+// Convention: ProcessInstanceKey=0, ElementInstanceKey=process definition key.
+func (e *Engine) ensureTimerStartSchedules(ctx context.Context) error {
+	defs, err := e.listDeployedWorkflowDefinitions(ctx)
+	if err != nil || len(defs) == 0 {
+		return err
+	}
+	now := time.Now()
+	for _, wf := range defs {
+		start := firstStartStep(wf.Steps)
+		if start == nil || start.Properties == nil {
+			continue
+		}
+		if start.Properties["event_definition_type"] != "timer" {
+			continue
+		}
+		sched, err := resolveTimerSchedule(start.Properties, now)
+		if err != nil {
+			continue
+		}
+		key := generateDeterministicKey(fmt.Sprintf("timer_start_%d_%s", wf.ID, start.ID))
+		if existing, err := e.repo.GetTimer(ctx, key); err == nil && existing != nil {
+			// Already scheduled or previously completed (one-shot / exhausted cycle).
+			continue
+		}
+		timer := &model.Timer{
+			Key:                key,
+			ID:                 id.GenerateUUIDv7(),
+			ElementInstanceKey: wf.ID,
+			ProcessInstanceKey: 0,
+			ElementID:          start.ID,
+			DueDate:            sched.DueDate,
+			RepeatCount:        sched.RepeatCount,
+			State:              "CREATED",
+			CreatedAt:          now,
+		}
+		if err := e.repo.CreateTimer(ctx, timer); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// finalizeTimerAfterFire marks a timer TRIGGERED or re-arms it for timeCycle.
+func (e *Engine) finalizeTimerAfterFire(ctx context.Context, timer *model.Timer, props map[string]any) error {
+	interval := cycleIntervalFromProps(props)
+	if timer.RepeatCount < 0 {
+		// Infinite cycle
+		if interval <= 0 {
+			timer.State = "TRIGGERED"
+			return e.repo.UpdateTimer(ctx, timer)
+		}
+		timer.DueDate = time.Now().Add(interval)
+		timer.State = "CREATED"
+		return e.repo.UpdateTimer(ctx, timer)
+	}
+	if timer.RepeatCount > 1 && interval > 0 {
+		timer.RepeatCount--
+		timer.DueDate = time.Now().Add(interval)
+		timer.State = "CREATED"
+		return e.repo.UpdateTimer(ctx, timer)
+	}
+	timer.State = "TRIGGERED"
+	timer.RepeatCount = 0
+	return e.repo.UpdateTimer(ctx, timer)
+}
+
+func (e *Engine) cancelCreatedTimersForElementInstance(ctx context.Context, elementInstanceKey int64) {
+	if elementInstanceKey == 0 {
+		return
+	}
+	timers, err := e.repo.ListCreatedTimersByElementInstanceKey(ctx, elementInstanceKey)
+	if err != nil {
+		return
+	}
+	for i := range timers {
+		timers[i].State = "CANCELED"
+		_ = e.repo.UpdateTimer(ctx, &timers[i])
+	}
+}
+
 func (e *Engine) processTimer(ctx context.Context, timer model.Timer) error {
+	// Definition-level timer start (no process instance yet).
+	if timer.ProcessInstanceKey == 0 {
+		return e.processTimerStartDefinition(ctx, timer)
+	}
+
 	// Load Process Instance
 	instance, err := e.GetInstance(ctx, fmt.Sprintf("%d", timer.ProcessInstanceKey))
 	if err != nil {
@@ -54,19 +146,32 @@ func (e *Engine) processTimer(ctx context.Context, timer model.Timer) error {
 		return nil // Skip if workflow def not found
 	}
 
-	// Find the step definition for the timer
-	var step *model.StepDefinition
-	for _, s := range wf.Steps {
-		if s.ID == timer.ElementID {
-			step = &s
-			break
-		}
-	}
+	// Find the step definition for the timer (including nested event sub-process starts).
+	step := findStep(wf.Steps, timer.ElementID)
 	if step == nil {
 		return nil // Step not found
 	}
 
 	piKey := timer.ProcessInstanceKey
+
+	// Timer event sub-process start (triggeredByEvent).
+	if step.Type == model.StepTypeStart && step.Properties != nil && step.Properties["event_definition_type"] == "timer" {
+		if err := e.tryStartEventSubProcesses(ctx, instance, wf, "timer", "", nil); err != nil {
+			return err
+		}
+		if err := e.finalizeTimerAfterFire(ctx, &timer, step.Properties); err != nil {
+			return err
+		}
+		if instance.Status == model.StatusCompleted {
+			pi := &model.ProcessInstance{
+				Key:     piKey,
+				State:   "COMPLETED",
+				EndTime: time.Now(),
+			}
+			_ = e.repo.UpdateProcessInstance(ctx, pi)
+		}
+		return nil
+	}
 
 	// 1. Intermediate Timer Catch Event
 	if step.Type == model.StepTypeIntermediateTimerCatchEvent {
@@ -84,9 +189,9 @@ func (e *Engine) processTimer(ctx context.Context, timer model.Timer) error {
 				// Cancel siblings if this was an Event-Based Gateway
 				e.cancelEventGatewaySiblings(ctx, instance, step, exec.ParentID, wf)
 
-				// Mark Timer as Triggered
+				// Intermediate catch consumes the token — one-shot even if cycle was modeled.
 				timer.State = "TRIGGERED"
-				e.repo.UpdateTimer(ctx, &timer)
+				_ = e.repo.UpdateTimer(ctx, &timer)
 
 				// Engine: Check Completion
 				if instance.Status == model.StatusCompleted {
@@ -177,9 +282,14 @@ func (e *Engine) processTimer(ctx context.Context, timer model.Timer) error {
 				e.autoAdvance(ctx, instance, newExec.ID, wf)
 			}
 
-			// Mark Timer as Triggered
-			timer.State = "TRIGGERED"
-			e.repo.UpdateTimer(ctx, &timer)
+			if cancelActivity {
+				timer.State = "TRIGGERED"
+				_ = e.repo.UpdateTimer(ctx, &timer)
+				// Cancel other boundary timers attached to the same activity.
+				e.cancelCreatedTimersForElementInstance(ctx, timer.ElementInstanceKey)
+			} else if err := e.finalizeTimerAfterFire(ctx, &timer, step.Properties); err != nil {
+				return err
+			}
 
 			// Engine: Check Completion
 			if instance.Status == model.StatusCompleted {
@@ -196,6 +306,93 @@ func (e *Engine) processTimer(ctx context.Context, timer model.Timer) error {
 	return nil
 }
 
+// processTimerStartDefinition starts a process instance when a definition-level
+// timer start is due. ElementInstanceKey holds the process definition key.
+func (e *Engine) processTimerStartDefinition(ctx context.Context, timer model.Timer) error {
+	defKey := timer.ElementInstanceKey
+	if defKey == 0 {
+		timer.State = "TRIGGERED"
+		_ = e.repo.UpdateTimer(ctx, &timer)
+		return nil
+	}
+	wf, err := e.getWorkflowDefinition(ctx, defKey)
+	if err != nil || wf == nil {
+		timer.State = "TRIGGERED"
+		_ = e.repo.UpdateTimer(ctx, &timer)
+		return nil
+	}
+	start := firstStartStep(wf.Steps)
+	if start == nil || start.ID != timer.ElementID {
+		timer.State = "TRIGGERED"
+		_ = e.repo.UpdateTimer(ctx, &timer)
+		return nil
+	}
+	if start.Properties == nil || start.Properties["event_definition_type"] != "timer" {
+		timer.State = "TRIGGERED"
+		_ = e.repo.UpdateTimer(ctx, &timer)
+		return nil
+	}
+	if _, err := e.createAndStartInstance(ctx, strconv.FormatInt(defKey, 10), nil, "", "", nil); err != nil {
+		return err
+	}
+	return e.finalizeTimerAfterFire(ctx, &timer, start.Properties)
+}
+
+// scheduleEventSubProcessTimers creates timers for timer starts
+// inside triggeredByEvent event sub-processes on a newly started instance.
+func (e *Engine) scheduleEventSubProcessTimers(ctx context.Context, instance *model.WorkflowInstance, wf *model.WorkflowDefinition) error {
+	if instance == nil || wf == nil {
+		return nil
+	}
+	piKey, err := strconv.ParseInt(instance.ID, 10, 64)
+	if err != nil || piKey == 0 {
+		return nil
+	}
+	now := time.Now()
+	for i := range wf.Steps {
+		sp := &wf.Steps[i]
+		if sp.Type != model.StepTypeEventSubProcess {
+			continue
+		}
+		var start *model.StepDefinition
+		for j := range sp.SubSteps {
+			if sp.SubSteps[j].Type == model.StepTypeStart {
+				start = &sp.SubSteps[j]
+				break
+			}
+		}
+		if start == nil || start.Properties == nil {
+			continue
+		}
+		if start.Properties["event_definition_type"] != "timer" {
+			continue
+		}
+		sched, err := resolveTimerSchedule(start.Properties, now)
+		if err != nil {
+			continue
+		}
+		key := generateDeterministicKey(fmt.Sprintf("esp_timer_%d_%s", piKey, start.ID))
+		if existing, err := e.repo.GetTimer(ctx, key); err == nil && existing != nil {
+			continue
+		}
+		timer := &model.Timer{
+			Key:                key,
+			ID:                 id.GenerateUUIDv7(),
+			ElementInstanceKey: 0,
+			ProcessInstanceKey: piKey,
+			ElementID:          start.ID,
+			DueDate:            sched.DueDate,
+			RepeatCount:        sched.RepeatCount,
+			State:              "CREATED",
+			CreatedAt:          now,
+		}
+		if err := e.repo.CreateTimer(ctx, timer); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // CheckSLAs scans all active jobs for SLA breaches
 // Performs updates in individual transactions.
 func (e *Engine) CheckSLAs(ctx context.Context) error {
@@ -207,19 +404,39 @@ func (e *Engine) CheckSLAs(ctx context.Context) error {
 
 	var errs []error
 	for _, job := range overdueJobs {
+		jobCopy := job
 		if err := e.withTx(ctx, func(txEngine *Engine) error {
-			// Mark as breached
-			job.BreachedAt = &now
-			job.UpdatedAt = now
+			// Mark as breached (ListOverdueJobs only returns jobs with BreachedAt unset).
+			jobCopy.BreachedAt = &now
+			jobCopy.UpdatedAt = now
 
-			if err := txEngine.repo.UpdateJob(ctx, &job); err != nil {
+			if err := txEngine.repo.UpdateJob(ctx, &jobCopy); err != nil {
 				return err
 			}
 
-			// TODO: Trigger Escalation (e.g. Email, Notification, Incident)
-			// For now, we assume the job simply carries the "Breached" flag.
-			// We could also publish an internal event if we had an event bus here.
-			return nil
+			incident := &model.Incident{
+				Key:                generateDeterministicKey(fmt.Sprintf("sla_breach_%d", jobCopy.Key)),
+				ID:                 id.GenerateUUIDv7(),
+				ProcessInstanceKey: jobCopy.ProcessInstanceKey,
+				ElementInstanceKey: jobCopy.ElementInstanceKey,
+				JobKey:             jobCopy.Key,
+				ErrorType:          "SLA_DUE_DATE_BREACHED",
+				ErrorMessage:       fmt.Sprintf("user-task due date breached for element %s", jobCopy.ElementID),
+				State:              "CREATED",
+				CreatedAt:          now,
+			}
+			if err := txEngine.repo.CreateIncident(ctx, incident); err != nil {
+				return err
+			}
+
+			payload := map[string]any{
+				"processInstanceKey": jobCopy.ProcessInstanceKey,
+				"jobKey":             jobCopy.Key,
+				"elementId":          jobCopy.ElementID,
+				"incidentKey":        incident.Key,
+			}
+			// Use non-wrapping publish so we stay in the current transaction.
+			return txEngine.publishEscalation(ctx, "user-task.due-date.breached", payload)
 		}); err != nil {
 			errs = append(errs, fmt.Errorf("failed to process sla for job %d: %w", job.Key, err))
 		}
@@ -263,6 +480,10 @@ func (e *Engine) PublishSignal(ctx context.Context, signalName string, payload m
 	if err := e.startInstancesForSignalStart(ctx, signalName, payload); err != nil {
 		return err
 	}
+	// Interrupt/start event sub-processes waiting for this signal on active instances.
+	if err := e.triggerEventSubProcessesOnActiveInstances(ctx, "signal", signalName, payload); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -274,6 +495,41 @@ func (e *Engine) processSignalForElement(ctx context.Context, el model.ElementIn
 	var instance *model.WorkflowInstance
 	wf, step, matched := e.matchSignalStep(ctx, el, signalName, definitions)
 	if !matched {
+		wf, activity, boundary, boundaryMatched := e.matchSignalBoundaryOnActivity(ctx, el, signalName, definitions)
+		if boundaryMatched {
+			var err error
+			instance, err = e.GetInstance(ctx, fmt.Sprintf("%d", el.ProcessInstanceKey))
+			if err != nil {
+				return nil
+			}
+			if payload != nil {
+				if instance.Context == nil {
+					instance.Context = make(map[string]any)
+				}
+				for k, v := range payload {
+					instance.Context[k] = v
+				}
+			}
+			if err := e.triggerBoundaryPath(ctx, instance, boundary, activity.ID, wf); err != nil {
+				return err
+			}
+			piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
+			if instance.Status == model.StatusCompleted {
+				pi := &model.ProcessInstance{
+					Key:     piKey,
+					State:   "COMPLETED",
+					EndTime: time.Now(),
+				}
+				_ = e.repo.UpdateProcessInstance(ctx, pi)
+			}
+			if len(payload) > 0 {
+				if err := e.persistVariables(ctx, instance.ID, piKey, payload); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
 		if el.ProcessDefinitionKey != 0 {
 			return nil
 		}
@@ -367,10 +623,25 @@ func (e *Engine) processSignalForElement(ctx context.Context, el model.ElementIn
 }
 
 func signalCandidateElementTypes() []string {
-	return []string{
+	types := []string{
 		string(model.StepTypeIntermediateCatchEvent),
 		string(model.StepTypeBoundaryEvent),
 		"", // Preserve older rows created before element type was consistently populated.
+	}
+	return append(types, signalActivityElementTypes()...)
+}
+
+func signalActivityElementTypes() []string {
+	return []string{
+		string(model.StepTypeUserTask),
+		string(model.StepTypeServiceTask),
+		string(model.StepTypeScriptTask),
+		string(model.StepTypeReceiveTask),
+		string(model.StepTypeManualTask),
+		string(model.StepTypeBusinessRuleTask),
+		string(model.StepTypeSendTask),
+		string(model.StepTypeCallActivity),
+		string(model.StepTypeSubProcess),
 	}
 }
 
@@ -378,7 +649,33 @@ func isSignalCandidateElementType(elementType string) bool {
 	if elementType == "" {
 		return true
 	}
-	return elementType == string(model.StepTypeIntermediateCatchEvent) || elementType == string(model.StepTypeBoundaryEvent)
+	if elementType == string(model.StepTypeIntermediateCatchEvent) || elementType == string(model.StepTypeBoundaryEvent) {
+		return true
+	}
+	return isSignalActivityElementType(elementType)
+}
+
+func isSignalActivityElementType(elementType string) bool {
+	for _, t := range signalActivityElementTypes() {
+		if elementType == t {
+			return true
+		}
+	}
+	return false
+}
+
+func signalStepMatches(step *model.StepDefinition, signalName string) bool {
+	if step == nil || step.Properties == nil {
+		return false
+	}
+	ref, _ := step.Properties["signal_ref"].(string)
+	if ref == "" || ref != signalName {
+		return false
+	}
+	if edt, ok := step.Properties["event_definition_type"].(string); ok && edt != "" && edt != "signal" {
+		return false
+	}
+	return true
 }
 
 func (e *Engine) signalElementCanMatch(ctx context.Context, el model.ElementInstance, signalName string, definitions map[int64]*model.WorkflowDefinition) bool {
@@ -388,7 +685,10 @@ func (e *Engine) signalElementCanMatch(ctx context.Context, el model.ElementInst
 	if el.ProcessDefinitionKey == 0 {
 		return true
 	}
-	_, _, matched := e.matchSignalStep(ctx, el, signalName, definitions)
+	if _, _, matched := e.matchSignalStep(ctx, el, signalName, definitions); matched {
+		return true
+	}
+	_, _, _, matched := e.matchSignalBoundaryOnActivity(ctx, el, signalName, definitions)
 	return matched
 }
 
@@ -405,18 +705,46 @@ func (e *Engine) matchSignalStepForProcess(ctx context.Context, processDefinitio
 		return nil, nil, false
 	}
 
-	step := findStep(wf.Steps, elementID)
+	step := findStepDeep(wf.Steps, elementID)
 	if step == nil {
 		return nil, nil, false
 	}
 	if step.Type != model.StepTypeIntermediateCatchEvent && step.Type != model.StepTypeBoundaryEvent {
 		return nil, nil, false
 	}
-	ref, ok := step.Properties["signal_ref"].(string)
-	if !ok || ref != signalName {
+	if !signalStepMatches(step, signalName) {
 		return nil, nil, false
 	}
 	return wf, step, true
+}
+
+// matchSignalBoundaryOnActivity finds a signal boundary attached to an active activity instance.
+// Boundary events are not activated as their own element instances — they attach to activities.
+func (e *Engine) matchSignalBoundaryOnActivity(ctx context.Context, el model.ElementInstance, signalName string, definitions map[int64]*model.WorkflowDefinition) (*model.WorkflowDefinition, *model.StepDefinition, *model.StepDefinition, bool) {
+	if el.ProcessDefinitionKey == 0 {
+		return nil, nil, nil, false
+	}
+	if el.BpmnElementType != "" && !isSignalActivityElementType(el.BpmnElementType) {
+		return nil, nil, nil, false
+	}
+	wf, err := e.getWorkflowDefinitionFromMemo(ctx, el.ProcessDefinitionKey, definitions)
+	if err != nil {
+		return nil, nil, nil, false
+	}
+	activity := findStepDeep(wf.Steps, el.ElementID)
+	if activity == nil || len(activity.BoundaryEventRefs) == 0 {
+		return nil, nil, nil, false
+	}
+	for _, ref := range activity.BoundaryEventRefs {
+		boundary := findStepDeep(wf.Steps, ref)
+		if boundary == nil || boundary.Type != model.StepTypeBoundaryEvent {
+			continue
+		}
+		if signalStepMatches(boundary, signalName) {
+			return wf, activity, boundary, true
+		}
+	}
+	return nil, nil, nil, false
 }
 
 func (e *Engine) getWorkflowDefinitionFromMemo(ctx context.Context, processDefinitionKey int64, definitions map[int64]*model.WorkflowDefinition) (*model.WorkflowDefinition, error) {
@@ -508,7 +836,7 @@ func (e *Engine) publishSignal(ctx context.Context, signalName string, payload m
 	if err := e.startInstancesForSignalStart(ctx, signalName, payload); err != nil {
 		return err
 	}
-	return nil
+	return e.triggerEventSubProcessesOnActiveInstances(ctx, "signal", signalName, payload)
 }
 
 func (e *Engine) processMessageSubscription(ctx context.Context, sub model.MessageSubscription, payload map[string]any) error {

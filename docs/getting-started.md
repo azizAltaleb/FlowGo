@@ -13,11 +13,34 @@ IAM when you need to validate ArtificialFlow against an existing OIDC provider.
 See the complete [Deployment Guide](deployment.md) before a production or
 Kubernetes installation.
 
-## Option 1: Bundled ZITADEL
+After the stack is up, integrate with ArtificialFlow using either:
+
+- the [Node.js SDK](sdk-nodejs.md), or
+- the [HTTP API](API.md) for any language / non-SDK client.
+
+## Option 1: Bundled ZITADEL (internal IAM)
+
+This is the [README Quickstart](../README.md#quickstart-bundled--internal-iam)
+path. ArtificialFlow deploys and bootstraps ZITADEL for you — project, frontend/API
+clients, standard roles, and the initial administrator. See
+[Bundled ZITADEL](iam.md#bundled-zitadel) for IAM behavior and constraints.
+
+### Compose files
+
+| File | Role |
+| :--- | :--- |
+| [`docker-compose.zitadel.yml`](../docker-compose.zitadel.yml) | Stack with bundled ZITADEL |
+| [`docker-compose.release.yml`](../docker-compose.release.yml) | Optional override for published Docker Hub images |
 
 ```bash
+# From source (build images locally)
 make smoke-full
 make up-zitadel
+# → docker compose -f docker-compose.zitadel.yml up -d --build
+
+# Or published images
+# ARTIFICIALFLOW_IMAGE_TAG=v1.1.0 make up-zitadel-release
+# → docker compose -f docker-compose.zitadel.yml -f docker-compose.release.yml up -d
 ```
 
 Open:
@@ -32,9 +55,6 @@ The local default admin login is:
 - Email: `admin@admin.localhost`
 
 These credentials are for local development only.
-
-The bootstrap automatically creates the ArtificialFlow project, frontend/API clients,
-standard roles, and initial administrator.
 
 ### Create a bundled-IAM SDK credential
 

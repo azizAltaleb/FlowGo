@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	pb "github.com/artificialflow/artificialflow/backend/api/v1/go"
 	"github.com/artificialflow/artificialflow/backend/libs/id"
 	"github.com/artificialflow/artificialflow/backend/libs/logger"
 	"github.com/artificialflow/artificialflow/backend/libs/model"
-	"strconv"
-	"strings"
-	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -147,8 +148,39 @@ func (x *ServiceTaskExecutor) Execute(ctx context.Context, e *Engine, instance *
 		job.Worker = ""
 		job.UpdatedAt = time.Now()
 		e.repo.UpdateJob(ctx, job)
+		// Job has no variables/custom-headers field; copy connector inputs from
+		// step.Properties into instance context so LoadInstanceVars picks them up.
+		// Existing start variables take precedence over modeler defaults.
+		if err := e.persistConnectorInputs(ctx, instance, step); err != nil {
+			return err
+		}
 		return nil
 	}
+}
+
+// persistConnectorInputs merges known connector keys from step.Properties into the
+// instance context when not already set (start variables win).
+func (e *Engine) persistConnectorInputs(ctx context.Context, instance *model.WorkflowInstance, step *model.StepDefinition) error {
+	inputs := connectorInputsFromProperties(step.Properties)
+	if len(inputs) == 0 {
+		return nil
+	}
+	if instance.Context == nil {
+		instance.Context = make(map[string]any)
+	}
+	toPersist := map[string]any{}
+	for k, v := range inputs {
+		if _, exists := instance.Context[k]; exists {
+			continue
+		}
+		instance.Context[k] = v
+		toPersist[k] = v
+	}
+	if len(toPersist) == 0 {
+		return nil
+	}
+	piKey, _ := strconv.ParseInt(instance.ID, 10, 64)
+	return e.persistVariables(ctx, instance.ID, piKey, toPersist)
 }
 
 type UserTaskExecutor struct{}
@@ -380,7 +412,7 @@ type SendTaskExecutor struct{}
 
 // Send tasks are executed as external jobs (same activation path as service tasks)
 // so outbound connectors/workers can complete the send. Default job type is
-// io.artificialflow.connector.send when taskType/topic is unset.
+// io.artificialflow.connector.http when taskType/topic is unset.
 func (x *SendTaskExecutor) Execute(ctx context.Context, e *Engine, instance *model.WorkflowInstance, step *model.StepDefinition, execID string, wf *model.WorkflowDefinition) error {
 	return (&ServiceTaskExecutor{}).Execute(ctx, e, instance, step, execID, wf)
 }
@@ -486,6 +518,44 @@ func (x *SubProcessExecutor) Execute(ctx context.Context, e *Engine, instance *m
 
 type CallActivityExecutor struct{}
 
+func calledElementVersion(props map[string]any) (int, bool) {
+	if props == nil {
+		return 0, false
+	}
+	raw, ok := props["called_element_version"]
+	if !ok || raw == nil {
+		return 0, false
+	}
+	switch v := raw.(type) {
+	case int:
+		if v > 0 {
+			return v, true
+		}
+	case int32:
+		if v > 0 {
+			return int(v), true
+		}
+	case int64:
+		if v > 0 {
+			return int(v), true
+		}
+	case float64:
+		if v > 0 {
+			return int(v), true
+		}
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return 0, false
+		}
+		parsed, err := strconv.Atoi(trimmed)
+		if err == nil && parsed > 0 {
+			return parsed, true
+		}
+	}
+	return 0, false
+}
+
 func (x *CallActivityExecutor) Execute(ctx context.Context, e *Engine, instance *model.WorkflowInstance, step *model.StepDefinition, execID string, wf *model.WorkflowDefinition) error {
 	// Find execution to get ElementInstanceKey
 	var exec *model.Execution
@@ -504,8 +574,14 @@ func (x *CallActivityExecutor) Execute(ctx context.Context, e *Engine, instance 
 		return fmt.Errorf("call activity %s missing called_element", step.ID)
 	}
 
-	// Find latest workflow definition by Process ID
-	wfDef, err := e.getWorkflowDefinitionByBpmnProcessID(ctx, calledElement)
+	// Resolve called element: specific version when configured, otherwise latest.
+	var wfDef *model.WorkflowDefinition
+	var err error
+	if version, hasVersion := calledElementVersion(step.Properties); hasVersion {
+		wfDef, err = e.getWorkflowDefinitionByBpmnProcessIDAndVersion(ctx, calledElement, version)
+	} else {
+		wfDef, err = e.getWorkflowDefinitionByBpmnProcessID(ctx, calledElement)
+	}
 	if err != nil {
 		return fmt.Errorf("workflow definition not found for key %s: %v", calledElement, err)
 	}

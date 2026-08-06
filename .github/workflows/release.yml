@@ -9,7 +9,7 @@ on:
       tag:
         description: Release tag to validate or publish
         required: true
-        default: v1.0.0
+        default: v1.1.0
       publish:
         description: Publish Docker images and npm packages
         required: true

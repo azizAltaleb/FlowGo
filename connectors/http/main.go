@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -17,14 +16,18 @@ import (
 
 	"github.com/artificialflow/artificialflow/backend/libs/model"
 	"github.com/artificialflow/artificialflow/backend/libs/worker"
+	"github.com/artificialflow/artificialflow/connectors/internal/common"
 )
 
 const jobType = "io.artificialflow.connector.http"
 
 func main() {
-	baseURL := envOr("ARTIFICIALFLOW_BASE_URL", "http://localhost:9100/api")
+	baseURL := common.EnvOr("ARTIFICIALFLOW_BASE_URL", "http://localhost:9100/api")
 	token := os.Getenv("ARTIFICIALFLOW_TOKEN")
-	allowed := parseAllowlist(os.Getenv("HTTP_CONNECTOR_ALLOWED_HOSTS"))
+	allowed := common.ParseAllowlist(os.Getenv("HTTP_CONNECTOR_ALLOWED_HOSTS"))
+	if err := common.ValidateAllowlistRequired(allowed, "HTTP_CONNECTOR_ALLOW_ANY_HOST", "HTTP_CONNECTOR_ALLOWED_HOSTS"); err != nil {
+		log.Fatal(err)
+	}
 
 	client, err := worker.NewClient(worker.ClientConfig{
 		BaseURL:     baseURL,
@@ -36,12 +39,12 @@ func main() {
 
 	w, err := worker.NewWorker(client, worker.WorkerConfig{
 		JobType:         jobType,
-		WorkerName:      envOr("WORKER_NAME", "http-connector"),
+		WorkerName:      common.EnvOr("WORKER_NAME", "http-connector"),
 		MaxJobs:         5,
 		ActivateTimeout: 5 * time.Second,
 		LockDuration:    60 * time.Second,
 		Handler: func(ctx context.Context, job model.Job) (map[string]any, error) {
-			vars, err := loadInstanceVars(ctx, baseURL, token, job.ProcessInstanceKey)
+			vars, err := common.LoadInstanceVars(ctx, baseURL, token, job.ProcessInstanceKey)
 			if err != nil {
 				return nil, err
 			}
@@ -60,53 +63,20 @@ func main() {
 	}
 }
 
-func loadInstanceVars(ctx context.Context, baseURL, token string, processInstanceKey int64) (map[string]any, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/instances/%d", strings.TrimRight(baseURL, "/"), processInstanceKey), nil)
-	if err != nil {
-		return nil, err
-	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return nil, fmt.Errorf("load instance %d: %s", processInstanceKey, strings.TrimSpace(string(body)))
-	}
-	var payload struct {
-		Context map[string]any `json:"context"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, err
-	}
-	if payload.Context == nil {
-		return map[string]any{}, nil
-	}
-	return payload.Context, nil
-}
-
 func executeHTTP(ctx context.Context, vars map[string]any, allowed map[string]struct{}) (map[string]any, error) {
-	urlStr, _ := vars["url"].(string)
+	urlStr := common.StringVar(vars, "url")
 	if urlStr == "" {
 		return nil, fmt.Errorf("instance variable url is required")
 	}
-	parsed, err := url.Parse(urlStr)
-	if err != nil {
+	if _, err := common.AssertURLHostAllowed(urlStr, allowed, "HTTP_CONNECTOR_ALLOWED_HOSTS"); err != nil {
 		return nil, err
 	}
-	if len(allowed) > 0 {
-		if _, ok := allowed[strings.ToLower(parsed.Hostname())]; !ok {
-			return nil, fmt.Errorf("host %q not in HTTP_CONNECTOR_ALLOWED_HOSTS", parsed.Hostname())
-		}
-	}
-	method, _ := vars["method"].(string)
+
+	method := common.StringVar(vars, "method")
 	if method == "" {
 		method = http.MethodPost
 	}
+
 	timeoutMs := 10000
 	switch v := vars["timeoutMs"].(type) {
 	case float64:
@@ -117,53 +87,53 @@ func executeHTTP(ctx context.Context, vars map[string]any, allowed map[string]st
 		if v > 0 {
 			timeoutMs = v
 		}
+	case string:
+		var n int
+		if _, err := fmt.Sscanf(strings.TrimSpace(v), "%d", &n); err == nil && n > 0 {
+			timeoutMs = n
+		}
+	}
+
+	bodyVal, err := common.CoerceJSONValue(vars["body"])
+	if err != nil {
+		return nil, err
 	}
 	var bodyReader io.Reader
-	if body, ok := vars["body"]; ok && body != nil {
-		b, err := json.Marshal(body)
+	if bodyVal != nil {
+		b, err := json.Marshal(bodyVal)
 		if err != nil {
 			return nil, err
 		}
 		bodyReader = bytes.NewReader(b)
 	}
+
 	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(method), urlStr, bodyReader)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if headers, ok := vars["headers"].(map[string]any); ok {
-		for k, v := range headers {
-			req.Header.Set(k, fmt.Sprint(v))
-		}
+	if err := common.ApplyHeaders(req, vars["headers"]); err != nil {
+		return nil, err
 	}
-	httpClient := &http.Client{Timeout: time.Duration(timeoutMs) * time.Millisecond}
+
+	httpClient := &http.Client{
+		Timeout:       time.Duration(timeoutMs) * time.Millisecond,
+		CheckRedirect: common.CheckRedirectAllowlist(allowed),
+	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	return map[string]any{
+	ok := resp.StatusCode >= 200 && resp.StatusCode < 300
+	result := map[string]any{
 		"httpStatus": resp.StatusCode,
 		"httpBody":   string(raw),
-		"httpOk":     resp.StatusCode >= 200 && resp.StatusCode < 300,
-	}, nil
-}
-
-func parseAllowlist(raw string) map[string]struct{} {
-	out := map[string]struct{}{}
-	for _, p := range strings.Split(raw, ",") {
-		p = strings.ToLower(strings.TrimSpace(p))
-		if p != "" {
-			out[p] = struct{}{}
-		}
+		"httpOk":     ok,
 	}
-	return out
-}
-
-func envOr(k, def string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
+	if !ok && common.FailOnNon2xxDefault(vars, "HTTP_CONNECTOR_FAIL_ON_NON_2XX") {
+		return result, fmt.Errorf("HTTP status %d (failOnNon2xx)", resp.StatusCode)
 	}
-	return def
+	return result, nil
 }

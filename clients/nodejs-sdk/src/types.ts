@@ -215,6 +215,11 @@ export interface PublishMessageRequest {
     payload?: Record<string, unknown>;
 }
 
+export interface PublishEscalationRequest {
+    escalation_code: string;
+    payload?: Record<string, unknown>;
+}
+
 export interface Job {
     key: string;
     type: string;

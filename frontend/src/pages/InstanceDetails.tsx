@@ -3,11 +3,10 @@ import { useParams, useNavigate } from "react-router";
 import { api, type IdentityResponse, type InstanceJob, type UserTask, type WorkflowInstance } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Save, RefreshCw } from "lucide-react";
 import BpmnViewer from "@/components/bpmn/BpmnViewer";
+import VariablesEditor from "@/components/VariablesEditor";
 import { isAdmin } from "@/lib/roles";
 import { Link } from "react-router";
 
@@ -18,9 +17,12 @@ export default function InstanceDetails() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [variables, setVariables] = useState<string>("");
+  const [variables, setVariables] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const [bpmnXml, setBpmnXml] = useState<string>("");
+  const [processName, setProcessName] = useState<string>("");
+  const [processId, setProcessId] = useState<string>("");
+  const [processVersion, setProcessVersion] = useState<number | null>(null);
   const [identity, setIdentity] = useState<IdentityResponse | null>(null);
   const [jobs, setJobs] = useState<InstanceJob[]>([]);
 
@@ -36,11 +38,7 @@ export default function InstanceDetails() {
     try {
       const data = await api.getInstance(id);
       setInstance(data);
-      // Only update variables text if it's the initial load or user hasn't modified it? 
-      // For now, always update to show latest server state, assuming user knows.
-      // Actually, if user is typing, we shouldn't overwrite. 
-      // But this is a simple refresh. Let's overwrite.
-      setVariables(JSON.stringify(data.context, null, 2));
+      setVariables(data.context || {});
 
       // Fetch workflow definition for XML
       try {
@@ -62,11 +60,21 @@ export default function InstanceDetails() {
 
       try {
           const workflow = await api.getWorkflow(data.workflow_id);
+          setProcessName(workflow.name || workflow.process_definition_id || data.workflow_id);
+          setProcessId(workflow.process_definition_id || data.workflow_id);
+          setProcessVersion(
+            typeof workflow.version === "number" && Number.isFinite(workflow.version)
+              ? workflow.version
+              : null,
+          );
           if (workflow.bpmn_xml) {
               setBpmnXml(workflow.bpmn_xml);
           }
       } catch (wfErr) {
           console.error("Failed to load workflow definition:", wfErr);
+          setProcessName(`Process ${data.workflow_id}`);
+          setProcessId(data.workflow_id);
+          setProcessVersion(null);
       }
 
     } catch (err) {
@@ -89,7 +97,7 @@ export default function InstanceDetails() {
         // Refresh data
         const data = await api.getInstance(id);
         setInstance(data);
-        setVariables(JSON.stringify(data.context, null, 2));
+        setVariables(data.context || {});
     } catch (err) {
         console.error("Failed to complete task:", err);
         alert("Failed to complete task");
@@ -102,7 +110,7 @@ export default function InstanceDetails() {
       await api.claimUserTask(id, executionId);
       const data = await api.getInstance(id);
       setInstance(data);
-      setVariables(JSON.stringify(data.context, null, 2));
+      setVariables(data.context || {});
     } catch (err) {
       console.error("Failed to take task:", err);
       alert(err instanceof Error ? err.message : "Failed to take task");
@@ -115,7 +123,7 @@ export default function InstanceDetails() {
       await api.completeUserTask(id, executionId);
       const data = await api.getInstance(id);
       setInstance(data);
-      setVariables(JSON.stringify(data.context, null, 2));
+      setVariables(data.context || {});
     } catch (err) {
       console.error("Failed to complete user task:", err);
       alert(err instanceof Error ? err.message : "Failed to complete user task");
@@ -126,16 +134,15 @@ export default function InstanceDetails() {
     if (!id) return;
     setSaving(true);
     try {
-      const parsedVariables = JSON.parse(variables);
-      await api.updateInstanceVariables(id, parsedVariables);
+      await api.updateInstanceVariables(id, variables);
       // Refresh data
       const data = await api.getInstance(id);
       setInstance(data);
-      setVariables(JSON.stringify(data.context, null, 2));
+      setVariables(data.context || {});
       alert("Variables updated successfully");
     } catch (err) {
       console.error(err);
-      alert("Failed to update variables. Ensure valid JSON.");
+      alert(err instanceof Error ? err.message : "Failed to update variables.");
     } finally {
       setSaving(false);
     }
@@ -145,6 +152,7 @@ export default function InstanceDetails() {
   if (error || !instance) return <div className="p-8 text-red-500">{error || "Instance not found"}</div>;
 
   const canManageTasks = isAdmin(identity);
+  const canEditVariables = canManageTasks && instance.status !== "COMPLETED";
 
   return (
     <div className="space-y-6">
@@ -152,8 +160,22 @@ export default function InstanceDetails() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/instances")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-bold">Instance {instance.id}</h1>
-        <div className="ml-auto">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold truncate">{processName || "Instance"}</h1>
+          <p className="text-sm text-muted-foreground font-mono truncate">
+            Instance ID: {instance.id}
+            {" · "}
+            Business Process ID: {processId || instance.workflow_id}
+            {" · "}
+            Definition ID: {instance.workflow_id}
+          </p>
+        </div>
+        <div className="ml-auto flex items-center gap-3 shrink-0">
+            {processVersion != null ? (
+              <Badge variant="secondary" className="font-mono text-sm px-3 py-1">
+                Version {processVersion}
+              </Badge>
+            ) : null}
             <Button variant="outline" size="sm" onClick={() => fetchInstance(true)} disabled={loading || refreshing}>
                 <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
                 Refresh
@@ -189,11 +211,17 @@ export default function InstanceDetails() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="font-medium">ID:</div>
-                  <div>{instance.id}</div>
-                  
-                  <div className="font-medium">Workflow ID:</div>
-                  <div>{instance.workflow_id}</div>
+                  <div className="font-medium">Instance ID:</div>
+                  <div className="font-mono text-xs break-all">{instance.id}</div>
+
+                  <div className="font-medium">Process Name:</div>
+                  <div>{processName || "—"}</div>
+
+                  <div className="font-medium">Business Process ID:</div>
+                  <div className="font-mono text-xs break-all">{processId || instance.workflow_id}</div>
+
+                  <div className="font-medium">Definition ID:</div>
+                  <div className="font-mono text-xs break-all text-muted-foreground">{instance.workflow_id}</div>
                   
                   <div className="font-medium">Status:</div>
                   <div>
@@ -289,7 +317,7 @@ export default function InstanceDetails() {
             {canManageTasks && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Jobs / incidents</CardTitle>
+                  <CardTitle>Jobs</CardTitle>
                   <div className="text-xs text-muted-foreground">
                     Retry failed or unlocked jobs. Fail stuck activated jobs from ops.
                   </div>
@@ -353,25 +381,28 @@ export default function InstanceDetails() {
         <Card>
           <CardHeader>
             <CardTitle>Variables (Context)</CardTitle>
+            <div className="text-xs text-muted-foreground">
+              {canEditVariables
+                ? "Review values, change their type or value, and add new variables."
+                : "Variables are shown as they were stored for this instance."}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>JSON Editor</Label>
-              <Textarea
-                className="font-mono h-[300px]"
-                value={variables}
-                readOnly={!canManageTasks}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setVariables(e.target.value)}
-              />
-            </div>
-            {canManageTasks ? (
+            <VariablesEditor
+              value={variables}
+              editable={canEditVariables}
+              onChange={setVariables}
+            />
+            {canEditVariables ? (
               <Button onClick={handleSaveVariables} disabled={saving}>
                 <Save className="mr-2 h-4 w-4" />
                 {saving ? "Saving..." : "Update Variables"}
               </Button>
             ) : (
               <div className="text-sm text-muted-foreground">
-                Variables are read-only in the web console for business roles.
+                {instance.status === "COMPLETED"
+                  ? "Completed instance variables are read-only."
+                  : "Variables are read-only in the web console for business roles."}
               </div>
             )}
           </CardContent>

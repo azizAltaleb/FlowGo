@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 
 interface DebouncedInputProps extends React.ComponentProps<typeof Input> {
@@ -13,37 +13,44 @@ export function DebouncedInput({
   debounce = 300,
   ...props 
 }: DebouncedInputProps) {
-  const [value, setValue] = useState(initialValue);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLocalUpdate = useRef(false);
 
   useEffect(() => {
     // Only update from props if we're not currently typing
-    if (!isLocalUpdate.current) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setValue(initialValue);
+    if (!isLocalUpdate.current && inputRef.current) {
+      inputRef.current.value = initialValue;
     }
   }, [initialValue]);
 
   useEffect(() => {
-    if (!isLocalUpdate.current) return;
-    
-    const timeout = setTimeout(() => {
-      onValueChange(value);
-      isLocalUpdate.current = false;
-    }, debounce);
-
-    return () => clearTimeout(timeout);
-  }, [value, debounce, onValueChange]);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = e.target.value;
     isLocalUpdate.current = true;
-    setValue(e.target.value);
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      isLocalUpdate.current = false;
+      onValueChange(nextValue);
+    }, debounce);
   };
 
   return (
     <Input
       {...props}
-      value={value}
+      ref={inputRef}
+      defaultValue={initialValue}
       onChange={handleChange}
     />
   );

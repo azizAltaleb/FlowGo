@@ -287,6 +287,14 @@ func (r *txOnlyRepo) UpdateElementInstance(_ context.Context, element *model.Ele
 	return nil
 }
 
+func (r *txOnlyRepo) ListActiveProcessInstances(_ context.Context) ([]*model.ProcessInstance, error) {
+	return nil, nil
+}
+
+func (r *txOnlyRepo) ListProcesses(_ context.Context) ([]*model.Process, error) {
+	return nil, nil
+}
+
 type capturedPublisher struct {
 	events   []string
 	messages []proto.Message
@@ -653,8 +661,9 @@ func TestPublishSignalUsesScopedCandidateQuery(t *testing.T) {
 	if repo.txCalls != 0 {
 		t.Fatalf("expected no transaction for non-signal element rows, got %d", repo.txCalls)
 	}
-	if repo.processGets != 0 {
-		t.Fatalf("expected no workflow definition load for non-signal element rows, got %d", repo.processGets)
+	// Activity candidates load the definition once to check attached signal boundaries.
+	if repo.processGets != 1 {
+		t.Fatalf("expected one workflow definition load to inspect activity boundaries, got %d", repo.processGets)
 	}
 	if repo.stateGets != 0 {
 		t.Fatalf("expected no instance hydration for non-signal element rows, got %d", repo.stateGets)

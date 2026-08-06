@@ -191,12 +191,12 @@ export const uatCases: UatCase[] = [
   },
   {
     id: "UAT-BPMN-009",
-    title: "Unsupported send task is rejected",
+    title: "Send task deploys as external connector job",
     category: "bpmn",
-    expected: "expected-rejection",
+    expected: "pass",
     elements: ["sendTask"],
-    functions: ["negative BPMN deploy validation"],
-    fixture: "unsupportedSendTask",
+    functions: ["send task deploy", "external connector job type"],
+    fixture: "supportedSendTask",
   },
   {
     id: "UAT-BPMN-010",

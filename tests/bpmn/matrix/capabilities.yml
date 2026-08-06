@@ -1,0 +1,214 @@
+schema_version: "1.0"
+# Canonical BPMN capability catalog. scenarios.yml and docs/BPMN_SUPPORT_MATRIX.md
+# must stay consistent with this file (validated by scripts/qa/validate_bpmn_capabilities.py).
+
+capabilities:
+  - id: none-start-end
+    category: events
+    elements: startEvent,endEvent
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: id,name
+    tests: parser-element-type-matrix
+
+  - id: message-events
+    category: events
+    elements: messageStart,messageCatch,messageThrow,messageBoundary
+    status: supported
+    modeler: partial
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: messageRef,correlationKey
+    tests: xml-message-signal-throw-catch,xml-start-event-variants,xml-signal-boundary-esp
+
+  - id: signal-events
+    category: events
+    elements: signalStart,signalCatch,signalThrow,signalBoundary
+    status: supported
+    modeler: partial
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: signalRef
+    tests: xml-message-signal-throw-catch,xml-signal-boundary-esp
+
+  - id: timer-events
+    category: events
+    elements: timerStart,timerCatch,timerBoundary
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: timeDuration|timeDate|timeCycle
+    tests: xml-boundary-timer,xml-start-event-variants
+
+  - id: escalation-events
+    category: events
+    elements: escalationThrow,escalationCatch,escalationBoundary,escalationStart
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: escalationRef
+    tests: xml-escalation-boundary
+
+  - id: error-events
+    category: events
+    elements: errorThrow,errorEnd,errorBoundary
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: errorRef
+    tests: xml-boundary-error-compensation
+
+  - id: link-terminate-conditional
+    category: events
+    elements: linkCatch,linkThrow,terminateEnd,conditionalCatch
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: linkName|condition
+    tests: xml-link-terminate,xml-conditional-catch
+
+  - id: cancel-compensate
+    category: events
+    elements: cancelEnd,cancelBoundary,compensateThrow,compensateBoundary
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: activityRef
+    tests: xml-boundary-error-compensation,xml-transaction-cancel
+
+  - id: user-task
+    category: tasks
+    elements: userTask
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: assignee|candidateUsers|candidateGroups|dueDate
+    tests: xml-service-user-assignment
+
+  - id: service-task
+    category: tasks
+    elements: serviceTask
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: taskType|topic
+    tests: xml-service-user-assignment
+
+  - id: send-task
+    category: tasks
+    elements: sendTask
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: taskType|topic
+    tests: xml-send-task
+
+  - id: script-task
+    category: tasks
+    elements: scriptTask
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: script,scriptFormat
+    tests: parser-element-type-matrix
+
+  - id: receive-manual-business-rule
+    category: tasks
+    elements: receiveTask,manualTask,businessRuleTask
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: messageRef|decisionRef
+    tests: xml-call-activity-business-rule-manual
+
+  - id: call-activity
+    category: tasks
+    elements: callActivity
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: calledElement
+    tests: xml-call-activity-business-rule-manual
+
+  - id: multi-instance
+    category: tasks
+    elements: multiInstanceLoopCharacteristics
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: isSequential,collection,elementVariable
+    tests: xml-multi-instance
+
+  - id: subprocess-features
+    category: activities
+    elements: subProcess,eventSubProcess,transaction
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: triggeredByEvent
+    tests: xml-event-subprocess,xml-transaction-cancel
+
+  - id: gateways
+    category: gateways
+    elements: exclusiveGateway,parallelGateway,inclusiveGateway,eventBasedGateway
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: default|conditionExpression
+    tests: parser-gateway-joins,xml-event-based-gateway,xml-gateway-defaults-and-joins
+
+  - id: sequence-flows
+    category: flows
+    elements: sequenceFlow
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: conditionExpression
+    tests: parser-gateway-joins
+
+  - id: visual-collaboration
+    category: visual
+    elements: participant,lane,dataObject,dataStoreReference,textAnnotation,messageFlow,group,association
+    status: visual-only
+    modeler: full
+    xml_roundtrip: true
+    runtime: false
+    required_attrs: id,name
+    tests: xml-visual-roundtrip
+
+  - id: connectors
+    category: connectors
+    elements: http,webhook,kafka,email,s3
+    status: supported
+    modeler: full
+    xml_roundtrip: true
+    runtime: true
+    required_attrs: taskType,connectorInputs
+    tests: connector-http-contract
+
+  - id: unsupported-adhoc-complex
+    category: negative
+    elements: adHocSubProcess,complexGateway
+    status: unsupported
+    modeler: none
+    xml_roundtrip: false
+    runtime: false
+    required_attrs: []
+    tests: unsupported-element-reference

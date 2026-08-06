@@ -28,9 +28,11 @@ type Repository interface {
 	ListJobsByProcessInstanceAndType(ctx context.Context, processInstanceKey int64, jobType string) ([]model.Job, error)
 	CreateIncident(ctx context.Context, incident *model.Incident) error
 	UpdateIncident(ctx context.Context, incident *model.Incident) error
+	ListIncidents(ctx context.Context, processInstanceKey int64, limit int) ([]model.Incident, error)
 	CreateTimer(ctx context.Context, timer *model.Timer) error
 	GetTimer(ctx context.Context, key int64) (*model.Timer, error)
 	UpdateTimer(ctx context.Context, timer *model.Timer) error
+	ListCreatedTimersByElementInstanceKey(ctx context.Context, elementInstanceKey int64) ([]model.Timer, error)
 	CreateMessageSubscription(ctx context.Context, subscription *model.MessageSubscription) error
 	GetMessageSubscription(ctx context.Context, key int64) (*model.MessageSubscription, error)
 	UpdateMessageSubscription(ctx context.Context, subscription *model.MessageSubscription) error

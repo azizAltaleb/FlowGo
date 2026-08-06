@@ -2,7 +2,51 @@
 
 All notable changes to ArtificialFlow will be documented in this file.
 
-The format is based on Keep a Changelog, and this project follows Semantic Versioning while it remains pre-1.0.
+The format is based on Keep a Changelog, and this project follows Semantic Versioning.
+
+## [Unreleased]
+
+## [1.1.0] - 2026-08-05
+
+### Added
+
+- Expanded executable BPMN coverage for timer schedules, escalation, conditional,
+  message/signal start and event sub-process behavior, compensation, transaction
+  cancellation, connector input/output mappings, and manual-task waiting.
+- Added capability-driven BPMN validation, exhaustive matrix scenarios, and
+  completeness regression tests.
+- Added richer modeler support for BPMN events, gateways, task properties,
+  visual artifacts, diagram history, and connector descriptors.
+- Added the language-agnostic HTTP API guide covering command, query, worker,
+  inbox, identity, and direct non-SDK integration.
+- Added instance variable editing for nested objects and lists, including add,
+  edit, and delete controls.
+- Added the process-definition version to the instance details header.
+
+### Changed
+
+- Hardened HTTP/webhook connector validation, redirect handling, descriptors,
+  and runtime input resolution.
+- Updated the Node.js SDK and public API types for the additive `1.1` surfaces.
+- Hid the Incidents console page while preserving the admin incident HTTP API.
+- Updated bundled-IAM quickstart and Compose documentation for direct API and
+  SDK consumers.
+
+### Fixed
+
+- Fixed empty object/list values being impossible to edit from instance details.
+- Fixed intermittent browser-session loss after transient OIDC renewal or
+  session-monitor errors.
+- Fixed frontend route/access handling for hidden Decisions and Incidents pages.
+- Fixed BPMN parser/runtime edge cases covered by the `1.1` capability matrix.
+
+### Security
+
+- Revalidate connector redirect destinations against the configured allowlist.
+- Updated the frontend nginx runtime base to remove fix-available high-severity
+  Alpine package vulnerabilities from the release image.
+- Preserve release secret scanning, dependency audits, SAST, DAST, image scans,
+  SBOM/provenance, and signing as publication-blocking gates.
 
 ## [1.0.0] - 2026-07-30
 
@@ -11,13 +55,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [1.0.0-rc.1] - 2026-07-29
 
 1.0 freeze candidate (same product tip as 0.4.0 plus RC version pins).
-
-## [Unreleased]
-
-### Added
-
-- BPMN Tier-2 before 1.0 GA: Escalation, Conditional, Cancel/transaction, Event sub-process, Message/Signal start fan-out, Compensation XML fixtures, Manual Task wait semantics.
-- Modeler Visual palette (Pool/Lane/Data/Annotation), event markers (link/terminate/escalation/conditional), deploy lint against sequence flows on visual-only shapes.
 
 ## [0.4.0] - 2026-07-28
 

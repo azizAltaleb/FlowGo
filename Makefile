@@ -1,4 +1,4 @@
-.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-base smoke-core smoke-full smoke-release-base smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles validate-helm validate-legacy-branding validate-release-version validate-migration-release release-dry-run cqrs-parity-check cqrs-e2e-smoke worker-conformance test-bpmn-matrix test-bpmn-exhaustive test-deployment-matrix test-uat-videos test-uat-mega-bpmn test-unit test-integration test-e2e test-frontend test-perf test-security test-dast test-release-suite test-report test-all test-all-functionality
+.PHONY: up up-external-iam up-zitadel up-external-iam-release up-zitadel-release down down-external-iam down-zitadel restart logs logs-external-iam logs-zitadel ps ps-external-iam ps-zitadel clean clean-external-iam clean-zitadel demo build-backend build-frontend up-core up-full up-full-cqrs smoke-base smoke-core smoke-full smoke-release-base smoke-release-core smoke-release-full smoke-release-profiles smoke-profiles validate-helm validate-legacy-branding validate-release-version validate-migration-release release-dry-run cqrs-parity-check cqrs-e2e-smoke worker-conformance validate-bpmn-capabilities test-bpmn-matrix test-bpmn-exhaustive test-deployment-matrix test-uat-videos test-uat-mega-bpmn test-unit test-integration test-e2e test-frontend test-perf test-security test-dast test-release-suite test-report test-all test-all-functionality
 
 
 # Docker Compose Commands
@@ -126,12 +126,18 @@ demo:
 	./demo.sh
 
 # Tests
+validate-bpmn-capabilities:
+	python3 scripts/qa/validate_bpmn_capabilities.py
+
 test-bpmn-matrix:
-	go test ./backend/services/workflow-command/internal/domain/bpmn -run 'TestParse_(ElementTypeMatrix|MapsExtendedElementsAndProperties|MapsPlainAttributeAliasesForCompatibility|MergesExtensionPropertiesWithoutOverridingMappedKeys|CanonicalizesExtensionPropertyAliases|BoundaryCancelActivityAttributeTakesPrecedenceOverExtensionAlias|PopulatesIncomingForGatewayJoin|FailsForUnsupportedElementReferences|SupportsSendTask|MessageAndSignalStartProps|TerminateAndLink|SupportsEscalationAndEventSubProcess)' -count=1
-	go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(CallActivityBusinessRuleAndManualTask|EventBasedGatewayReceiveAndTimer|BoundaryTimerInterruptsTask|ThrowSignalTriggersCatch|ThrowMessageUsesCorrelationKey|ThrowMessageUsesPlainCorrelationKeyAlias|BoundaryTimerNonInterruptingKeepsTaskActive|BoundaryCancelActivityExtensionAliasKeepsTaskActive|BoundaryCancelActivityAttributeTakesPrecedenceOverExtensionAlias|ServiceTaskPlainTaskTypeAliasMapsImplementation|ServiceTaskExtensionPropertyMapsImplementation|UserTaskAssignmentFromExtensionProperties|FailsForUnsupportedElementReferences|SupportsSendTask|LinkAndTerminate|EscalationBoundary|ConditionalCatch|MessageStart|TransactionCancel|CompensationFromXML|EventSubProcessMessage)|TestManualTaskWaitsForComplete' -count=1
+	@$(MAKE) validate-bpmn-capabilities
+	go test ./backend/services/workflow-command/internal/domain/bpmn -run 'TestParse_(ElementTypeMatrix|MapsExtendedElementsAndProperties|MapsPlainAttributeAliasesForCompatibility|MergesExtensionPropertiesWithoutOverridingMappedKeys|CanonicalizesExtensionPropertyAliases|BoundaryCancelActivityAttributeTakesPrecedenceOverExtensionAlias|PopulatesIncomingForGatewayJoin|FailsForUnsupportedElementReferences|SupportsSendTask|MessageAndSignalStartProps|TerminateAndLink|SupportsEscalationAndEventSubProcess|MultiInstance|IOMappingsAndListeners)' -count=1
+	go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(CallActivityBusinessRuleAndManualTask|EventBasedGatewayReceiveAndTimer|BoundaryTimerInterruptsTask|ThrowSignalTriggersCatch|ThrowMessageUsesCorrelationKey|ThrowMessageUsesPlainCorrelationKeyAlias|BoundaryTimerNonInterruptingKeepsTaskActive|BoundaryCancelActivityExtensionAliasKeepsTaskActive|BoundaryCancelActivityAttributeTakesPrecedenceOverExtensionAlias|ServiceTaskPlainTaskTypeAliasMapsImplementation|ServiceTaskExtensionPropertyMapsImplementation|UserTaskAssignmentFromExtensionProperties|FailsForUnsupportedElementReferences|SupportsSendTask|LinkAndTerminate|EscalationBoundary|ConditionalCatch|MessageStart|TimerStart|TimerStartDate|SignalStart|TransactionCancel|CompensationFromXML|BoundaryErrorFromXML|EventSubProcessMessage|EventSubProcessTimer|EventSubProcessSignal|SignalBoundary|MultiInstance|ExclusiveDefault|ParallelJoin|InclusiveJoin)|TestManualTaskWaitsForComplete' -count=1
+	go test ./connectors/http ./connectors/internal/common -count=1
 
 test-bpmn-exhaustive:
 	@mkdir -p reports
+	@$(MAKE) validate-bpmn-capabilities
 	python3 scripts/qa/run_bpmn_matrix.py --reports-dir reports --output-json reports/bpmn-matrix-report.json --output-md reports/bpmn-matrix-report.md
 
 test-deployment-matrix:

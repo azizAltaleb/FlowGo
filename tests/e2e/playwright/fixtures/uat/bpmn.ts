@@ -9,7 +9,7 @@ export type BpmnFixtureName =
   | "boundaryTimer"
   | "messageSignal"
   | "serviceUserAssignment"
-  | "unsupportedSendTask"
+  | "supportedSendTask"
   | "unsupportedElement";
 
 export interface BpmnDocument {
@@ -80,11 +80,11 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
     <bpmn:boundaryEvent id="accountantReminder" name="Accountant reminder" attachedToRef="timerManualFollowup" cancelActivity="false">
       <bpmn:timerEventDefinition><bpmn:timeDuration>PT1H</bpmn:timeDuration></bpmn:timerEventDefinition>
     </bpmn:boundaryEvent>
-    <bpmn:eventBasedGateway id="waitForDocuments" name="Event-based document wait"><bpmn:incoming>f13</bpmn:incoming><bpmn:outgoing>f14a</bpmn:outgoing><bpmn:outgoing>f14b</bpmn:outgoing></bpmn:eventBasedGateway>
+    <bpmn:eventBasedGateway id="waitForDocuments" name="Event-based document wait"><bpmn:incoming>f13</bpmn:incoming><bpmn:outgoing>f14a</bpmn:outgoing><bpmn:outgoing>f14b</bpmn:outgoing><bpmn:outgoing>f14c</bpmn:outgoing></bpmn:eventBasedGateway>
     <bpmn:receiveTask id="receiveDocuments" name="Receive supporting documents" messageRef="Message_Documents"><bpmn:incoming>f14a</bpmn:incoming><bpmn:outgoing>f15a</bpmn:outgoing></bpmn:receiveTask>
     <bpmn:receiveTask id="receiveBudgetConfirmation" name="Receive budget confirmation" messageRef="Message_Budget"><bpmn:incoming>f14b</bpmn:incoming><bpmn:outgoing>f15b</bpmn:outgoing></bpmn:receiveTask>
     <bpmn:endEvent id="budgetEnd" name="Budget branch done"><bpmn:incoming>f15b</bpmn:incoming></bpmn:endEvent>
-    <bpmn:intermediateCatchEvent id="documentTimer" name="Document timer"><bpmn:outgoing>f18</bpmn:outgoing><bpmn:timerEventDefinition><bpmn:timeDuration>PT1H</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>
+    <bpmn:intermediateCatchEvent id="documentTimer" name="Document timer"><bpmn:incoming>f14c</bpmn:incoming><bpmn:outgoing>f18</bpmn:outgoing><bpmn:timerEventDefinition><bpmn:timeDuration>PT1H</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>
     <bpmn:manualTask id="timerManualFollowup" name="Timer manual follow-up"><bpmn:incoming>f18</bpmn:incoming><bpmn:outgoing>f19</bpmn:outgoing></bpmn:manualTask>
     <bpmn:userTask id="reviewerApproval" name="Reviewer approval" artificialflow:assignee="reviewer" artificialflow:candidateUsers="reviewer,reviewer.lead@artificialflow.io" artificialflow:candidateGroups="reviewer,approvers" artificialflow:dueDate="PT2H">
       <bpmn:extensionElements>
@@ -119,6 +119,7 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
     <bpmn:sequenceFlow id="f13" sourceRef="accountantReview" targetRef="waitForDocuments"/>
     <bpmn:sequenceFlow id="f14a" sourceRef="waitForDocuments" targetRef="receiveDocuments"/>
     <bpmn:sequenceFlow id="f14b" sourceRef="waitForDocuments" targetRef="receiveBudgetConfirmation"/>
+    <bpmn:sequenceFlow id="f14c" sourceRef="waitForDocuments" targetRef="documentTimer"/>
     <bpmn:sequenceFlow id="f15a" sourceRef="receiveDocuments" targetRef="reviewerApproval"/>
     <bpmn:sequenceFlow id="f15b" sourceRef="receiveBudgetConfirmation" targetRef="budgetEnd"/>
     <bpmn:sequenceFlow id="f17" sourceRef="reviewerApproval" targetRef="approvedEnd"/>
@@ -347,14 +348,14 @@ export function buildBpmnFixture(name: BpmnFixtureName, runId: string): BpmnBund
         },
       };
     }
-    case "unsupportedSendTask": {
-      const processId = id("UnsupportedSend");
+    case "supportedSendTask": {
+      const processId = id("SupportedSend");
       return {
         primary: {
           processId,
-          xml: doc(processId, process(processId, "UAT Unsupported Send", `
+          xml: doc(processId, process(processId, "UAT Supported Send", `
     <bpmn:startEvent id="start"/>
-    <bpmn:sendTask id="send"/>
+    <bpmn:sendTask id="send" name="Notify" artificialflow:taskType="io.artificialflow.connector.send"/>
     <bpmn:endEvent id="end"/>
     <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="send"/>
     <bpmn:sequenceFlow id="f2" sourceRef="send" targetRef="end"/>`)),

@@ -72,14 +72,14 @@ scenarios:
     elements: serviceTask,userTask,extensionElements
     behavior: Service task implementation and user assignment metadata are mapped and executed.
 
-  - id: unsupported-send-task
-    name: Parser rejects unsupported send task references
-    category: negative
-    support_status: unsupported
+  - id: xml-send-task
+    name: XML runtime covers send task as external connector job
+    category: runtime_xml
+    support_status: supported
     required: true
-    command: go test ./backend/services/workflow-command/internal/domain/bpmn ./backend/services/workflow-command/tests -run 'Test(Parse|DeployWorkflowFromBPMN)_FailsForUnsupportedSendTaskReferences' -count=1 -v
+    command: go test ./backend/services/workflow-command/internal/domain/bpmn ./backend/services/workflow-command/tests -run 'Test(Parse|DeployWorkflowFromBPMN)_SupportsSendTask' -count=1 -v
     elements: sendTask
-    behavior: Unsupported send task references fail clearly at parse/deploy time.
+    behavior: Send tasks map to external jobs with default connector type.
 
   - id: unsupported-element-reference
     name: Parser rejects unsupported element references
@@ -87,41 +87,113 @@ scenarios:
     support_status: unsupported
     required: true
     command: go test ./backend/services/workflow-command/internal/domain/bpmn ./backend/services/workflow-command/tests -run 'Test(Parse|DeployWorkflowFromBPMN)_FailsForUnsupportedElementReferences' -count=1 -v
-    elements: adHocSubProcess,unsupported
+    elements: adHocSubProcess,complexGateway
     behavior: Unsupported BPMN references fail clearly rather than silently deploying.
 
   - id: xml-multi-instance
     name: XML multi-instance parsing and execution
-    category: gap
-    support_status: unknown
-    required: false
-    command:
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/internal/domain/bpmn ./backend/services/workflow-command/tests -run 'Test(Parse|DeployWorkflowFromBPMN)_MultiInstance' -count=1 -v
     elements: multiInstanceLoopCharacteristics,userTask,serviceTask
-    behavior: Needs dedicated XML parser/runtime coverage for sequential and parallel multi-instance.
+    behavior: Parallel and sequential multi-instance from BPMN XML.
 
   - id: xml-boundary-error-compensation
     name: XML boundary error and compensation execution
-    category: gap
-    support_status: partial
-    required: false
-    command:
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(CompensationFromXML|BoundaryErrorFromXML)' -count=1 -v
     elements: boundaryEvent,errorEventDefinition,compensateEventDefinition
-    behavior: Direct model tests exist; XML-deployed runtime coverage should be added.
+    behavior: Error boundary and compensation handlers execute from deployed XML.
 
   - id: xml-start-event-variants
     name: XML message, signal, and timer start events
-    category: gap
-    support_status: unknown
-    required: false
-    command:
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(MessageStart|TimerStart|TimerStartDate|SignalStart)' -count=1 -v
     elements: startEvent,messageEventDefinition,signalEventDefinition,timerEventDefinition
-    behavior: Typed start-event semantics should be specified and tested.
+    behavior: Typed start-event semantics start matching process definitions.
 
   - id: xml-gateway-defaults-and-joins
     name: XML gateway defaults and multi-path joins
-    category: gap
-    support_status: partial
-    required: false
-    command:
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(ExclusiveDefault|ParallelJoin|InclusiveJoin)' -count=1 -v
     elements: exclusiveGateway,inclusiveGateway,parallelGateway,sequenceFlow
-    behavior: Parser coverage exists; XML runtime defaults and joins need expanded scenario assertions.
+    behavior: XML runtime defaults and joins assert token routing.
+
+  - id: xml-signal-boundary-esp
+    name: XML signal/message boundary and event sub-process
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_(SignalBoundary|MessageBoundary|EventSubProcessSignal)' -count=1 -v
+    elements: boundaryEvent,signalEventDefinition,messageEventDefinition,eventSubProcess
+    behavior: PublishSignal/PublishMessage interrupts/spawns boundary and event sub-process paths.
+
+  - id: xml-escalation-boundary
+    name: XML escalation boundary execution
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run TestDeployWorkflowFromBPMN_EscalationBoundary -count=1 -v
+    elements: boundaryEvent,escalationEventDefinition
+    behavior: Escalation boundary triggers from throw/publish.
+
+  - id: xml-link-terminate
+    name: XML link catch/throw and terminate end
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run TestDeployWorkflowFromBPMN_LinkAndTerminate -count=1 -v
+    elements: linkEventDefinition,terminateEventDefinition
+    behavior: Link jumps and terminate cancels sibling tokens.
+
+  - id: xml-conditional-catch
+    name: XML conditional catch execution
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run TestDeployWorkflowFromBPMN_ConditionalCatch -count=1 -v
+    elements: conditionalEventDefinition,intermediateCatchEvent
+    behavior: Conditional catch waits until expression is true.
+
+  - id: xml-transaction-cancel
+    name: XML transaction cancel boundary
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run TestDeployWorkflowFromBPMN_TransactionCancel -count=1 -v
+    elements: transaction,cancelEventDefinition
+    behavior: Cancel end triggers cancel boundary on transaction.
+
+  - id: xml-event-subprocess
+    name: XML event sub-process message/timer
+    category: runtime_xml
+    support_status: supported
+    required: true
+    command: go test ./backend/services/workflow-command/tests -run 'TestDeployWorkflowFromBPMN_EventSubProcess(Message|Timer)' -count=1 -v
+    elements: eventSubProcess,messageEventDefinition,timerEventDefinition
+    behavior: Event sub-processes start for matching message/timer.
+
+  - id: xml-visual-roundtrip
+    name: Visual collaboration shapes round-trip in modeler XML
+    category: visual
+    support_status: visual-only
+    required: false
+    command: cd frontend && npm test -- --run src/lib/bpmn-parser.test.ts
+    elements: participant,lane,dataObject,dataStoreReference,textAnnotation
+    behavior: Visual shapes import/export without becoming executable tokens.
+
+  - id: connector-http-contract
+    name: HTTP connector contract and allowlist hardening
+    category: connectors
+    support_status: supported
+    required: true
+    command: go test ./connectors/http ./connectors/internal/common -count=1 -v
+    elements: http
+    behavior: HTTP connector validates inputs, allowlist, and output variables.

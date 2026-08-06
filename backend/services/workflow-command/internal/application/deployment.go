@@ -190,3 +190,16 @@ func (e *Engine) getWorkflowDefinitionByBpmnProcessID(ctx context.Context, bpmnP
 	}
 	return e.processToWorkflowDefinition(p)
 }
+
+// Helper to get a specific version of a definition by BPMN Process ID.
+func (e *Engine) getWorkflowDefinitionByBpmnProcessIDAndVersion(ctx context.Context, bpmnProcessID string, version int) (*model.WorkflowDefinition, error) {
+	lookup, ok := e.repo.(processByVersionLookup)
+	if !ok {
+		return nil, fmt.Errorf("versioned process lookup is not available")
+	}
+	p, err := lookup.GetProcessByBpmnProcessIDAndVersion(ctx, bpmnProcessID, version)
+	if err != nil {
+		return nil, err
+	}
+	return e.processToWorkflowDefinition(p)
+}

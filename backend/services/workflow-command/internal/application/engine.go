@@ -311,6 +311,11 @@ func (e *Engine) createAndStartInstance(ctx context.Context, workflowID string, 
 		}
 	}
 
+	// Schedule duration timers for event sub-process timer starts (PT…).
+	if err := e.scheduleEventSubProcessTimers(ctx, instance, wf); err != nil {
+		return nil, err
+	}
+
 	// Reload state to ensure we return the latest (after proceedToken updates)
 	return e.GetInstance(ctx, instance.ID)
 }

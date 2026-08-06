@@ -106,17 +106,16 @@ tagging to reduce partial publication risk.
 - Use GitHub repository settings: Settings > Secrets and variables > Actions > Repository secrets.
 - Confirm npm trusted publishing or the automation token is authorized for both packages. Both publish steps use GitHub-hosted OIDC provenance.
 
-## 6. Release candidate
+## 6. Release tag validation
 
-Create an RC tag first:
+Validate the intended release tag before publication:
 
 ```bash
-git tag -s v1.0.0 -m "ArtificialFlow v1.0.0"
-git push origin v1.0.0
+node scripts/validate_release_version.mjs --tag v1.1.0
 ```
 
 Before pushing it, run
-`node scripts/validate_release_version.mjs --tag v1.0.0`. The package,
+`node scripts/validate_release_version.mjs --tag v1.1.0`. The package,
 lockfile, chart, Compose defaults, changelog, and documented release version
 must already match the tag.
 
@@ -142,8 +141,8 @@ image-workflow dependency.
 After images are pushed, validate the release override:
 
 ```bash
-ARTIFICIALFLOW_IMAGE_TAG=v1.0.0 make smoke-release-profiles
-ARTIFICIALFLOW_IMAGE_TAG=v1.0.0 make up-zitadel-release
+ARTIFICIALFLOW_IMAGE_TAG=v1.1.0 make smoke-release-profiles
+ARTIFICIALFLOW_IMAGE_TAG=v1.1.0 make up-zitadel-release
 ```
 
 Open:
@@ -156,8 +155,8 @@ Sign in with local development credentials `admin` / `admin` and run the SDK smo
 ## 8. Final release
 
 ```bash
-git tag -s v1.0.0 -m "ArtificialFlow v1.0.0"
-git push origin v1.0.0
+git tag -s v1.1.0 -m "ArtificialFlow v1.1.0"
+git push origin v1.1.0
 ```
 
 Publish GitHub release notes with:

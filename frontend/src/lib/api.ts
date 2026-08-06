@@ -227,8 +227,22 @@ export interface InstanceJob {
   state: string;
   lockExpirationTime?: string;
   dueDate?: string;
+  breachedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Incident {
+  key: string;
+  id: string;
+  processInstanceKey: string;
+  elementInstanceKey: string;
+  jobKey?: string;
+  errorType: string;
+  errorMessage: string;
+  state: string;
+  createdAt: string;
+  resolvedAt?: string;
 }
 
 export interface DecisionDefinition {
@@ -641,6 +655,30 @@ export const api = {
     }
     const data = await response.json();
     return data.jobs || [];
+  },
+
+  listIncidents: async (options?: {
+    processInstanceKey?: string | number;
+    limit?: number;
+  }): Promise<Incident[]> => {
+    const correlationId = generateCorrelationId();
+    const params = new URLSearchParams();
+    if (options?.processInstanceKey != null && String(options.processInstanceKey).trim()) {
+      params.set("processInstanceKey", String(options.processInstanceKey));
+    }
+    if (options?.limit != null) {
+      params.set("limit", String(options.limit));
+    }
+    const qs = params.toString();
+    const response = await fetch(`${API_BASE_URL}/incidents${qs ? `?${qs}` : ""}`, {
+      headers: getHeaders(correlationId),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim() || response.statusText;
+      throw new Error(`Failed to load incidents: ${detail}`);
+    }
+    const data = await response.json();
+    return data.incidents || [];
   },
 
   retryJob: async (jobKey: string | number, retries = 3): Promise<void> => {

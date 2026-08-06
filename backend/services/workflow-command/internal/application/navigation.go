@@ -312,6 +312,8 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 			if err := e.repo.UpdateElementInstance(ctx, el); err != nil {
 				// log error?
 			}
+			// Cancel pending boundary timers attached to this activity instance.
+			e.cancelCreatedTimersForElementInstance(ctx, key)
 		}
 	}
 
@@ -371,7 +373,7 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 
 			if loopType == "PARALLEL" {
 				// 2. Spawn All Child Executions (Parallel)
-				for _, _ = range collection {
+				for _, item := range collection {
 					childExec := model.Execution{
 						ID:        generateRuntimeID(),
 						StepID:    targetID,
@@ -395,7 +397,14 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 					}
 					e.repo.CreateElementInstance(ctx, elChild)
 
-					// Variable injection (skipped for brevity/race condition in parallel)
+					// Inject Loop Element per child (scoped by element instance key)
+					if targetStep.LoopElement != "" {
+						if err := e.persistVariables(ctx, instance.ID, childKey, map[string]any{
+							targetStep.LoopElement: item,
+						}); err != nil {
+							return err
+						}
+					}
 
 					instance.Executions = append(instance.Executions, childExec)
 
@@ -506,20 +515,19 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 			if targetStep != nil {
 				// 1. Intermediate Timer Catch Event
 				if targetStep.Type == model.StepTypeIntermediateTimerCatchEvent {
-					if durationStr, ok := targetStep.Properties["timer_duration"].(string); ok {
-						if duration, err := parseISO8601Duration(durationStr); err == nil {
-							timer := &model.Timer{
-								Key:                generateKey(newExec.ID + "_timer"),
-								ID:                 id.GenerateUUIDv7(),
-								ElementInstanceKey: newKey,
-								ProcessInstanceKey: piKey,
-								ElementID:          targetStep.ID,
-								DueDate:            time.Now().Add(duration),
-								State:              "CREATED",
-								CreatedAt:          time.Now(),
-							}
-							e.repo.CreateTimer(ctx, timer)
+					if sched, err := resolveTimerSchedule(targetStep.Properties, time.Now()); err == nil {
+						timer := &model.Timer{
+							Key:                generateKey(newExec.ID + "_timer"),
+							ID:                 id.GenerateUUIDv7(),
+							ElementInstanceKey: newKey,
+							ProcessInstanceKey: piKey,
+							ElementID:          targetStep.ID,
+							DueDate:            sched.DueDate,
+							RepeatCount:        sched.RepeatCount,
+							State:              "CREATED",
+							CreatedAt:          time.Now(),
 						}
+						e.repo.CreateTimer(ctx, timer)
 					}
 				}
 
@@ -533,20 +541,19 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 						}
 					}
 					if boundaryStep != nil && boundaryStep.Type == model.StepTypeBoundaryEvent {
-						if durationStr, ok := boundaryStep.Properties["timer_duration"].(string); ok {
-							if duration, err := parseISO8601Duration(durationStr); err == nil {
-								timer := &model.Timer{
-									Key:                generateKey(fmt.Sprintf("%s_boundary_timer_%s", newExec.ID, boundaryStep.ID)),
-									ID:                 id.GenerateUUIDv7(),
-									ElementInstanceKey: newKey, // Linked to the attached task instance
-									ProcessInstanceKey: piKey,
-									ElementID:          boundaryStep.ID,
-									DueDate:            time.Now().Add(duration),
-									State:              "CREATED",
-									CreatedAt:          time.Now(),
-								}
-								e.repo.CreateTimer(ctx, timer)
+						if sched, err := resolveTimerSchedule(boundaryStep.Properties, time.Now()); err == nil {
+							timer := &model.Timer{
+								Key:                generateKey(fmt.Sprintf("%s_boundary_timer_%s", newExec.ID, boundaryStep.ID)),
+								ID:                 id.GenerateUUIDv7(),
+								ElementInstanceKey: newKey, // Linked to the attached task instance
+								ProcessInstanceKey: piKey,
+								ElementID:          boundaryStep.ID,
+								DueDate:            sched.DueDate,
+								RepeatCount:        sched.RepeatCount,
+								State:              "CREATED",
+								CreatedAt:          time.Now(),
 							}
+							e.repo.CreateTimer(ctx, timer)
 						}
 					}
 				}
@@ -559,6 +566,9 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 						if ckProp, ok := targetStep.Properties["correlation_key"].(string); ok && ckProp != "" {
 							if val, exists := instance.Context[ckProp]; exists {
 								correlationKey = fmt.Sprintf("%v", val)
+							} else {
+								// Literal correlation key when no process variable matches.
+								correlationKey = ckProp
 							}
 						}
 
@@ -594,6 +604,8 @@ func (e *Engine) proceedToken(ctx context.Context, instance *model.WorkflowInsta
 							if ckProp, ok := boundaryStep.Properties["correlation_key"].(string); ok && ckProp != "" {
 								if val, exists := instance.Context[ckProp]; exists {
 									correlationKey = fmt.Sprintf("%v", val)
+								} else {
+									correlationKey = ckProp
 								}
 							}
 

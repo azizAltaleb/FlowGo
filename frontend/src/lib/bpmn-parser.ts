@@ -7,6 +7,10 @@ import {
   getArtificialFlowAttribute,
   normalizeBpmnData,
 } from "./bpmn-namespaces";
+import {
+  collectRootEventCatalog,
+  inferEventDefinitionKind,
+} from "./bpmn-event-definitions";
 
 const BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL";
 const BPMNDI_NS = "http://www.omg.org/spec/BPMN/20100524/DI";
@@ -57,7 +61,9 @@ export const getElementSize = (type: string) => {
   const t = type.replace('bpmn:', '');
   if (t.toLowerCase().includes('event')) return { width: 36, height: 36 };
   if (t.toLowerCase().includes('gateway')) return { width: 50, height: 50 };
-  if (t.toLowerCase().includes('subprocess')) return { width: 200, height: 150 };
+  if (t.toLowerCase().includes('subprocess') || t.toLowerCase() === 'transaction') {
+    return { width: 200, height: 150 };
+  }
   return { width: 100, height: 80 }; // Default for tasks
 };
 
@@ -161,10 +167,11 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
   }
   const namespaceContext = bpmnNamespaceContext(definitions);
 
-  const process = definitions["bpmn:process"];
-  if (!process) {
+  const processRaw = definitions["bpmn:process"];
+  if (!processRaw) {
     throw new Error("Invalid BPMN XML: Missing process");
   }
+  const process = Array.isArray(processRaw) ? processRaw[0] : processRaw;
   
   const processId = process["@_id"] || "Process_1";
   const processName = process["@_name"] || "Process";
@@ -174,6 +181,48 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
 
   const nodes: Node[] = [];
   const edges: Edge[] = [];
+
+  const pushVisualArtifact = (
+    el: BPMNElement,
+    tag: string,
+    extras: Record<string, unknown> = {},
+  ) => {
+    const id = el["@_id"];
+    if (!id || nodes.some((n) => n.id === id)) return;
+    const bounds = getBounds(id, tag);
+    const normalizedElement = normalizeBpmnData(el, namespaceContext);
+    const data: Record<string, unknown> = {
+      label: normalizedElement["@_name"] || "",
+      ...normalizedElement,
+      ...extras,
+    };
+    delete data["@_id"];
+    delete data["@_name"];
+    const visualKind = tag.replace("bpmn:", "");
+    // Flatten textAnnotation body for the properties panel.
+    if (tag === "bpmn:textAnnotation") {
+      const textNode = data["bpmn:text"];
+      if (typeof textNode === "string") {
+        data.text = textNode;
+      } else if (typeof textNode === "object" && textNode !== null && "#text" in textNode) {
+        data.text = String((textNode as Record<string, unknown>)["#text"] ?? "");
+      }
+    }
+    nodes.push({
+      id,
+      type: "visualArtifact",
+      position: { x: bounds.x, y: bounds.y },
+      data: {
+        originalType: tag,
+        width: bounds.width,
+        height: bounds.height,
+        visualKind,
+        visualOnly: true,
+        ...data,
+      },
+      style: { width: bounds.width, height: bounds.height },
+    });
+  };
 
   // Helper to find shape bounds from BPMNDI
   const diagram = definitions["bpmndi:BPMNDiagram"];
@@ -215,11 +264,14 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
     { tag: "bpmn:boundaryEvent", type: "boundaryEvent" },
     { tag: "bpmn:callActivity", type: "callActivity" },
     { tag: "bpmn:subProcess", type: "subProcess" },
+    { tag: "bpmn:transaction", type: "subProcess" },
     // Tier-3 visual-only (not executable tokens)
     { tag: "bpmn:dataObject", type: "visualArtifact" },
     { tag: "bpmn:dataObjectReference", type: "visualArtifact" },
     { tag: "bpmn:dataStoreReference", type: "visualArtifact" },
     { tag: "bpmn:textAnnotation", type: "visualArtifact" },
+    { tag: "bpmn:group", type: "visualArtifact" },
+    { tag: "bpmn:association", type: "visualArtifact" },
     { tag: "bpmn:lane", type: "visualArtifact" },
     { tag: "bpmn:participant", type: "visualArtifact" },
   ];
@@ -259,6 +311,25 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
                 ? def.tag.replace("bpmn:", "")
                 : undefined;
 
+            if (def.tag === "bpmn:textAnnotation") {
+              const textNode = data["bpmn:text"];
+              if (typeof textNode === "string") {
+                data.text = textNode;
+              } else if (typeof textNode === "object" && textNode !== null && "#text" in textNode) {
+                data.text = String((textNode as Record<string, unknown>)["#text"] ?? "");
+              }
+            }
+
+            const eventDefinitionType = [
+              "bpmn:startEvent",
+              "bpmn:endEvent",
+              "bpmn:intermediateCatchEvent",
+              "bpmn:intermediateThrowEvent",
+              "bpmn:boundaryEvent",
+            ].includes(def.tag)
+              ? inferEventDefinitionKind(data)
+              : undefined;
+
             const node: Node = {
               id,
               type: def.type,
@@ -268,7 +339,11 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
                 width: bounds.width,
                 height: bounds.height,
                 ...(visualKind ? { visualKind, visualOnly: true } : {}),
-                ...data
+                ...(def.tag === "bpmn:transaction" ? { transaction: true } : {}),
+                ...data,
+                ...(eventDefinitionType && eventDefinitionType !== "none"
+                  ? { eventDefinitionType }
+                  : {}),
               },
               style: { width: bounds.width, height: bounds.height },
             };
@@ -280,8 +355,8 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
 
             nodes.push(node);
 
-            // Recurse if subprocess
-            if (def.tag === 'bpmn:subProcess') {
+            // Recurse if subprocess / transaction
+            if (def.tag === 'bpmn:subProcess' || def.tag === 'bpmn:transaction') {
                 parseContainer(el, id);
             }
           });
@@ -337,9 +412,52 @@ export const parseBpmnXml = (xml: string): BpmnParseResult => {
           });
         });
       }
+
+      // Lanes may live under bpmn:laneSet (BPMN-compliant) instead of loose process children.
+      const laneSets = container["bpmn:laneSet"];
+      if (laneSets) {
+        const sets = Array.isArray(laneSets) ? laneSets : [laneSets];
+        sets.forEach((set: Record<string, unknown>) => {
+          const lanes = set["bpmn:lane"];
+          if (!lanes) return;
+          const list = Array.isArray(lanes) ? lanes : [lanes];
+          list.forEach((lane: BPMNElement) => {
+            pushVisualArtifact(lane, "bpmn:lane");
+            const refsRaw = lane["bpmn:flowNodeRef"];
+            if (!refsRaw) return;
+            const refs = (Array.isArray(refsRaw) ? refsRaw : [refsRaw]).map(String);
+            refs.forEach((refId) => {
+              const node = nodes.find((n) => n.id === refId);
+              if (node && !node.parentId) {
+                node.parentId = lane["@_id"];
+                node.extent = "parent";
+              }
+            });
+          });
+        });
+      }
   };
 
   parseContainer(process);
+
+  // Collaboration participants + message flows (outside process body).
+  const collaborationRaw = definitions["bpmn:collaboration"];
+  if (collaborationRaw) {
+    const collaborations = Array.isArray(collaborationRaw) ? collaborationRaw : [collaborationRaw];
+    collaborations.forEach((collab: Record<string, unknown>) => {
+      const participants = collab["bpmn:participant"];
+      if (participants) {
+        const list = Array.isArray(participants) ? participants : [participants];
+        list.forEach((p: BPMNElement) => pushVisualArtifact(p, "bpmn:participant"));
+      }
+      const messageFlows = collab["bpmn:messageFlow"];
+      if (messageFlows) {
+        const list = Array.isArray(messageFlows) ? messageFlows : [messageFlows];
+        list.forEach((mf: BPMNElement) => pushVisualArtifact(mf, "bpmn:messageFlow"));
+      }
+    });
+  }
+
   applyFallbackLayout(nodes, edges, forceFallbackLayout);
   
 
@@ -469,7 +587,12 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
 
   // Determine effective parents (hierarchy)
   const effectiveParentMap: Record<string, string> = {};
-  const subProcessNodes = nodes.filter(n => n.type === 'subProcess' || n.data.originalType === 'bpmn:subProcess');
+  const isSubProcessLike = (n: Node) =>
+    n.type === "subProcess" ||
+    n.data.originalType === "bpmn:subProcess" ||
+    n.data.originalType === "bpmn:transaction" ||
+    n.data.transaction === true;
+  const subProcessNodes = nodes.filter(isSubProcessLike);
 
   nodes.forEach(node => {
       // If explicit parent exists, honor it
@@ -526,7 +649,7 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
   containers[processId] = {};
   
   // Initialize containers for all subprocesses
-  nodes.filter(n => n.type === 'subProcess' || n.data.originalType === 'bpmn:subProcess').forEach(n => {
+  nodes.filter(isSubProcessLike).forEach(n => {
       containers[n.id] = {};
   });
 
@@ -541,11 +664,31 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       .map((n) => [n.id, String(n.data.label || n.id)])
   );
 
+  const isContainedInLane = (node: Node, lane: Node): boolean => {
+    if (node.parentId === lane.id) return true;
+    if (node.parentId) return false;
+    const nodePos = getAbsolutePosition(node.id);
+    const nodeSize = getNodeSize(node.id);
+    const lanePos = getAbsolutePosition(lane.id);
+    const laneSize = getNodeSize(lane.id);
+    const cx = nodePos.x + nodeSize.width / 2;
+    const cy = nodePos.y + nodeSize.height / 2;
+    return (
+      cx >= lanePos.x &&
+      cx <= lanePos.x + laneSize.width &&
+      cy >= lanePos.y &&
+      cy <= lanePos.y + laneSize.height
+    );
+  };
+
   // Group nodes by parent
   nodes.forEach(node => {
-    const tag = (node.data.originalType as string) || "bpmn:task";
-    // Pools/participants live in collaboration, not the executable process body.
-    if (tag === "bpmn:participant") {
+    let tag = (node.data.originalType as string) || "bpmn:task";
+    if (tag === "bpmn:subProcess" && node.data.transaction === true) {
+      tag = "bpmn:transaction";
+    }
+    // Pools/participants + message flows live in collaboration; lanes go in laneSet.
+    if (tag === "bpmn:participant" || tag === "bpmn:lane" || tag === "bpmn:messageFlow") {
       return;
     }
 
@@ -562,24 +705,57 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
     const normalizedData = normalizeBpmnData(node.data);
     const skipKeys = new Set([
       "originalType", "label", "width", "height", "visualKind", "visualOnly",
-      "executionStatus", "eventDefinitionType", "link_name", "escalation_code", "condition",
+      "executionStatus", "eventDefinitionType", "link_name", "escalation_code", "escalation_id",
+      "condition", "message_name", "message_id", "signal_name", "signal_id", "error_code", "error_id",
+      "activity_ref", "text", "bpmn:text", "bpmn:flowNodeRef",
+      "connectorInputs", "transaction",
     ]);
 
-    // Emit BPMN event definitions from palette markers.
-    const evt = String(node.data.eventDefinitionType || "");
-    if (evt === "terminate") {
-      nodeEl["bpmn:terminateEventDefinition"] = {};
-    } else if (evt === "link") {
-      nodeEl["bpmn:linkEventDefinition"] = { "@_name": node.data.link_name || node.data.label || "Link" };
-    } else if (evt === "escalation") {
-      nodeEl["bpmn:escalationEventDefinition"] = {};
-      if (node.data.escalation_code) {
-        nodeEl[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:escalationCode`] = node.data.escalation_code;
+    if (tag === "bpmn:textAnnotation") {
+      const textBody = String(node.data.text || node.data.label || "");
+      if (textBody) {
+        nodeEl["bpmn:text"] = textBody;
       }
-    } else if (evt === "conditional") {
+    }
+
+    // Emit BPMN event definitions from palette markers when not already present on the node.
+    const evt = String(node.data.eventDefinitionType || inferEventDefinitionKind(node.data as Record<string, unknown>));
+    const hasDef = (keys: string[]) => keys.some((k) => normalizedData[k] != null);
+    if (evt === "terminate" && !hasDef(["bpmn:terminateEventDefinition", "terminateEventDefinition"])) {
+      nodeEl["bpmn:terminateEventDefinition"] = {};
+    } else if (evt === "link" && !hasDef(["bpmn:linkEventDefinition", "linkEventDefinition"])) {
+      nodeEl["bpmn:linkEventDefinition"] = { "@_name": node.data.link_name || node.data.label || "Link" };
+    } else if (evt === "escalation" && !hasDef(["bpmn:escalationEventDefinition", "escalationEventDefinition"])) {
+      const escCode = String(node.data.escalation_code || "ESC_1");
+      const escId = String(node.data.escalation_id || `Escalation_${escCode.replace(/[^A-Za-z0-9_.-]+/g, "_")}`);
+      nodeEl["bpmn:escalationEventDefinition"] = { "@_escalationRef": escId };
+      nodeEl[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:escalationCode`] = escCode;
+    } else if (evt === "conditional" && !hasDef(["bpmn:conditionalEventDefinition", "conditionalEventDefinition"])) {
       nodeEl["bpmn:conditionalEventDefinition"] = {
         "bpmn:condition": { "#text": String(node.data.condition || "true") },
       };
+    } else if (evt === "timer" && !hasDef(["bpmn:timerEventDefinition", "timerEventDefinition"])) {
+      nodeEl["bpmn:timerEventDefinition"] = {
+        "bpmn:timeDuration": "PT1H",
+      };
+    } else if (evt === "message" && !hasDef(["bpmn:messageEventDefinition", "messageEventDefinition"])) {
+      const messageId = String(node.data.message_id || "Message_Message1");
+      nodeEl["bpmn:messageEventDefinition"] = { "@_messageRef": messageId };
+    } else if (evt === "signal" && !hasDef(["bpmn:signalEventDefinition", "signalEventDefinition"])) {
+      const signalId = String(node.data.signal_id || "Signal_Signal1");
+      nodeEl["bpmn:signalEventDefinition"] = { "@_signalRef": signalId };
+    } else if (evt === "error" && !hasDef(["bpmn:errorEventDefinition", "errorEventDefinition"])) {
+      const errCode = String(node.data.error_code || "ERROR_1");
+      const errId = String(node.data.error_id || `Error_${errCode.replace(/[^A-Za-z0-9_.-]+/g, "_")}`);
+      nodeEl["bpmn:errorEventDefinition"] = { "@_errorRef": errId };
+      nodeEl[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:errorCode`] = errCode;
+    } else if (evt === "compensate" && !hasDef(["bpmn:compensateEventDefinition", "compensateEventDefinition"])) {
+      const activityRef = String(node.data.activity_ref || "");
+      nodeEl["bpmn:compensateEventDefinition"] = activityRef
+        ? { "@_activityRef": activityRef }
+        : {};
+    } else if (evt === "cancel" && !hasDef(["bpmn:cancelEventDefinition", "cancelEventDefinition"])) {
+      nodeEl["bpmn:cancelEventDefinition"] = {};
     }
 
     // Lane containment → user task candidateGroups
@@ -599,11 +775,43 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
                  nodeEl[key] = value;
              } else if (key.startsWith('@_')) {
                  nodeEl[key] = value;
+             } else if (key.includes(':')) {
+                 // Namespaced child text element (e.g. bpmn:script)
+                 nodeEl[key] = value;
              } else {
                  nodeEl[`@_${key}`] = value;
              }
         }
     });
+
+    // Ensure escalation/error event definitions always carry root catalog refs.
+    if (evt === "escalation") {
+      const escCode = String(node.data.escalation_code || "ESC_1");
+      const escId = String(node.data.escalation_id || `Escalation_${escCode.replace(/[^A-Za-z0-9_.-]+/g, "_")}`);
+      const existing = nodeEl["bpmn:escalationEventDefinition"];
+      const def =
+        typeof existing === "object" && existing !== null
+          ? { ...(existing as Record<string, unknown>) }
+          : {};
+      if (!def["@_escalationRef"]) def["@_escalationRef"] = escId;
+      nodeEl["bpmn:escalationEventDefinition"] = def;
+      if (!nodeEl[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:escalationCode`]) {
+        nodeEl[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:escalationCode`] = escCode;
+      }
+    } else if (evt === "error") {
+      const errCode = String(node.data.error_code || "ERROR_1");
+      const errId = String(node.data.error_id || `Error_${errCode.replace(/[^A-Za-z0-9_.-]+/g, "_")}`);
+      const existing = nodeEl["bpmn:errorEventDefinition"];
+      const def =
+        typeof existing === "object" && existing !== null
+          ? { ...(existing as Record<string, unknown>) }
+          : {};
+      if (!def["@_errorRef"]) def["@_errorRef"] = errId;
+      nodeEl["bpmn:errorEventDefinition"] = def;
+      if (!nodeEl[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:errorCode`]) {
+        nodeEl[`@_${ARTIFICIALFLOW_BPMN_PREFIX}:errorCode`] = errCode;
+      }
+    }
     
     // Add incoming/outgoing refs based on edges (skip for visual-only artifacts)
     if (!node.data.visualOnly) {
@@ -617,8 +825,46 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
     nodeXmlObjects[node.id] = nodeEl;
   });
 
+  // LaneSet with flowNodeRefs (BPMN-compliant collaboration layout)
+  const laneNodes = nodes.filter(
+    (n) => n.data.originalType === "bpmn:lane" || n.data.visualKind === "lane",
+  );
+  if (laneNodes.length > 0) {
+    const root = containers[processId];
+    root["bpmn:laneSet"] = [
+      {
+        "@_id": "LaneSet_1",
+        "bpmn:lane": laneNodes.map((lane) => {
+          const flowNodeRefs = nodes
+            .filter((n) => {
+              if (n.id === lane.id) return false;
+              if (n.data.visualOnly) {
+                const kind = String(n.data.visualKind || "");
+                if (kind === "lane" || kind === "participant" || kind === "messageFlow") {
+                  return false;
+                }
+              }
+              return isContainedInLane(n, lane);
+            })
+            .map((n) => n.id);
+          return {
+            "@_id": lane.id,
+            "@_name": lane.data.label || "",
+            ...(flowNodeRefs.length > 0 ? { "bpmn:flowNodeRef": flowNodeRefs } : {}),
+          };
+        }),
+      },
+    ];
+  }
+
   // Add Sequence Flows
   edges.forEach(edge => {
+      const edgeType = String(edge.type || edge.data?.originalType || "");
+      // Message flows belong under collaboration, not process sequenceFlow.
+      if (edgeType === "messageFlow" || edgeType === "bpmn:messageFlow") {
+        return;
+      }
+
       // Determine container based on source node's parent
       const parentId = effectiveParentMap[edge.source] || processId;
       const container = containers[parentId] || containers[processId];
@@ -719,6 +965,77 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       };
   });
 
+  const catalog = collectRootEventCatalog(nodes);
+  const rootMessages = catalog.messages.map((m) => ({
+    "@_id": m.id,
+    "@_name": m.name,
+  }));
+  const rootSignals = catalog.signals.map((s) => ({
+    "@_id": s.id,
+    "@_name": s.name,
+  }));
+  const rootEscalations = catalog.escalations.map((e) => ({
+    "@_id": e.id,
+    "@_name": e.name,
+    "@_escalationCode": e.name,
+  }));
+  const rootErrors = catalog.errors.map((e) => ({
+    "@_id": e.id,
+    "@_name": e.errorCode,
+    "@_errorCode": e.errorCode,
+  }));
+
+  const participantNodes = nodes.filter(
+    (n) => n.data.originalType === "bpmn:participant" || n.data.visualKind === "participant",
+  );
+  const messageFlowNodes = nodes.filter(
+    (n) => n.data.originalType === "bpmn:messageFlow" || n.data.visualKind === "messageFlow",
+  );
+  const messageFlowEdges = edges.filter((e) => {
+    const t = String(e.type || e.data?.originalType || "");
+    return t === "messageFlow" || t === "bpmn:messageFlow";
+  });
+
+  const collaborationParticipants = participantNodes.map((p) => ({
+    "@_id": p.id,
+    "@_name": p.data.label || "",
+    "@_processRef": processId,
+  }));
+  const collaborationMessageFlows = [
+    ...messageFlowNodes.map((mf) => {
+      const el: Record<string, unknown> = {
+        "@_id": mf.id,
+        "@_name": mf.data.label || "",
+      };
+      const sourceRef = mf.data["@_sourceRef"];
+      const targetRef = mf.data["@_targetRef"];
+      if (typeof sourceRef === "string" && sourceRef) el["@_sourceRef"] = sourceRef;
+      if (typeof targetRef === "string" && targetRef) el["@_targetRef"] = targetRef;
+      return el;
+    }),
+    ...messageFlowEdges.map((e) => ({
+      "@_id": e.id,
+      "@_name": e.label || "",
+      "@_sourceRef": e.source,
+      "@_targetRef": e.target,
+    })),
+  ];
+
+  const collaboration =
+    collaborationParticipants.length > 0 || collaborationMessageFlows.length > 0
+      ? {
+          "@_id": "Collaboration_1",
+          ...(collaborationParticipants.length > 0
+            ? { "bpmn:participant": collaborationParticipants }
+            : {}),
+          ...(collaborationMessageFlows.length > 0
+            ? { "bpmn:messageFlow": collaborationMessageFlows }
+            : {}),
+        }
+      : undefined;
+
+  const planeBpmnElement = collaboration ? "Collaboration_1" : processId;
+
   const jsonObj = {
     "bpmn:definitions": {
       "@_xmlns:bpmn": BPMN_NS,
@@ -729,6 +1046,11 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
       "@_xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
       "@_id": "Definitions_1",
       "@_targetNamespace": "http://bpmn.org/schema/bpmn",
+      ...(rootMessages.length > 0 ? { "bpmn:message": rootMessages } : {}),
+      ...(rootSignals.length > 0 ? { "bpmn:signal": rootSignals } : {}),
+      ...(rootEscalations.length > 0 ? { "bpmn:escalation": rootEscalations } : {}),
+      ...(rootErrors.length > 0 ? { "bpmn:error": rootErrors } : {}),
+      ...(collaboration ? { "bpmn:collaboration": collaboration } : {}),
       "bpmn:process": {
         "@_id": processId,
         "@_name": processName,
@@ -739,7 +1061,7 @@ export const generateBpmnXml = (nodes: Node[], edges: Edge[], processId: string 
         "@_id": "BPMNDiagram_1",
         "bpmndi:BPMNPlane": {
             "@_id": "BPMNPlane_1",
-            "@_bpmnElement": processId,
+            "@_bpmnElement": planeBpmnElement,
             "bpmndi:BPMNShape": bpmndiShapes,
             "bpmndi:BPMNEdge": bpmndiEdges
         }

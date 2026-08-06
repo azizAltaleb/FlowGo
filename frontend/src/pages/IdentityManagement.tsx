@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Navigate } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,8 +22,9 @@ import {
   ARTIFICIALFLOW_MODELER_ROLE,
   STATIC_ARTIFICIALFLOW_ROLES,
   canonicalizeRole,
-  isAdmin,
 } from "@/lib/roles";
+import { canAccessIdentityConsole, identityConsoleDeniedMessage } from "@/lib/dashboardAccess";
+import { ConsoleAccessDenied } from "@/components/ConsoleAccessDenied";
 import { Pencil, Plus, RefreshCw, Save, Trash2, UserCheck, UserX } from "lucide-react";
 
 const emptyUser: CreateIdentityManagementUserRequest = {
@@ -147,7 +147,7 @@ export default function IdentityManagement() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canManage = config?.deployment_mode === "zitadel" && isAdmin(identity);
+  const canManage = canAccessIdentityConsole(identity, config);
   const roleKeys = roles.map((role) => role.key);
   const platformRoleKeys = HUMAN_PLATFORM_ROLE_KEYS.filter((role) =>
     roleKeys.some((roleKey) => canonicalizeRole(roleKey) === role),
@@ -161,13 +161,13 @@ export default function IdentityManagement() {
       const [identityResponse, configResponse] = await Promise.all([api.getIdentity(), api.getIdentityConfig()]);
       setIdentity(identityResponse);
       setConfig(configResponse);
-      if (configResponse.deployment_mode === "zitadel" && isAdmin(identityResponse)) {
+      if (canAccessIdentityConsole(identityResponse, configResponse)) {
         const [usersResponse, rolesResponse] = await Promise.all([
           api.getIdentityManagementUsers(),
           api.getIdentityManagementRoles(),
         ]);
-        setUsers(usersResponse);
-        setRoles(rolesResponse);
+        setUsers(usersResponse.map((user) => ({ ...user, roles: user.roles || [] })));
+        setRoles(rolesResponse || []);
       } else {
         setUsers([]);
         setRoles([]);
@@ -236,7 +236,15 @@ export default function IdentityManagement() {
   };
 
   if (loading) return <div className="p-4">Loading identity...</div>;
-  if (config && !canManage) return <Navigate to="/" replace />;
+  if (!canManage) {
+    return (
+      <ConsoleAccessDenied
+        title="Identity access required"
+        message={identityConsoleDeniedMessage(identity, config)}
+        firstAllowedPath="/"
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -319,9 +327,9 @@ export default function IdentityManagement() {
                 <TableRow key={user.id}>
                   <TableCell><div className="font-medium">{user.display_name || user.preferred_login_name}</div><div className="text-xs text-muted-foreground">{user.email || user.preferred_login_name}</div><div className="text-xs text-muted-foreground">{user.type}</div></TableCell>
                   <TableCell><Badge variant={stateVariant(user.state)}>{user.state || "-"}</Badge></TableCell>
-                  <TableCell><div className="flex flex-wrap gap-1">{user.roles.length ? user.roles.map((role) => <Badge key={role} variant="outline">{role}</Badge>) : <span className="text-xs text-muted-foreground">No roles</span>}</div></TableCell>
+                  <TableCell><div className="flex flex-wrap gap-1">{(user.roles || []).length ? (user.roles || []).map((role) => <Badge key={role} variant="outline">{role}</Badge>) : <span className="text-xs text-muted-foreground">No roles</span>}</div></TableCell>
                   <TableCell><div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => { setEditingUserId(user.id); setEditingUser({ username: user.username, given_name: user.given_name, family_name: user.family_name, display_name: user.display_name, email: user.email, roles: user.roles }); }}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => { setEditingUserId(user.id); setEditingUser({ username: user.username, given_name: user.given_name, family_name: user.family_name, display_name: user.display_name, email: user.email, roles: user.roles || [] }); }}><Pencil className="h-4 w-4" /></Button>
                     {isInactiveUserState(user.state) ? (
                       <Button
                         variant="outline"

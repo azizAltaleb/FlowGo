@@ -140,6 +140,11 @@ type PublishMessageRequest struct {
 	Payload        map[string]any `json:"payload"`
 }
 
+type PublishEscalationRequest struct {
+	EscalationCode string         `json:"escalation_code"`
+	Payload        map[string]any `json:"payload"`
+}
+
 // --- Job Response ---
 
 type JobResponse struct {
@@ -157,6 +162,20 @@ type JobResponse struct {
 	CandidateGroups      string     `json:"candidateGroups,omitempty"`
 	LockExpirationTime   *time.Time `json:"lockExpirationTime,omitempty"`
 	DueDate              time.Time  `json:"dueDate,omitempty"`
+	BreachedAt           *time.Time `json:"breachedAt,omitempty"`
 	CreatedAt            time.Time  `json:"createdAt"`
 	UpdatedAt            time.Time  `json:"updatedAt"`
+}
+
+type IncidentResponse struct {
+	Key                string     `json:"key"`
+	ID                 string     `json:"id"`
+	ProcessInstanceKey string     `json:"processInstanceKey"`
+	ElementInstanceKey string     `json:"elementInstanceKey"`
+	JobKey             string     `json:"jobKey,omitempty"`
+	ErrorType          string     `json:"errorType"`
+	ErrorMessage       string     `json:"errorMessage"`
+	State              string     `json:"state"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	ResolvedAt         *time.Time `json:"resolvedAt,omitempty"`
 }

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Navigate } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +14,9 @@ import {
   type IdentityManagementClientCredential,
   type IdentityResponse,
 } from "@/lib/api";
-import { ARTIFICIALFLOW_CLIENT_ROLE, isAdmin } from "@/lib/roles";
+import { ARTIFICIALFLOW_CLIENT_ROLE } from "@/lib/roles";
+import { canAccessIdentityConsole, identityConsoleDeniedMessage } from "@/lib/dashboardAccess";
+import { ConsoleAccessDenied } from "@/components/ConsoleAccessDenied";
 import {
   createServiceAccountProfile,
   generateServiceAccountKeyPair,
@@ -117,7 +118,7 @@ export default function ArtificialFlowClients() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canManage = config?.deployment_mode === "zitadel" && isAdmin(identity);
+  const canManage = canAccessIdentityConsole(identity, config);
 
   const stats = useMemo(() => {
     const credentials = clients.flatMap((client) => client.credentials || []);
@@ -134,7 +135,7 @@ export default function ArtificialFlowClients() {
       const [identityResponse, configResponse] = await Promise.all([api.getIdentity(), api.getIdentityConfig()]);
       setIdentity(identityResponse);
       setConfig(configResponse);
-      if (configResponse.deployment_mode === "zitadel" && isAdmin(identityResponse)) {
+      if (canAccessIdentityConsole(identityResponse, configResponse)) {
         setClients(await api.getIdentityManagementClients());
       } else {
         setClients([]);
@@ -226,7 +227,15 @@ export default function ArtificialFlowClients() {
   };
 
   if (loading) return <div className="p-4">Loading ArtificialFlow clients...</div>;
-  if (config && !canManage) return <Navigate to="/" replace />;
+  if (!canManage) {
+    return (
+      <ConsoleAccessDenied
+        title="SDK Clients access required"
+        message={identityConsoleDeniedMessage(identity, config)}
+        firstAllowedPath="/"
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
